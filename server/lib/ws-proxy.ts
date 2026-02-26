@@ -133,13 +133,6 @@ export function setupWebSocketProxy(server: HttpServer | HttpsServer): void {
       return;
     }
 
-    // Only allow root or /ws path prefix (gateway WebSocket endpoint)
-    if (targetUrl.pathname !== '/' && !targetUrl.pathname.startsWith('/ws')) {
-      console.warn(`[ws-proxy] Rejected: path not allowed: ${targetUrl.pathname}`);
-      clientWs.close(1008, 'Target path not allowed');
-      return;
-    }
-
     // Forward origin header for gateway auth
     const isEncrypted = !!(req.socket as unknown as { encrypted?: boolean }).encrypted;
     const scheme = isEncrypted ? 'https' : 'http';
