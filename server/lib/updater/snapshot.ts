@@ -8,6 +8,7 @@ import {
   readFileSync,
   mkdirSync,
   copyFileSync,
+  chmodSync,
   existsSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -38,8 +39,10 @@ export function createSnapshot(cwd: string): Snapshot {
     envHash = createHash('sha256').update(envContent).digest('hex');
 
     const snapshotDir = join(STATE_DIR, 'snapshots', String(timestamp));
-    mkdirSync(snapshotDir, { recursive: true });
-    copyFileSync(envPath, join(snapshotDir, '.env'));
+    mkdirSync(snapshotDir, { recursive: true, mode: 0o700 });
+    const backupPath = join(snapshotDir, '.env');
+    copyFileSync(envPath, backupPath);
+    chmodSync(backupPath, 0o600);
   }
 
   const snapshot: Snapshot = { ref, version, timestamp, envHash };

@@ -257,6 +257,7 @@ async function handleManualRollback(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     reporter.fail(message);
+    if (err instanceof UpdateError) return err.exitCode;
     return EXIT_CODES.ROLLBACK;
   } finally {
     if (locked) releaseLock();

@@ -21,12 +21,11 @@ export async function checkHealth(cwd: string, targetVersion: string): Promise<H
   const baseUrl = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + TOTAL_TIMEOUT;
 
-  for (let attempt = 0; attempt < BACKOFFS.length + 1; attempt++) {
-    if (Date.now() > deadline) break;
-
+  for (let attempt = 0; Date.now() < deadline; attempt++) {
     // Wait before retrying (skip wait on first attempt)
     if (attempt > 0) {
-      await sleep(BACKOFFS[attempt - 1]);
+      const backoff = BACKOFFS[Math.min(attempt - 1, BACKOFFS.length - 1)];
+      await sleep(backoff);
     }
 
     try {
@@ -43,12 +42,16 @@ export async function checkHealth(cwd: string, targetVersion: string): Promise<H
         return { healthy: true, versionMatch: true, reportedVersion: data.version };
       }
 
-      return {
-        healthy: true,
-        versionMatch: false,
-        reportedVersion: data.version,
-        error: `Version mismatch: expected ${targetVersion}, got ${data.version}`,
-      };
+      // Version mismatch — may be stale process, keep retrying until deadline
+      if (Date.now() > deadline) {
+        return {
+          healthy: true,
+          versionMatch: false,
+          reportedVersion: data.version,
+          error: `Version mismatch: expected ${targetVersion}, got ${data.version}`,
+        };
+      }
+      continue;
     } catch {
       // Connection refused, timeout, etc. — retry
       continue;

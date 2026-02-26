@@ -70,12 +70,16 @@ export function resolveVersion(cwd: string, explicitVersion?: string): ResolvedV
  * Falls back to local tags if remote returns nothing (e.g. tags not pushed).
  */
 function fetchRemoteTags(cwd: string): string[] {
-  // Try remote first
-  const versions = fetchTagsFromSource(cwd, 'git ls-remote --tags origin');
+  // Try remote first, fall back to local tags on failure or empty result
+  let versions: string[] = [];
+  try {
+    versions = fetchTagsFromSource(cwd, 'git ls-remote --tags origin');
+  } catch {
+    // Remote unreachable — fall through to local
+  }
 
-  // Fallback to local tags if remote has none
   if (versions.length === 0) {
-    return fetchTagsFromSource(cwd, 'git tag -l');
+    versions = fetchTagsFromSource(cwd, 'git tag -l');
   }
 
   return versions;

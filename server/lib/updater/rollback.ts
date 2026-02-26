@@ -6,7 +6,7 @@
 import { join } from 'node:path';
 import { rmSync, existsSync } from 'node:fs';
 import { loadSnapshot } from './snapshot.js';
-import { gitFetchAndCheckout, buildProject } from './installer.js';
+import { gitCheckoutLocal, buildProject } from './installer.js';
 import type { Snapshot, ServiceManager, Reporter } from './types.js';
 
 export interface RollbackResult {
@@ -32,9 +32,9 @@ export async function rollback(
   reporter.info(`Rolling back to ${snapshot.version} (${snapshot.ref.slice(0, 8)})`);
 
   try {
-    // 1. Checkout the previous ref
+    // 1. Checkout the previous ref (local only — no network needed)
     reporter.verbose(`git checkout ${snapshot.ref}`);
-    gitFetchAndCheckout(cwd, snapshot.ref);
+    gitCheckoutLocal(cwd, snapshot.ref);
     reporter.ok(`Checked out ${snapshot.ref.slice(0, 8)}`);
 
     // 2. Clean node_modules to avoid stale dependencies from the failed version
@@ -54,10 +54,16 @@ export async function rollback(
     buildProject(cwd);
     reporter.ok('Rebuild complete');
 
-    // 4. Restart service (if available)
+    // 4. Restart service (if available) and verify it's alive
     if (serviceManager) {
       reporter.verbose(`Restarting via ${serviceManager.name}`);
       await serviceManager.restart();
+      await new Promise(r => setTimeout(r, 2000));
+      const active = await serviceManager.isActive();
+      if (!active) {
+        const logs = await serviceManager.getLogs(20);
+        return { success: false, snapshot, error: `Service failed to start after rollback:\n${logs}` };
+      }
       reporter.ok(`Service restarted via ${serviceManager.name}`);
     }
 

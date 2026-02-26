@@ -33,6 +33,21 @@ export function gitFetchAndCheckout(cwd: string, tag: string): void {
 }
 
 /**
+ * Checkout a local ref without fetching from remote. Used for rollback.
+ */
+export function gitCheckoutLocal(cwd: string, ref: string): void {
+  try {
+    execSync(`git checkout ${ref}`, { cwd, stdio: 'pipe', timeout: EXEC_TIMEOUT });
+  } catch (err) {
+    throw new UpdateError(
+      `git checkout ${ref} failed: ${errorMessage(err)}`,
+      'rollback',
+      EXIT_CODES.ROLLBACK,
+    );
+  }
+}
+
+/**
  * Run npm install, then build client and server.
  */
 export function buildProject(cwd: string): void {
