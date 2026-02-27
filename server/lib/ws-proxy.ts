@@ -20,10 +20,14 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { execFile } from 'node:child_process';
 import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { config, WS_ALLOWED_HOSTS, SESSION_COOKIE_NAME } from './config.js';
 import { verifySession, parseSessionCookie } from './session.js';
 import { createDeviceBlock, getDeviceIdentity } from './device-identity.js';
 import { resolveOpenclawBin } from './openclaw-bin.js';
+
+/** @internal — exported for test overrides */
+export const _internals = { challengeTimeoutMs: 5_000 };
 
 /**
  * Methods the gateway restricts for webchat clients.
@@ -102,10 +106,12 @@ export function setupWebSocketProxy(server: HttpServer | HttpsServer): void {
   });
 
   wss.on('connection', (clientWs: WebSocket, req: IncomingMessage) => {
+    const connId = randomUUID().slice(0, 8);
+    const tag = `[ws-proxy:${connId}]`;
     const url = new URL(req.url || '/', 'https://localhost');
     const target = url.searchParams.get('target');
 
-    console.log(`[ws-proxy] New connection: target=${target}`);
+    console.log(`${tag} New connection: target=${target}`);
 
     if (!target) {
       clientWs.close(1008, 'Missing ?target= param');
@@ -121,14 +127,14 @@ export function setupWebSocketProxy(server: HttpServer | HttpsServer): void {
     }
 
     if (!['ws:', 'wss:'].includes(targetUrl.protocol) || !WS_ALLOWED_HOSTS.has(targetUrl.hostname)) {
-      console.warn(`[ws-proxy] Rejected: target not allowed: ${target}`);
+      console.warn(`${tag} Rejected: target not allowed: ${target}`);
       clientWs.close(1008, 'Target not allowed');
       return;
     }
 
     const targetPort = Number(targetUrl.port) || (targetUrl.protocol === 'wss:' ? 443 : 80);
     if (targetPort < 1 || targetPort > 65535) {
-      console.warn(`[ws-proxy] Rejected: invalid port ${targetPort}`);
+      console.warn(`${tag} Rejected: invalid port ${targetPort}`);
       clientWs.close(1008, 'Invalid target port');
       return;
     }
@@ -138,7 +144,7 @@ export function setupWebSocketProxy(server: HttpServer | HttpsServer): void {
     const scheme = isEncrypted ? 'https' : 'http';
     const clientOrigin = req.headers.origin || `${scheme}://${req.headers.host}`;
 
-    createGatewayRelay(clientWs, targetUrl, clientOrigin);
+    createGatewayRelay(clientWs, targetUrl, clientOrigin, connId);
   });
 }
 
@@ -146,21 +152,63 @@ export function setupWebSocketProxy(server: HttpServer | HttpsServer): void {
  * Create a relay between a browser WebSocket and the gateway.
  *
  * Injects Nerve's device identity into the connect handshake for full
- * operator scopes. If the gateway rejects the device (pairing required,
- * token mismatch), transparently retries without device identity.
+ * operator scopes. The connect message is held until the gateway sends a
+ * `connect.challenge` nonce so that device identity can always be injected.
+ * If the nonce doesn't arrive within `_internals.challengeTimeoutMs`, the
+ * connect message is sent without identity (graceful degradation).
+ *
+ * If the gateway rejects the device (pairing required, token mismatch),
+ * transparently retries without device identity.
  */
 function createGatewayRelay(
   clientWs: WebSocket,
   targetUrl: URL,
   clientOrigin: string,
+  connId: string,
 ): void {
+  const tag = `[ws-proxy:${connId}]`;
+  const connStartTime = Date.now();
+  let clientToGatewayCount = 0;
+  let gatewayToClientCount = 0;
+
+  // ─── Keepalive: ping both sides every 30s, kill dead connections ────────
+  const PING_INTERVAL = 30_000;
+  let clientAlive = true;
+  let gatewayAlive = true;
+
+  clientWs.on('pong', () => { clientAlive = true; });
+
+  const pingTimer = setInterval(() => {
+    // Check client
+    if (!clientAlive) {
+      console.log(`${tag} Client pong timeout — terminating`);
+      clientWs.terminate();
+      return;
+    }
+    clientAlive = false;
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.ping();
+
+    // Check gateway
+    if (gwWs && !gatewayAlive) {
+      console.log(`${tag} Gateway pong timeout — terminating`);
+      gwWs.terminate();
+      return;
+    }
+    gatewayAlive = false;
+    if (gwWs?.readyState === WebSocket.OPEN) gwWs.ping();
+  }, PING_INTERVAL);
+
   let gwWs: WebSocket;
   let challengeNonce: string | null = null;
   let handshakeComplete = false;
   let useDeviceIdentity = true;
   let hasRetried = false;
-  /** Saved connect message for replay on retry */
+  /** Saved connect message — held separately from pending until challenge arrives */
   let savedConnectMsg: Record<string, unknown> | null = null;
+  /** Whether the saved connect message has been dispatched to the gateway */
+  let connectSent = false;
+  /** Timeout handle for challenge nonce deadline */
+  let challengeTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Buffer client messages until gateway connection is open (with cap)
   const MAX_PENDING = 100;
@@ -168,13 +216,73 @@ function createGatewayRelay(
   let pending: { data: Buffer | string; isBinary: boolean }[] = [];
   let pendingBytes = 0;
 
+  /** Queue a client message for deferred forwarding. Returns false if limits exceeded. */
+  function enqueuePending(data: Buffer | string, isBinary: boolean): boolean {
+    const size = typeof data === 'string' ? Buffer.byteLength(data) : data.length;
+    if (pending.length >= MAX_PENDING || pendingBytes + size > MAX_BYTES) {
+      return false;
+    }
+    pendingBytes += size;
+    pending.push({ data, isBinary });
+    return true;
+  }
+
+  /** Flush buffered messages to gateway in FIFO order. */
+  function flushPending(): void {
+    if (!gwWs || gwWs.readyState !== WebSocket.OPEN) return;
+    for (const msg of pending) {
+      gwWs.send(msg.isBinary ? msg.data : msg.data.toString());
+    }
+    pending = [];
+    pendingBytes = 0;
+  }
+
+  /** Clear the challenge nonce timeout if active. */
+  function clearChallengeTimer(): void {
+    if (challengeTimer) {
+      clearTimeout(challengeTimer);
+      challengeTimer = null;
+    }
+  }
+
+  /**
+   * Dispatch the saved connect message to the gateway.
+   * Injects device identity when `useDeviceIdentity` is true and a nonce is available.
+   */
+  function dispatchConnect(nonce: string | null): void {
+    if (!savedConnectMsg || connectSent) return;
+    if (gwWs.readyState !== WebSocket.OPEN) return;
+    connectSent = true;
+    clearChallengeTimer();
+    const modified = (useDeviceIdentity && nonce)
+      ? injectDeviceIdentity(savedConnectMsg, nonce)
+      : savedConnectMsg;
+    gwWs.send(JSON.stringify(modified));
+    handshakeComplete = true;
+    flushPending();
+  }
+
+  /** Start a deadline timer — sends connect without identity on expiry. */
+  function startChallengeDeadline(): void {
+    clearChallengeTimer();
+    challengeTimer = setTimeout(() => {
+      console.log('[ws-proxy] Challenge nonce timeout — sending connect without device identity');
+      dispatchConnect(null);
+    }, _internals.challengeTimeoutMs);
+  }
+
   function openGateway(): void {
+    gatewayAlive = true;
     challengeNonce = null;
     handshakeComplete = false;
+    connectSent = false;
+    clearChallengeTimer();
 
     gwWs = new WebSocket(targetUrl.toString(), {
       headers: { Origin: clientOrigin },
     });
+
+    gwWs.on('pong', () => { gatewayAlive = true; });
 
     // Gateway → Client
     gwWs.on('message', (data: Buffer | string, isBinary: boolean) => {
@@ -184,50 +292,50 @@ function createGatewayRelay(
           const msg = JSON.parse(data.toString());
           if (msg.type === 'event' && msg.event === 'connect.challenge' && msg.payload?.nonce) {
             challengeNonce = msg.payload.nonce;
+            // If we have a deferred connect message waiting, send it now with identity
+            if (savedConnectMsg && !connectSent && gwWs.readyState === WebSocket.OPEN) {
+              dispatchConnect(challengeNonce);
+            }
           }
         } catch { /* ignore */ }
       }
 
       if (clientWs.readyState === WebSocket.OPEN) {
+        gatewayToClientCount++;
         clientWs.send(isBinary ? data : data.toString());
       }
     });
 
     gwWs.on('open', () => {
-      // Flush buffered messages
-      for (const msg of pending) {
-        if (!handshakeComplete && !msg.isBinary && challengeNonce) {
-          try {
-            const parsed = JSON.parse(msg.data.toString());
-            if (parsed.type === 'req' && parsed.method === 'connect' && parsed.params) {
-              savedConnectMsg = parsed;
-              const modified = useDeviceIdentity ? injectDeviceIdentity(parsed, challengeNonce) : parsed;
-              gwWs.send(JSON.stringify(modified));
-              handshakeComplete = true;
-              continue;
-            }
-          } catch { /* pass through */ }
+      // Handle deferred connect message first. Non-connect pending messages are
+      // flushed only after connect is dispatched to preserve protocol ordering.
+      if (savedConnectMsg && !connectSent) {
+        if (hasRetried) {
+          // Retry path — send immediately without device identity
+          dispatchConnect(null);
+        } else if (challengeNonce) {
+          // Challenge already arrived — send with identity
+          dispatchConnect(challengeNonce);
+        } else {
+          // Wait for challenge nonce; timeout sends without identity (graceful degradation)
+          startChallengeDeadline();
         }
-        gwWs.send(msg.isBinary ? msg.data : msg.data.toString());
-      }
-      pending = [];
-      pendingBytes = 0;
-
-      // On retry, replay the saved connect message without device identity
-      if (hasRetried && savedConnectMsg && challengeNonce) {
-        gwWs.send(JSON.stringify(savedConnectMsg));
-        handshakeComplete = true;
+      } else {
+        // No deferred connect waiting — safe to flush pending traffic immediately.
+        flushPending();
       }
     });
 
     gwWs.on('error', (err) => {
-      console.error('[ws-proxy] Gateway error:', err.message);
+      console.error(`${tag} Gateway error:`, err.message);
+      clearChallengeTimer();
       if (!hasRetried || handshakeComplete) clientWs.close();
     });
 
     gwWs.on('close', (code, reason) => {
       const reasonStr = reason?.toString() || '';
-      console.log(`[ws-proxy] Gateway closed: code=${code}, reason=${reasonStr}`);
+      console.log(`${tag} Gateway closed: code=${code}, reason=${reasonStr}`);
+      clearChallengeTimer();
 
       // Device auth rejected — retry without device identity
       const isDeviceRejection = code === 1008 && (
@@ -238,7 +346,7 @@ function createGatewayRelay(
       );
 
       if (useDeviceIdentity && !hasRetried && isDeviceRejection && clientWs.readyState === WebSocket.OPEN) {
-        console.log(`[ws-proxy] Device rejected (${reasonStr}) — retrying without device identity`);
+        console.log(`${tag} Device rejected (${reasonStr}) — retrying without device identity`);
         useDeviceIdentity = false;
         hasRetried = true;
         openGateway();
@@ -252,27 +360,62 @@ function createGatewayRelay(
   // Client → Gateway (attached once, references mutable gwWs)
   clientWs.on('message', (data: Buffer | string, isBinary: boolean) => {
     if (!gwWs || gwWs.readyState !== WebSocket.OPEN) {
-      const size = typeof data === 'string' ? Buffer.byteLength(data) : data.length;
-      if (pending.length >= MAX_PENDING || pendingBytes + size > MAX_BYTES) {
+      // Gateway not open — intercept connect messages and hold them separately
+      if (!isBinary) {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'req' && msg.method === 'connect' && msg.params) {
+            savedConnectMsg = msg;
+            return; // Do NOT add to pending buffer
+          }
+        } catch { /* pass through */ }
+      }
+
+      if (!enqueuePending(data, isBinary)) {
         clientWs.close(1008, 'Too many pending messages');
         return;
       }
-      pendingBytes += size;
-      pending.push({ data, isBinary });
       return;
     }
 
-    // Parse message for interception (connect handshake + restricted methods)
+    // Gateway is open, but if connect is still deferred, queue non-connect
+    // traffic until connect is dispatched.
+    if (!handshakeComplete && savedConnectMsg && !connectSent) {
+      if (!isBinary) {
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'req' && msg.method === 'connect' && msg.params) {
+            // Last-write-wins if multiple connect frames arrive before dispatch.
+            savedConnectMsg = msg;
+            if (challengeNonce) {
+              dispatchConnect(challengeNonce);
+            } else {
+              startChallengeDeadline();
+            }
+            return;
+          }
+        } catch { /* pass through to pending queue */ }
+      }
+
+      if (!enqueuePending(data, isBinary)) {
+        clientWs.close(1008, 'Too many pending messages');
+      }
+      return;
+    }
+
+    // Gateway is open — parse message for interception
     if (!isBinary) {
       try {
         const msg = JSON.parse(data.toString());
 
-        // Intercept connect request to inject device identity
-        if (!handshakeComplete && challengeNonce && msg.type === 'req' && msg.method === 'connect' && msg.params) {
+        // Intercept connect request — defer until challenge nonce arrives
+        if (!handshakeComplete && msg.type === 'req' && msg.method === 'connect' && msg.params) {
           savedConnectMsg = msg;
-          const modified = useDeviceIdentity ? injectDeviceIdentity(msg, challengeNonce) : msg;
-          gwWs.send(JSON.stringify(modified));
-          handshakeComplete = true;
+          if (challengeNonce) {
+            dispatchConnect(challengeNonce);
+          } else {
+            startChallengeDeadline();
+          }
           return;
         }
 
@@ -300,15 +443,22 @@ function createGatewayRelay(
       } catch { /* pass through */ }
     }
 
+    clientToGatewayCount++;
     gwWs.send(isBinary ? data : data.toString());
   });
 
   clientWs.on('close', (code, reason) => {
-    console.log(`[ws-proxy] Client closed: code=${code}, reason=${reason?.toString()}`);
+    clearInterval(pingTimer);
+    clearChallengeTimer();
+    const duration = Date.now() - connStartTime;
+    console.log(`${tag} Client closed: code=${code}, reason=${reason?.toString()}`);
+    console.log(`${tag} Summary: duration=${duration}ms, client->gw=${clientToGatewayCount}, gw->client=${gatewayToClientCount}`);
     if (gwWs) gwWs.close();
   });
   clientWs.on('error', (err) => {
-    console.error('[ws-proxy] Client error:', err.message);
+    clearInterval(pingTimer);
+    clearChallengeTimer();
+    console.error(`${tag} Client error:`, err.message);
     if (gwWs) gwWs.close();
   });
 
@@ -325,7 +475,7 @@ interface ConnectParams {
   auth?: { token?: string };
 }
 
-function injectDeviceIdentity(msg: Record<string, unknown>, nonce: string): Record<string, unknown> {
+function injectDeviceIdentity(msg: Record<string, unknown>, nonce: string, logTag = '[ws-proxy]'): Record<string, unknown> {
   const params = (msg.params || {}) as ConnectParams;
   const clientId = params.client?.id || 'nerve-ui';
   const clientMode = params.client?.mode || 'webchat';
@@ -347,7 +497,7 @@ function injectDeviceIdentity(msg: Record<string, unknown>, nonce: string): Reco
     nonce,
   });
 
-  console.log(`[ws-proxy] Injected device identity: ${device.id.substring(0, 12)}…`);
+  console.log(`${logTag} Injected device identity: ${device.id.substring(0, 12)}...`);
 
   return {
     ...msg,

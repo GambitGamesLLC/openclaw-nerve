@@ -1,6 +1,6 @@
 /** Tests for ws-proxy — connection, relaying, auth, and lifecycle. */
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 import { createServer, type Server } from 'node:http';
 import { MockGateway } from '../../src/test/mock-gateway.js';
 
@@ -43,9 +43,11 @@ vi.mock('./openclaw-bin.js', () => ({
   resolveOpenclawBin: vi.fn(() => '/usr/bin/echo'),
 }));
 
-import { setupWebSocketProxy, closeAllWebSockets } from './ws-proxy.js';
+import { setupWebSocketProxy, closeAllWebSockets, _internals } from './ws-proxy.js';
 import { config } from './config.js';
 import { verifySession, parseSessionCookie } from './session.js';
+import { createDeviceBlock } from './device-identity.js';
+import { createServer as createHttpServer } from 'node:http';
 
 const mockedConfig = config as { auth: boolean; sessionSecret: string };
 const mockedVerifySession = verifySession as ReturnType<typeof vi.fn>;
@@ -267,5 +269,394 @@ describe('ws-proxy', () => {
       const { code } = await closePromise;
       expect(code).toBe(1001); // Server shutting down
     });
+  });
+
+  describe('challenge-nonce timing', () => {
+    const mockedCreateDeviceBlock = createDeviceBlock as ReturnType<typeof vi.fn>;
+
+    it('injects device identity when connect is buffered before gateway opens', async () => {
+      mockGw.clearReceived();
+
+      const ws = new WebSocket(
+        `ws://127.0.0.1:${proxyPort}/ws?target=${encodeURIComponent(mockGw.url + '/ws')}`,
+      );
+
+      // Wait for WS to open to the proxy, then send connect immediately
+      // (will be buffered because gateway relay isn't open yet or just opened)
+      await new Promise<void>((resolve) => ws.on('open', resolve));
+      ws.send(JSON.stringify({
+        type: 'req',
+        method: 'connect',
+        id: 'c1',
+        params: { auth: { token: 'test-token' }, client: { id: 'nerve-ui', mode: 'webchat' } },
+      }));
+
+      // Wait for the connect response from mock gateway
+      const messages: string[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout waiting for connect response')), 5000);
+        ws.on('message', (data) => {
+          messages.push(data.toString());
+          try {
+            const msg = JSON.parse(data.toString());
+            if (msg.type === 'res' && msg.id === 'c1') {
+              clearTimeout(timer);
+              resolve();
+            }
+          } catch { /* ignore */ }
+        });
+      });
+
+      // Verify the gateway received a connect message WITH device identity
+      const connectMsg = mockGw.received.find((m) => {
+        const d = m.data as Record<string, unknown>;
+        return d.type === 'req' && d.method === 'connect';
+      });
+      expect(connectMsg).toBeTruthy();
+      const params = (connectMsg!.data as Record<string, unknown>).params as Record<string, unknown>;
+      expect(params.device).toBeTruthy();
+      expect((params.device as Record<string, unknown>).id).toMatch(/^mock-device-id/);
+
+      ws.close();
+    });
+
+    it('waits for challenge nonce before sending connect (not flushed early)', async () => {
+      mockGw.clearReceived();
+      mockedCreateDeviceBlock.mockClear();
+
+      const ws = new WebSocket(
+        `ws://127.0.0.1:${proxyPort}/ws?target=${encodeURIComponent(mockGw.url + '/ws')}`,
+      );
+      await new Promise<void>((resolve) => ws.on('open', resolve));
+
+      // Send connect
+      ws.send(JSON.stringify({
+        type: 'req',
+        method: 'connect',
+        id: 'c2',
+        params: { auth: { token: 'test-token' }, client: { id: 'nerve-ui', mode: 'webchat' } },
+      }));
+
+      // Wait for the connect response
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout')), 5000);
+        ws.on('message', (data) => {
+          try {
+            const msg = JSON.parse(data.toString());
+            if (msg.type === 'res' && msg.id === 'c2') {
+              clearTimeout(timer);
+              resolve();
+            }
+          } catch { /* ignore */ }
+        });
+      });
+
+      // createDeviceBlock should have been called (identity was injected)
+      expect(mockedCreateDeviceBlock).toHaveBeenCalled();
+
+      ws.close();
+    });
+
+    it('sends connect without device identity on challenge timeout', async () => {
+      const originalTimeout = _internals.challengeTimeoutMs;
+      _internals.challengeTimeoutMs = 200; // Short timeout for testing
+
+      // Create a minimal gateway that never sends a challenge
+      const ncServer = createHttpServer();
+      const ncWss = new WebSocketServer({ server: ncServer });
+      const ncReceived: unknown[] = [];
+
+      ncWss.on('connection', (ncWs: WebSocket) => {
+        // Intentionally do NOT send connect.challenge
+        ncWs.on('message', (data: Buffer | string) => {
+          const raw = data.toString();
+          try {
+            const parsed = JSON.parse(raw);
+            ncReceived.push(parsed);
+            // Respond to connect
+            if (parsed.type === 'req' && parsed.method === 'connect') {
+              ncWs.send(JSON.stringify({
+                type: 'res',
+                id: parsed.id,
+                ok: true,
+                payload: { session: { id: 'test' }, scopes: ['operator.read'] },
+              }));
+            }
+          } catch { ncReceived.push(raw); }
+        });
+      });
+
+      await new Promise<void>((resolve) => {
+        ncServer.listen(0, '127.0.0.1', () => resolve());
+      });
+      const addr = ncServer.address();
+      const ncPort = typeof addr === 'object' && addr ? addr.port : 0;
+
+      try {
+        const ws = new WebSocket(
+          `ws://127.0.0.1:${proxyPort}/ws?target=${encodeURIComponent(`ws://127.0.0.1:${ncPort}`)}`,
+        );
+        await new Promise<void>((resolve) => ws.on('open', resolve));
+
+        ws.send(JSON.stringify({
+          type: 'req',
+          method: 'connect',
+          id: 'c3',
+          params: { auth: { token: 'test-token' }, client: { id: 'nerve-ui' } },
+        }));
+
+        // Wait for the connect response (arrives after 200ms timeout fires)
+        const response = await waitForMessage(ws, 5000);
+        const parsed = JSON.parse(response);
+        expect(parsed.type).toBe('res');
+        expect(parsed.id).toBe('c3');
+        expect(parsed.ok).toBe(true);
+
+        // Verify gateway received connect WITHOUT device block (timeout degradation)
+        const connectMsg = ncReceived.find(
+          (m: unknown) => (m as Record<string, unknown>).type === 'req' && (m as Record<string, unknown>).method === 'connect',
+        ) as Record<string, unknown> | undefined;
+        expect(connectMsg).toBeTruthy();
+        expect((connectMsg!.params as Record<string, unknown>).device).toBeUndefined();
+
+        ws.close();
+      } finally {
+        ncWss.close();
+        await new Promise<void>((resolve) => ncServer.close(() => resolve()));
+        _internals.challengeTimeoutMs = originalTimeout;
+      }
+    });
+
+    it('preserves non-connect messages in pending buffer during nonce wait', async () => {
+      mockGw.clearReceived();
+
+      const ws = new WebSocket(
+        `ws://127.0.0.1:${proxyPort}/ws?target=${encodeURIComponent(mockGw.url + '/ws')}`,
+      );
+      await new Promise<void>((resolve) => ws.on('open', resolve));
+
+      // Send a non-connect message first, then connect
+      ws.send(JSON.stringify({ type: 'req', method: 'ping', id: 'p1' }));
+      ws.send(JSON.stringify({
+        type: 'req',
+        method: 'connect',
+        id: 'c4',
+        params: { auth: { token: 'test-token' }, client: { id: 'nerve-ui' } },
+      }));
+
+      // Wait for the connect response
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('timeout')), 5000);
+        ws.on('message', (data) => {
+          try {
+            const msg = JSON.parse(data.toString());
+            if (msg.type === 'res' && msg.id === 'c4') {
+              clearTimeout(timer);
+              resolve();
+            }
+          } catch { /* ignore */ }
+        });
+      });
+
+      // Both ping and connect should have reached the gateway
+      const allMsgs = mockGw.received;
+      const pingMsg = allMsgs.find((m) => (m.data as Record<string, unknown>).method === 'ping');
+      const connectMsg = allMsgs.find((m) => (m.data as Record<string, unknown>).method === 'connect');
+      expect(pingMsg).toBeTruthy();
+      expect(connectMsg).toBeTruthy();
+
+      ws.close();
+    });
+
+    it('dispatches deferred connect before queued non-connect messages', async () => {
+      // Gateway that delays connect.challenge to force nonce-wait buffering
+      const delayedServer = createHttpServer();
+      const delayedWss = new WebSocketServer({ server: delayedServer });
+      const requestOrder: string[] = [];
+
+      delayedWss.on('connection', (delayedWs: WebSocket) => {
+        setTimeout(() => {
+          delayedWs.send(JSON.stringify({
+            type: 'event',
+            event: 'connect.challenge',
+            payload: { nonce: 'late-nonce' },
+          }));
+        }, 120);
+
+        delayedWs.on('message', (data: Buffer | string) => {
+          try {
+            const parsed = JSON.parse(data.toString());
+            if (parsed.type === 'req' && typeof parsed.method === 'string') {
+              requestOrder.push(parsed.method);
+              if (parsed.id) {
+                delayedWs.send(JSON.stringify({
+                  type: 'res',
+                  id: parsed.id,
+                  ok: true,
+                  payload: {},
+                }));
+              }
+            }
+          } catch { /* ignore */ }
+        });
+      });
+
+      await new Promise<void>((resolve) => {
+        delayedServer.listen(0, '127.0.0.1', () => resolve());
+      });
+      const addr = delayedServer.address();
+      const delayedPort = typeof addr === 'object' && addr ? addr.port : 0;
+
+      try {
+        const ws = new WebSocket(
+          `ws://127.0.0.1:${proxyPort}/ws?target=${encodeURIComponent(`ws://127.0.0.1:${delayedPort}`)}`,
+        );
+        await new Promise<void>((resolve) => ws.on('open', resolve));
+
+        // Connect should be deferred until challenge; ping must remain queued behind it.
+        ws.send(JSON.stringify({
+          type: 'req',
+          method: 'connect',
+          id: 'c5',
+          params: { auth: { token: 'test-token' }, client: { id: 'nerve-ui' } },
+        }));
+        ws.send(JSON.stringify({ type: 'req', method: 'ping', id: 'p5' }));
+
+        // Wait until ping response confirms both requests were forwarded.
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('timeout waiting for ping response')), 5000);
+          ws.on('message', (data) => {
+            try {
+              const msg = JSON.parse(data.toString());
+              if (msg.type === 'res' && msg.id === 'p5') {
+                clearTimeout(timer);
+                resolve();
+              }
+            } catch { /* ignore */ }
+          });
+        });
+
+        const connectIndex = requestOrder.indexOf('connect');
+        const pingIndex = requestOrder.indexOf('ping');
+        expect(connectIndex).toBeGreaterThanOrEqual(0);
+        expect(pingIndex).toBeGreaterThanOrEqual(0);
+        expect(connectIndex).toBeLessThan(pingIndex);
+
+        ws.close();
+      } finally {
+        delayedWss.close();
+        await new Promise<void>((resolve) => delayedServer.close(() => resolve()));
+      }
+    });
+  });
+});
+
+// ── Observability tests (appended) ──────────────────────────────────
+// These are added in a separate describe block outside the main one
+// since the main describe block is already closed.
+
+describe('ws-proxy observability', () => {
+  let mockGw2: MockGateway;
+  let proxyServer2: Server;
+  let proxyPort2: number;
+
+  beforeAll(async () => {
+    mockGw2 = new MockGateway();
+    await mockGw2.start();
+  });
+
+  afterAll(async () => {
+    closeAllWebSockets();
+    await mockGw2.close();
+  });
+
+  beforeEach(async () => {
+    (config as { auth: boolean }).auth = false;
+    proxyServer2 = createServer();
+    setupWebSocketProxy(proxyServer2);
+    await new Promise<void>((resolve) => {
+      proxyServer2.listen(0, '127.0.0.1', () => resolve());
+    });
+    const addr = proxyServer2.address();
+    proxyPort2 = typeof addr === 'object' && addr ? addr.port : 0;
+  });
+
+  afterEach(async () => {
+    closeAllWebSockets();
+    await new Promise<void>((resolve) => {
+      proxyServer2.close(() => resolve());
+    });
+  });
+
+  it('logs connection ID in [ws-proxy:XXXXXXXX] format on new connection', async () => {
+    const logSpy = vi.spyOn(console, 'log');
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${proxyPort2}/ws?target=${encodeURIComponent(mockGw2.url + '/ws')}`,
+    );
+    await waitForMessage(ws);
+
+    const newConnLog = logSpy.mock.calls.find(
+      (args) => typeof args[0] === 'string' && args[0].includes('New connection'),
+    );
+    expect(newConnLog).toBeTruthy();
+    expect(newConnLog![0]).toMatch(/\[ws-proxy:[0-9a-f]{8}\]/);
+
+    ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+    logSpy.mockRestore();
+  });
+
+  it('logs summary with duration and message counts on close', async () => {
+    const logSpy = vi.spyOn(console, 'log');
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${proxyPort2}/ws?target=${encodeURIComponent(mockGw2.url + '/ws')}`,
+    );
+    await waitForMessage(ws);
+
+    const closePromise = waitForClose(ws);
+    ws.close();
+    await closePromise;
+    await new Promise((r) => setTimeout(r, 100));
+
+    const summaryLog = logSpy.mock.calls.find(
+      (args) => typeof args[0] === 'string' && args[0].includes('Summary:'),
+    );
+    expect(summaryLog).toBeTruthy();
+    expect(summaryLog![0]).toMatch(/\[ws-proxy:[0-9a-f]{8}\] Summary: duration=\d+ms/);
+    expect(summaryLog![0]).toContain('client->gw=');
+    expect(summaryLog![0]).toContain('gw->client=');
+
+    logSpy.mockRestore();
+  });
+
+  it('uses unique connection IDs for concurrent connections', async () => {
+    const logSpy = vi.spyOn(console, 'log');
+
+    const ws1 = new WebSocket(
+      `ws://127.0.0.1:${proxyPort2}/ws?target=${encodeURIComponent(mockGw2.url + '/ws')}`,
+    );
+    await waitForMessage(ws1);
+
+    const ws2 = new WebSocket(
+      `ws://127.0.0.1:${proxyPort2}/ws?target=${encodeURIComponent(mockGw2.url + '/ws')}`,
+    );
+    await waitForMessage(ws2);
+
+    const connLogs = logSpy.mock.calls.filter(
+      (args) => typeof args[0] === 'string' && args[0].includes('New connection'),
+    );
+    expect(connLogs.length).toBeGreaterThanOrEqual(2);
+
+    const ids = connLogs.map((args) => {
+      const match = (args[0] as string).match(/\[ws-proxy:([0-9a-f]{8})\]/);
+      return match?.[1];
+    });
+    const uniqueIds = new Set(ids);
+    expect(uniqueIds.size).toBe(ids.length);
+
+    ws1.close();
+    ws2.close();
+    await new Promise((r) => setTimeout(r, 50));
+    logSpy.mockRestore();
   });
 });
