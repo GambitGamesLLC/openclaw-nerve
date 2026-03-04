@@ -6,7 +6,8 @@
  * this endpoint exposes the server's configured gateway URL and token
  * so the frontend can pre-fill (or auto-connect).
  *
- * Security: The gateway token is only returned to loopback clients.
+ * Security: The gateway token is only returned to loopback clients or when
+ * NERVE_ALLOW_INSECURE=true (for Tailscale/local network access).
  * Remote clients receive the wsUrl and agentName but token is null.
  */
 
@@ -29,21 +30,23 @@ app.get('/api/connect-defaults', rateLimitGeneral, (c) => {
     // fallback: not available in some test environments
   }
   const isLoopback = LOOPBACK_RE.test(remoteIp);
+  
+  // Also allow token when server is explicitly configured for insecure access
+  // (e.g., for Tailscale or local network desktop launcher access)
+  const allowInsecure = process.env.NERVE_ALLOW_INSECURE === 'true';
+  const shouldReturnToken = isLoopback || allowInsecure;
 
-  // Derive WebSocket URL from the HTTP gateway URL
-  const gwUrl = config.gatewayUrl;
-  let wsUrl = '';
-  try {
-    const parsed = new URL(gwUrl);
-    const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-    wsUrl = `${wsProtocol}//${parsed.host}/ws`;
-  } catch {
-    wsUrl = gwUrl.replace(/^http/, 'ws');
-  }
+  // Derive WebSocket URL for the gateway
+  // The frontend always proxies through Nerve's /ws endpoint, so use the Nerve server's host
+  // but point to the gateway port (18789) for the target parameter
+  const reqUrl = new URL(c.req.url);
+  const wsProtocol = reqUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Use Nerve's host:port for the proxy, frontend will add ?target=... automatically
+  const wsUrl = `${wsProtocol}//${reqUrl.host}/ws`;
 
   return c.json({
     wsUrl,
-    token: isLoopback ? (config.gatewayToken || null) : null,
+    token: shouldReturnToken ? (config.gatewayToken || null) : null,
     agentName: config.agentName,
   });
 });
