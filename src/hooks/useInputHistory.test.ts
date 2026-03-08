@@ -1,11 +1,26 @@
 /** Tests for useInputHistory hook. */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useInputHistory } from './useInputHistory';
 
 describe('useInputHistory', () => {
   beforeEach(() => {
+    // Node 25+ may expose a placeholder global `localStorage` without the Storage API.
+    // Stub a minimal Web Storage implementation so these tests run consistently.
+    const store = new Map<string, string>();
+    const localStorageMock = {
+      getItem: vi.fn((key: string) => (store.has(key) ? store.get(key)! : null)),
+      setItem: vi.fn((key: string, value: string) => { store.set(key, String(value)); }),
+      removeItem: vi.fn((key: string) => { store.delete(key); }),
+      clear: vi.fn(() => { store.clear(); }),
+    };
+
+    vi.stubGlobal('localStorage', localStorageMock);
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('starts with empty history', () => {

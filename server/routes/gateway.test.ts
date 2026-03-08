@@ -147,11 +147,14 @@ describe('gateway routes', () => {
       invokeGatewayImpl = (tool: string) => {
         if (tool === 'sessions_list') {
           return {
-            sessions: [{
-              sessionKey: 'agent:main:main',
-              model: 'anthropic/claude-opus-4',
-              thinking: 'high',
-            }],
+            // Real gateway tool response shape is nested under `details`.
+            details: {
+              sessions: [{
+                sessionKey: 'agent:main:main',
+                model: 'anthropic/claude-opus-4',
+                thinking: 'high',
+              }],
+            },
           };
         }
         return {};
@@ -181,11 +184,14 @@ describe('gateway routes', () => {
         invokedCalls.push({ tool, args });
         if (tool === 'sessions_list') {
           return {
-            sessions: [{
-              sessionKey: 'agent:cron:test',
-              model: 'openai/gpt-4o',
-              thinking: 'low',
-            }],
+            // Real gateway tool response shape is nested under `details`.
+            details: {
+              sessions: [{
+                sessionKey: 'agent:cron:test',
+                model: 'openai/gpt-4o',
+                thinking: 'low',
+              }],
+            },
           };
         }
         return {};
