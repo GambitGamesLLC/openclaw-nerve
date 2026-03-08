@@ -254,10 +254,21 @@ app.get('/api/gateway/session-info', rateLimitGeneral, async (c) => {
 
   // Primary: fetch per-session data from sessions.list (source of truth for per-session state)
   try {
-    const result = await invokeGatewayTool('sessions_list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }, GATEWAY_TIMEOUT_MS) as Record<string, unknown>;
-    // Result structure: { content: [...], details: { sessions: [...] } }
-    const details = result?.details as Record<string, unknown> | undefined;
-    const sessions = (details?.sessions as Array<{ sessionKey?: string; key?: string; model?: string; thinking?: string; thinkingLevel?: string }>) || [];
+    const result = await invokeGatewayTool(
+      'sessions_list',
+      { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT },
+      GATEWAY_TIMEOUT_MS,
+    ) as Record<string, unknown>;
+
+    // sessions_list output shape may vary depending on gateway version:
+    // - { sessions: [...] }
+    // - { details: { sessions: [...] }, ... }
+    const r = result as unknown as { sessions?: unknown; details?: { sessions?: unknown } };
+    const sessions = (Array.isArray(r.sessions)
+      ? r.sessions
+      : Array.isArray(r.details?.sessions)
+        ? r.details?.sessions
+        : []) as Array<{ sessionKey?: string; key?: string; model?: string; thinking?: string; thinkingLevel?: string }>;
     const session = sessions.find(s => (s.sessionKey || s.key) === sessionKey);
     if (session) {
       if (session.model) info.model = session.model;
