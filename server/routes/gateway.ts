@@ -28,6 +28,8 @@ import { config } from '../lib/config.js';
 const app = new Hono();
 
 const GATEWAY_TIMEOUT_MS = 8_000;
+const SESSIONS_ACTIVE_MINUTES = 24 * 60;
+const SESSIONS_LIMIT = 200;
 
 export interface GatewayModelInfo {
   id: string;
@@ -252,7 +254,7 @@ app.get('/api/gateway/session-info', rateLimitGeneral, async (c) => {
 
   // Primary: fetch per-session data from sessions.list (source of truth for per-session state)
   try {
-    const result = await invokeGatewayTool('sessions_list', { activeMinutes: 120, limit: 50 }, GATEWAY_TIMEOUT_MS) as Record<string, unknown>;
+    const result = await invokeGatewayTool('sessions_list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }, GATEWAY_TIMEOUT_MS) as Record<string, unknown>;
     // Result structure: { content: [...], details: { sessions: [...] } }
     const details = result?.details as Record<string, unknown> | undefined;
     const sessions = (details?.sessions as Array<{ sessionKey?: string; key?: string; model?: string; thinking?: string; thinkingLevel?: string }>) || [];
