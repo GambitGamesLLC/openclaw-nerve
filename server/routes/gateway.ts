@@ -4,11 +4,13 @@
  * GET  /api/gateway/models       — Returns available models via `openclaw models list`.
  *                                   Respects allowlist if configured; falls back to all available.
  * GET  /api/gateway/session-info — Returns the current session's runtime info (model, thinking level).
+ * GET  /api/gateway/config       — Returns the server's gateway connection config (URL only, never token).
  * POST /api/gateway/session-patch — Change model/effort for a session via HTTP (reliable fallback).
  * POST /api/gateway/restart      — Restart the OpenClaw gateway service via `openclaw gateway restart`.
  *
  * Response (models):       { models: Array<{ id: string; label: string; provider: string }> }
  * Response (session-info): { model?: string; thinking?: string }
+ * Response (config):       { wsUrl: string }  (token never exposed)
  * Response (session-patch): { ok: boolean; model?: string; thinking?: string; error?: string }
  * Response (restart):      { ok: boolean; output: string }
  */
@@ -26,6 +28,8 @@ import { config } from '../lib/config.js';
 const app = new Hono();
 
 const GATEWAY_TIMEOUT_MS = 8_000;
+const SESSIONS_ACTIVE_MINUTES = 24 * 60;
+const SESSIONS_LIMIT = 200;
 
 export interface GatewayModelInfo {
   id: string;
@@ -173,6 +177,20 @@ app.get('/api/gateway/models', rateLimitGeneral, async (c) => {
 });
 
 /**
+ * GET /api/gateway/config
+ *
+ * Returns the server's gateway connection configuration.
+ * Only returns the WebSocket URL (converted from HTTP URL) — never the token.
+ * This allows the frontend to auto-config when opening from desktop launchers.
+ */
+app.get('/api/gateway/config', rateLimitGeneral, async (c) => {
+  // Convert HTTP URL to WebSocket URL (http:// -> ws://, https:// -> wss://)
+  const httpUrl = config.gatewayUrl;
+  const wsUrl = httpUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  return c.json({ wsUrl });
+});
+
+/**
  * Extract the current session's thinking/effort level from gateway status.
  * Looks in common locations: agent.thinking, config.thinking, top-level thinking,
  * and falls back to parsing the runtime string (e.g. "thinking=medium").
@@ -236,8 +254,10 @@ app.get('/api/gateway/session-info', rateLimitGeneral, async (c) => {
 
   // Primary: fetch per-session data from sessions.list (source of truth for per-session state)
   try {
-    const result = await invokeGatewayTool('sessions_list', { activeMinutes: 120, limit: 50 }, GATEWAY_TIMEOUT_MS) as Record<string, unknown>;
-    const sessions = (result?.sessions as Array<{ sessionKey?: string; key?: string; model?: string; thinking?: string; thinkingLevel?: string }>) || [];
+    const result = await invokeGatewayTool('sessions_list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }, GATEWAY_TIMEOUT_MS) as Record<string, unknown>;
+    // Result structure: { content: [...], details: { sessions: [...] } }
+    const details = result?.details as Record<string, unknown> | undefined;
+    const sessions = (details?.sessions as Array<{ sessionKey?: string; key?: string; model?: string; thinking?: string; thinkingLevel?: string }>) || [];
     const session = sessions.find(s => (s.sessionKey || s.key) === sessionKey);
     if (session) {
       if (session.model) info.model = session.model;
