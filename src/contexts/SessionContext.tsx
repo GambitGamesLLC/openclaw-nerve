@@ -3,6 +3,7 @@ import { createContext, useContext, useCallback, useRef, useEffect, useState, us
 import { useGateway } from './GatewayContext';
 import { getSessionKey, type Session, type AgentLogEntry, type EventEntry, type GatewayEvent, type EventPayload, type AgentEventPayload, type ChatEventPayload, type ContentBlock, type SessionsListResponse, type ChatHistoryResponse, type ChatMessage, type GranularAgentState } from '@/types';
 import { describeToolUse } from '@/utils/helpers';
+import { mergeSessionsByKey } from '@/features/sessions/mergeSessions';
 
 const BUSY_STATES = new Set(['running', 'thinking', 'tool_use', 'delta', 'started']);
 const IDLE_STATES = new Set(['idle', 'done', 'error', 'final', 'aborted', 'completed']);
@@ -11,6 +12,13 @@ const IDLE_STATES = new Set(['idle', 'done', 'error', 'final', 'aborted', 'compl
 // Wider window + higher cap avoids dropping subagents from the sidebar in busy workspaces.
 const SESSIONS_ACTIVE_MINUTES = 24 * 60; // 24h
 const SESSIONS_LIMIT = 200;
+
+// Subagent visibility: always include sessions spawned by the main session.
+// This is a separate query because some gateways can return subagents with
+// missing/late updatedAt, and activeMinutes filtering can inadvertently drop
+// them during the window where they're actively running.
+const MAIN_SESSION_KEY = 'agent:main:main';
+const SESSIONS_SPAWNED_LIMIT = 500;
 
 interface SpawnAgentOpts {
   task: string;
@@ -331,29 +339,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const refreshSessions = useCallback(async () => {
     if (connectionState !== 'connected') return;
     try {
-      const res = await rpc('sessions.list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }) as SessionsListResponse;
-      const newSessions = res?.sessions || [];
-      
+      // Primary list: recent sessions.
+      const basePromise = rpc('sessions.list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }) as Promise<SessionsListResponse>;
+
+      // Secondary list: always include spawned sessions (subagents), even if updatedAt is missing/late.
+      // NOTE: we intentionally omit activeMinutes here to avoid filtering out newly-spawned entries.
+      const spawnedPromise = rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as Promise<SessionsListResponse>;
+
+      const [baseRes, spawnedRes] = await Promise.allSettled([basePromise, spawnedPromise]);
+      const baseSessions = baseRes.status === 'fulfilled' ? (baseRes.value?.sessions || []) : [];
+      const spawnedSessions = spawnedRes.status === 'fulfilled' ? (spawnedRes.value?.sessions || []) : [];
+
+      const newSessions = mergeSessionsByKey(baseSessions, spawnedSessions);
+
       // Smart diffing: preserve object references for unchanged sessions.
       // This prevents unnecessary re-renders in child components.
       setSessions(prev => {
         // Fast path: if lengths differ, structure changed
         if (prev.length !== newSessions.length) return newSessions;
-        
+
         // Create lookup for efficient comparison
         const prevMap = new Map(prev.map(s => [getSessionKey(s), s]));
-        
+
         let hasChanges = false;
         const merged = newSessions.map(newSession => {
           const key = getSessionKey(newSession);
           const existing = prevMap.get(key);
-          
+
           // If session doesn't exist in prev, it's new
           if (!existing) {
             hasChanges = true;
             return newSession;
           }
-          
+
           // Compare relevant fields to detect changes
           const changed = (
             existing.state !== newSession.state ||
@@ -364,16 +382,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             existing.thinkingLevel !== newSession.thinkingLevel ||
             existing.label !== newSession.label
           );
-          
+
           if (changed) {
             hasChanges = true;
             return newSession;
           }
-          
+
           // No change - keep the existing reference
           return existing;
         });
-        
+
         // If nothing changed, return the same array reference
         return hasChanges ? merged : prev;
       });
@@ -389,10 +407,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSessions(prev => {
       const idx = prev.findIndex(s => getSessionKey(s) === sessionKey);
       if (idx === -1) {
-        // New session appeared that we don't have - schedule a refresh
-        // Use setTimeout to avoid calling during render
+        // Session not in the current list yet.
+        // Upsert a lightweight placeholder so *active* subagents show up immediately,
+        // then refresh from sessions.list to hydrate full metadata.
+        const placeholder: Session = {
+          sessionKey,
+          ...updates,
+          lastActivity: Date.now(),
+          updatedAt: typeof updates.updatedAt === 'number' ? updates.updatedAt : Date.now(),
+        };
         setTimeout(() => refreshSessions(), 100);
-        return prev;
+        return [placeholder, ...prev];
       }
       
       // Check if the update actually changes anything
@@ -596,7 +621,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 2000));
       try {
-        const res = await rpc('sessions.list', { activeMinutes: SESSIONS_ACTIVE_MINUTES, limit: SESSIONS_LIMIT }) as { sessions?: Array<{ sessionKey?: string; key?: string; id?: string }> };
+        // Prefer spawnedBy listing: avoids missing newly-spawned subagents when updatedAt is unset.
+        const res = await rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as { sessions?: Array<{ sessionKey?: string; key?: string; id?: string }> };
         const fresh = res?.sessions ?? [];
         const newSession = fresh.find(s => {
           const sk = s.sessionKey || s.key || s.id || '';
