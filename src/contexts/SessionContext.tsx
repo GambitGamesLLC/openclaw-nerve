@@ -19,7 +19,6 @@ const SESSIONS_LIMIT = 200;
 // them during the window where they're actively running.
 const MAIN_SESSION_KEY = 'agent:main:main';
 const SESSIONS_SPAWNED_LIMIT = 500;
-
 interface SpawnAgentOpts {
   task: string;
   label?: string;
@@ -351,7 +350,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const spawnedSessions = spawnedRes.status === 'fulfilled' ? (spawnedRes.value?.sessions || []) : [];
 
       const newSessions = mergeSessionsByKey(baseSessions, spawnedSessions);
-
       // Smart diffing: preserve object references for unchanged sessions.
       // This prevents unnecessary re-renders in child components.
       setSessions(prev => {
