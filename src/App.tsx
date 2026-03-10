@@ -91,6 +91,25 @@ export default function App({ onLogout }: AppProps) {
   // Track last changed file path for tree refresh
   const [lastChangedPath, setLastChangedPath] = useState<string | null>(null);
 
+  // File browser collapse state for mobile optimization
+  const [fileBrowserCollapsed, setFileBrowserCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('nerve-file-tree-collapsed') === 'true';
+    } catch { return false; }
+  });
+
+  // Sync localStorage when state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('nerve-file-tree-collapsed', String(fileBrowserCollapsed));
+    } catch { /* ignore */ }
+  }, [fileBrowserCollapsed]);
+
+  /** Toggle file browser collapse state (mobile). */
+  const handleToggleFileBrowser = useCallback(() => {
+    setFileBrowserCollapsed(prev => !prev);
+  }, []);
+
   // File browser state
   const {
     openFiles, activeTab, setActiveTab,
@@ -221,6 +240,7 @@ export default function App({ onLogout }: AppProps) {
   // Global keyboard shortcuts
   useKeyboardShortcuts([
     { key: 'k', meta: true, handler: handleOpenPalette },
+    { key: 'b', meta: true, handler: handleToggleFileBrowser },  // Cmd+B → toggle file browser
     { key: 'f', meta: true, handler: toggleSearch, skipInEditor: true },  // Cmd+F → chat search (yields to CodeMirror search in editor)
     { key: 'c', ctrl: true, handler: handleCtrlC, preventDefault: false },  // Ctrl+C → abort (when generating), allow copy to still work
     { key: 'Escape', handler: handleEscape, skipInEditor: true },
@@ -352,6 +372,7 @@ export default function App({ onLogout }: AppProps) {
             agentName={currentSessionDisplayName}
             loadMore={loadMore}
             hasMore={hasMore}
+            onToggleFileBrowser={isCompactLayout && fileBrowserCollapsed ? handleToggleFileBrowser : undefined}
           />
         </PanelErrorBoundary>
       }
@@ -533,6 +554,9 @@ export default function App({ onLogout }: AppProps) {
               lastChangedPath={lastChangedPath}
               onRemapOpenPaths={remapOpenPaths}
               onCloseOpenPaths={closeOpenPathsByPrefix}
+              isCompactLayout={isCompactLayout}
+              collapsed={fileBrowserCollapsed}
+              onCollapseChange={setFileBrowserCollapsed}
             />
           </PanelErrorBoundary>
         </div>
