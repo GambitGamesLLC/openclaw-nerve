@@ -1,10 +1,28 @@
 import '@testing-library/jest-dom';
+import { beforeEach } from 'vitest';
 
 // Vitest/jsdom in some environments does not provide a full Storage impl.
 // Ensure localStorage exists and supports clear/getItem/setItem for hooks/tests.
+
+type GlobalWithStorage = typeof globalThis & {
+  localStorage?: Storage;
+  window?: Window & { localStorage?: Storage };
+};
+
+function isStorage(value: unknown): value is Storage {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Storage;
+  return (
+    typeof v.getItem === 'function' &&
+    typeof v.setItem === 'function' &&
+    typeof v.removeItem === 'function'
+  );
+}
+
 (() => {
-  const existing = (globalThis as any).localStorage;
-  if (existing && typeof existing.clear === 'function') return;
+  const g = globalThis as unknown as GlobalWithStorage;
+  const existing = g.localStorage ?? g.window?.localStorage;
+  if (isStorage(existing) && typeof existing.clear === 'function') return;
 
   const store = new Map<string, string>();
   const storage: Storage = {
@@ -28,15 +46,12 @@ import '@testing-library/jest-dom';
     },
   };
 
-  try {
-    Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
-  } catch {
-    (globalThis as any).localStorage = storage;
-  }
-  try {
-    Object.defineProperty((globalThis as any).window ?? globalThis, 'localStorage', { value: storage, configurable: true });
-  } catch {
-    /* ignore */
+  // Avoid inter-test leakage when using the shim
+  beforeEach(() => storage.clear());
+
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true });
+  if (g.window) {
+    Object.defineProperty(g.window, 'localStorage', { value: storage, configurable: true });
   }
 })();
 
