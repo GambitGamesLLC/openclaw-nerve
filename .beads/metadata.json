@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "nerve",
+  "project_id": "0900102b-13a7-4615-9c70-2af9831bec96"
+}
