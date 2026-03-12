@@ -23,7 +23,7 @@ describe('Beads board normalization', () => {
     expect(mapBeadsColumnToTaskStatus('closed')).toBe('done');
   });
 
-  it('normalizes board DTO cards into read-only Beads column cards', () => {
+  it('normalizes board DTO cards into read-only Beads column cards with preserved metadata', () => {
     const board: BeadsBoardDto = {
       source: { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
       generatedAt: '2026-03-11T22:00:00.000Z',
@@ -42,6 +42,7 @@ describe('Beads board normalization', () => {
             priority: 1,
             issueType: 'task',
             owner: 'derrick',
+            labels: ['frontend', 'ui'],
             createdAt: '2026-03-11T21:00:00.000Z',
             updatedAt: '2026-03-11T21:30:00.000Z',
             closedAt: null,
@@ -63,6 +64,7 @@ describe('Beads board normalization', () => {
             priority: 2,
             issueType: 'task',
             owner: null,
+            labels: [],
             createdAt: null,
             updatedAt: null,
             closedAt: null,
@@ -90,6 +92,7 @@ describe('Beads board normalization', () => {
             priority: 2,
             issueType: 'task',
             owner: null,
+            labels: ['config'],
             createdAt: '2026-03-11T20:00:00.000Z',
             updatedAt: '2026-03-11T20:30:00.000Z',
             closedAt: '2026-03-11T21:00:00.000Z',
@@ -114,12 +117,24 @@ describe('Beads board normalization', () => {
       status: 'todo',
       priority: 'high',
       assignee: 'agent:derrick',
-      labels: ['task', '2 dep', '1 comment'],
+      labels: ['frontend', 'ui'],
+      beads: {
+        issueId: 'nerve-19r',
+        rawStatus: 'open',
+        issueType: 'task',
+        owner: 'derrick',
+        labels: ['frontend', 'ui'],
+        dependencyCount: 2,
+        dependentCount: 0,
+        commentCount: 1,
+      },
     });
 
     const closed = mapBeadsCardToKanbanTask(board.columns[3].items[0], 0);
     expect(closed.status).toBe('done');
     expect(closed.result).toBeUndefined();
     expect(closed.resultAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
+    expect(closed.beads?.labels).toEqual(['config']);
+    expect(closed.beads?.closedAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
   });
 });

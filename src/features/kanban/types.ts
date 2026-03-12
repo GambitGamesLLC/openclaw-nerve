@@ -34,6 +34,20 @@ export interface TaskRunLink {
   error?: string;
 }
 
+export interface BeadsTaskMetadata {
+  issueId: string;
+  rawStatus: string;
+  issueType?: string;
+  owner?: string;
+  labels: string[];
+  dependencyCount: number;
+  dependentCount: number;
+  commentCount: number;
+  createdAt?: number;
+  updatedAt?: number;
+  closedAt?: number;
+}
+
 export interface KanbanTask {
   id: string;
   title: string;
@@ -57,4 +71,5 @@ export interface KanbanTask {
   estimateMin?: number;
   actualMin?: number;
   feedback: TaskFeedback[];
+  beads?: BeadsTaskMetadata;
 }

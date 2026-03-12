@@ -33,6 +33,7 @@ export interface BeadsBoardCardDto {
   priority: number | null;
   issueType: string | null;
   owner: string | null;
+  labels: string[];
   createdAt: string | null;
   updatedAt: string | null;
   closedAt: string | null;
@@ -55,7 +56,7 @@ export interface BeadsBoardDto {
   columns: BeadsBoardColumnDto[];
 }
 
-interface BdIssueListItem {
+interface BdIssueExportItem {
   id?: unknown;
   title?: unknown;
   description?: unknown;
@@ -63,6 +64,7 @@ interface BdIssueListItem {
   priority?: unknown;
   issue_type?: unknown;
   owner?: unknown;
+  labels?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
   closed_at?: unknown;
@@ -100,7 +102,7 @@ function toSourceDto(source: BeadsSource): BeadsSourceDto {
 }
 
 function normalizeString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function normalizeNumber(value: unknown): number | null {
@@ -109,6 +111,15 @@ function normalizeNumber(value: unknown): number | null {
 
 function normalizeCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function getPreferredLocalBinDirs(): string[] {
@@ -142,6 +153,17 @@ function resolveBdBin(): string {
   return 'bd';
 }
 
+function parseBdJsonl<T>(stdout: string): T[] {
+  const trimmed = stdout.trim();
+  if (!trimmed) return [];
+
+  return trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as T);
+}
+
 export function projectBeadsStatusToColumn(status: string | null | undefined): BeadsBoardColumnKey {
   const normalized = (status || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 
@@ -162,7 +184,7 @@ export function projectBeadsStatusToColumn(status: string | null | undefined): B
   }
 }
 
-export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssueListItem[]): BeadsBoardDto {
+export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssueExportItem[]): BeadsBoardDto {
   const buckets: Record<BeadsBoardColumnKey, BeadsBoardCardDto[]> = {
     todo: [],
     in_progress: [],
@@ -184,6 +206,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
       priority: normalizeNumber(issue.priority),
       issueType: normalizeString(issue.issue_type),
       owner: normalizeString(issue.owner),
+      labels: normalizeStringArray(issue.labels),
       createdAt: normalizeString(issue.created_at),
       updatedAt: normalizeString(issue.updated_at),
       closedAt: normalizeString(issue.closed_at),
@@ -210,7 +233,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
   };
 }
 
-async function execBdJson<T>(source: BeadsSource, args: string[]): Promise<T> {
+async function execBdJsonl<T>(source: BeadsSource, args: string[]): Promise<T[]> {
   const bdBin = resolveBdBin();
   try {
     const { stdout } = await execFile(bdBin, args, {
@@ -221,7 +244,7 @@ async function execBdJson<T>(source: BeadsSource, args: string[]): Promise<T> {
         PATH: buildRuntimePath(process.env.PATH),
       },
     });
-    return JSON.parse(stdout) as T;
+    return parseBdJsonl<T>(stdout);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown bd execution failure';
     const stderr = typeof error === 'object' && error && 'stderr' in error && typeof error.stderr === 'string'
@@ -239,7 +262,7 @@ export async function getBeadsBoard(sourceId?: string | null): Promise<BeadsBoar
   const source = resolveBeadsSource(sourceId);
   if (!source) throw new InvalidBeadsSourceError(sourceId);
 
-  const issues = await execBdJson<BdIssueListItem[]>(source, ['list', '--all', '--json']);
+  const issues = await execBdJsonl<BdIssueExportItem>(source, ['export']);
   if (!Array.isArray(issues)) {
     throw new BeadsAdapterError(source.id, `Unexpected bd output for source "${source.id}"`);
   }

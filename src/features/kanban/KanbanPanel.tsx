@@ -9,6 +9,7 @@ import { KanbanBoard } from './KanbanBoard';
 import { BeadsBoard } from './BeadsBoard';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
+import { BeadsDetailDrawer } from './BeadsDetailDrawer';
 
 interface KanbanPanelProps {
   /** If set, auto-open the drawer for this task ID on mount. */
@@ -65,6 +66,7 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
 
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+  const [selectedBeadsTask, setSelectedBeadsTask] = useState<KanbanTask | null>(null);
   const consumedRef = useRef<string | null>(null);
 
   // Auto-open drawer for initialTaskId
@@ -82,7 +84,10 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
   useEffect(() => {
     if (boardMode === 'beads') {
       setSelectedTask(null);
+      return;
     }
+
+    setSelectedBeadsTask(null);
   }, [boardMode]);
 
   /* ── Card click → open drawer ── */
@@ -91,9 +96,18 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
     setSelectedTask(task);
   }, [boardMode]);
 
+  const handleBeadsCardClick = useCallback((task: KanbanTask) => {
+    if (boardMode !== 'beads') return;
+    setSelectedBeadsTask(task);
+  }, [boardMode]);
+
   /* ── Close drawer ── */
   const handleCloseDrawer = useCallback(() => {
     setSelectedTask(null);
+  }, []);
+
+  const handleCloseBeadsDrawer = useCallback(() => {
+    setSelectedBeadsTask(null);
   }, []);
 
   /* ── Create handler ── */
@@ -151,6 +165,7 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
             onRetry={() => fetchBeadsBoard(selectedSourceId)}
             hasAnyTasks={beadsHasAnyTasks}
             sourceLabel={beadsBoard?.source.label}
+            onCardClick={handleBeadsCardClick}
           />
         ) : (
           <KanbanBoard
@@ -184,6 +199,14 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
           onApprove={approveTask}
           onReject={rejectTask}
           onAbort={abortTask}
+        />
+      )}
+
+      {boardMode === 'beads' && (
+        <BeadsDetailDrawer
+          task={selectedBeadsTask}
+          sourceLabel={beadsBoard?.source.label}
+          onClose={handleCloseBeadsDrawer}
         />
       )}
     </div>

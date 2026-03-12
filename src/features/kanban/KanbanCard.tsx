@@ -1,5 +1,5 @@
 import { memo, useState, useEffect } from 'react';
-import { Clock, Play, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Clock, Play, CheckCircle2, AlertCircle, XCircle, Link2, GitBranch, Tag } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { KanbanTask, TaskPriority } from './types';
@@ -99,6 +99,78 @@ function SortableCard({ task, onClick }: { task: KanbanTask; onClick: (task: Kan
   );
 }
 
+function BeadsPriorityChip({ priority }: { priority: TaskPriority }) {
+  const tone = priority === 'critical'
+    ? 'text-red-300 border-red-500/30 bg-red-500/10'
+    : priority === 'high'
+      ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+      : priority === 'low'
+        ? 'text-slate-300 border-slate-500/30 bg-slate-500/10'
+        : 'text-blue-300 border-blue-500/30 bg-blue-500/10';
+
+  const code = priority === 'critical' ? 'P0' : priority === 'high' ? 'P1' : priority === 'low' ? 'P3+' : 'P2';
+
+  return (
+    <span className={`inline-flex items-center rounded-sm border px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${tone}`}>
+      {code}
+    </span>
+  );
+}
+
+function BeadsMetadataStrip({ task }: { task: KanbanTask }) {
+  const metadata = task.beads;
+  if (!metadata) return null;
+
+  const visibleLabels = metadata.labels.slice(0, 2);
+  const extraLabels = metadata.labels.length - visibleLabels.length;
+
+  return (
+    <>
+      <div className="mt-1.5 ml-4 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+        <span className="font-mono font-semibold text-[10px] text-primary/90">{metadata.issueId}</span>
+        <BeadsPriorityChip priority={task.priority} />
+        {metadata.issueType && (
+          <span className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 font-medium uppercase tracking-wide">
+            {metadata.issueType}
+          </span>
+        )}
+        {metadata.owner && (
+          <span className="truncate max-w-[120px]">@{metadata.owner}</span>
+        )}
+      </div>
+
+      {(visibleLabels.length > 0 || metadata.dependencyCount > 0 || metadata.dependentCount > 0) && (
+        <div className="mt-1.5 ml-4 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+          {visibleLabels.map((label, idx) => (
+            <span
+              key={`${label}-${idx}`}
+              className="inline-flex items-center gap-1 rounded-sm bg-muted/70 px-1.5 py-0.5 font-medium"
+            >
+              <Tag size={9} />
+              {label}
+            </span>
+          ))}
+          {extraLabels > 0 && (
+            <span className="text-[10px] text-muted-foreground">+{extraLabels} label{extraLabels === 1 ? '' : 's'}</span>
+          )}
+          {metadata.dependencyCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px]">
+              <Link2 size={9} />
+              {metadata.dependencyCount} dep
+            </span>
+          )}
+          {metadata.dependentCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px]">
+              <GitBranch size={9} />
+              {metadata.dependentCount} blocked
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ── Visual card content (shared between sortable + overlay) ── */
 function CardContent({
   task,
@@ -111,6 +183,8 @@ function CardContent({
   isDragging?: boolean;
   isOverlay?: boolean;
 }) {
+  const isBeadsTask = Boolean(task.beads);
+
   return (
     <button
       type="button"
@@ -143,28 +217,34 @@ function CardContent({
         </p>
       )}
 
-      {/* Row 3: labels */}
-      {task.labels.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1.5 ml-4">
-          {task.labels.slice(0, 3).map((label, idx) => (
-            <span
-              key={`${label}-${idx}`}
-              className="text-[10px] font-medium leading-none bg-muted text-muted-foreground px-1.5 py-0.5 rounded-sm"
-            >
-              {label}
-            </span>
-          ))}
-          {task.labels.length > 3 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{task.labels.length - 3}
-            </span>
+      {isBeadsTask ? (
+        <BeadsMetadataStrip task={task} />
+      ) : (
+        <>
+          {/* Row 3: labels */}
+          {task.labels.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5 ml-4">
+              {task.labels.slice(0, 3).map((label, idx) => (
+                <span
+                  key={`${label}-${idx}`}
+                  className="text-[10px] font-medium leading-none bg-muted text-muted-foreground px-1.5 py-0.5 rounded-sm"
+                >
+                  {label}
+                </span>
+              ))}
+              {task.labels.length > 3 && (
+                <span className="text-[10px] text-muted-foreground">
+                  +{task.labels.length - 3}
+                </span>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Row 3: meta line (assignee, run status, time) */}
+      {/* Meta line (assignee, run status, time) */}
       <div className="flex items-center gap-2 mt-1.5 ml-4 text-[11px] text-muted-foreground">
-        {task.assignee && (
+        {!isBeadsTask && task.assignee && (
           <span className="truncate max-w-[100px]">
             {task.assignee === 'operator' ? 'Operator' : task.assignee.replace('agent:', '@')}
           </span>

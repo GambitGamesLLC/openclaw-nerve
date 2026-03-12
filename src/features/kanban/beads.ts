@@ -18,6 +18,7 @@ export interface BeadsBoardCardDto {
   priority: number | null;
   issueType: string | null;
   owner: string | null;
+  labels: string[];
   createdAt: string | null;
   updatedAt: string | null;
   closedAt: string | null;
@@ -69,22 +70,17 @@ export function mapBeadsColumnToTaskStatus(columnKey: BeadsBoardColumnKey): Kanb
   }
 }
 
-function toEpoch(value: string | null | undefined): number {
-  if (!value) return Date.now();
+function toOptionalEpoch(value: string | null | undefined): number | undefined {
+  if (!value) return undefined;
   const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : Date.now();
-}
-
-function buildLabels(card: BeadsBoardCardDto): string[] {
-  const labels: string[] = [];
-  if (card.issueType) labels.push(card.issueType);
-  if (card.dependencyCount > 0) labels.push(`${card.dependencyCount} dep`);
-  if (card.dependentCount > 0) labels.push(`${card.dependentCount} blocked`);
-  if (card.commentCount > 0) labels.push(`${card.commentCount} comment${card.commentCount === 1 ? '' : 's'}`);
-  return labels;
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function mapBeadsCardToKanbanTask(card: BeadsBoardCardDto, columnOrder: number): KanbanTask {
+  const createdAt = toOptionalEpoch(card.createdAt) ?? Date.now();
+  const updatedAt = toOptionalEpoch(card.updatedAt) ?? createdAt;
+  const closedAt = toOptionalEpoch(card.closedAt);
+
   return {
     id: card.id,
     title: card.title,
@@ -92,15 +88,28 @@ export function mapBeadsCardToKanbanTask(card: BeadsBoardCardDto, columnOrder: n
     status: mapBeadsColumnToTaskStatus(card.columnKey),
     priority: mapBeadsPriorityToKanban(card.priority),
     createdBy: 'operator',
-    createdAt: toEpoch(card.createdAt),
-    updatedAt: toEpoch(card.updatedAt ?? card.createdAt),
+    createdAt,
+    updatedAt,
     version: 1,
     assignee: card.owner ? `agent:${card.owner}` : undefined,
-    labels: buildLabels(card),
+    labels: [...card.labels],
     columnOrder,
     feedback: [],
     result: card.rawStatus && card.rawStatus !== card.columnKey ? `Raw Beads status: ${card.rawStatus}` : undefined,
-    resultAt: card.closedAt ? toEpoch(card.closedAt) : undefined,
+    resultAt: closedAt,
+    beads: {
+      issueId: card.id,
+      rawStatus: card.rawStatus,
+      issueType: card.issueType ?? undefined,
+      owner: card.owner ?? undefined,
+      labels: [...card.labels],
+      dependencyCount: card.dependencyCount,
+      dependentCount: card.dependentCount,
+      commentCount: card.commentCount,
+      createdAt: toOptionalEpoch(card.createdAt),
+      updatedAt: toOptionalEpoch(card.updatedAt),
+      closedAt,
+    },
   };
 }
 

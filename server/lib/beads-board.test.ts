@@ -21,7 +21,7 @@ describe('beads board adapter', () => {
     const mod = await import('./beads-board.js');
 
     const board = mod.projectBeadsIssuesToBoard(defaultSource, [
-      { id: 'todo-1', title: 'Open task', status: 'open', priority: 1 },
+      { id: 'todo-1', title: 'Open task', status: 'open', priority: 1, labels: ['ui', 'board'] },
       { id: 'prog-1', title: 'Working task', status: 'in_progress', priority: 2 },
       { id: 'done-1', title: 'Resolved task', status: 'resolved', priority: 0 },
       { id: 'closed-1', title: 'Closed task', status: 'closed', priority: 3 },
@@ -43,6 +43,7 @@ describe('beads board adapter', () => {
       ['closed', 1],
     ]);
     expect(board.columns[0].items.map((item) => item.id)).toEqual(['todo-1', 'todo-2']);
+    expect(board.columns[0].items[0]?.labels).toEqual(['ui', 'board']);
     expect(board.columns[1].items.map((item) => item.id)).toEqual(['prog-1']);
     expect(board.columns[2].items.map((item) => item.id)).toEqual(['done-1']);
     expect(board.columns[3].items.map((item) => item.id)).toEqual(['closed-1']);
@@ -70,10 +71,10 @@ describe('beads board adapter', () => {
   it('uses resolveBeadsSource and shells out to bd within the resolved repo root', async () => {
     const execFileMock = vi.fn().mockImplementation((_cmd, _args, options, callback) => {
       callback(null, {
-        stdout: JSON.stringify([
-          { id: 'nerve-z7s', title: 'Adapter', status: 'in_progress', dependency_count: 1 },
-          { id: 'nerve-closed', title: 'Closed', status: 'closed', dependency_count: 0 },
-        ]),
+        stdout: [
+          JSON.stringify({ id: 'nerve-z7s', title: 'Adapter', status: 'in_progress', dependency_count: 1, labels: ['backend'] }),
+          JSON.stringify({ id: 'nerve-closed', title: 'Closed', status: 'closed', dependency_count: 0 }),
+        ].join('\n'),
         stderr: '',
       });
     });
@@ -102,7 +103,7 @@ describe('beads board adapter', () => {
 
     expect(execFileMock).toHaveBeenCalledWith(
       expect.stringMatching(/(^bd$|\/bd$)/),
-      ['list', '--all', '--json'],
+      ['export'],
       expect.objectContaining({
         cwd: '/repos/alpha',
         env: expect.objectContaining({ PATH: expect.stringContaining('/.local/bin') }),
@@ -110,6 +111,7 @@ describe('beads board adapter', () => {
       expect.any(Function),
     );
     expect(board.columns[1].items[0]?.id).toBe('nerve-z7s');
+    expect(board.columns[1].items[0]?.labels).toEqual(['backend']);
     expect(board.columns[3].items[0]?.id).toBe('nerve-closed');
     expect(board.source.id).toBe('alpha');
   });
