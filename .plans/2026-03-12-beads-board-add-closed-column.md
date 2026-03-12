@@ -1,7 +1,7 @@
 # Gambit OpenClaw Nerve — Beads board Closed column
 
 **Date:** 2026-03-12  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -43,7 +43,7 @@ This pass should stay narrowly scoped. We do not need to redesign the full Beads
 
 **Status:** ✅ Complete
 
-**Results:** Updated `server/lib/beads-board.ts` to use a four-column Beads-native model (`todo`, `in_progress`, `done`, `closed`) and switched the adapter query to `bd list --all --json` so genuinely closed issues are included instead of filtered out. Refreshed focused adapter and route tests to cover the Closed column and the `--all` query path. Tests: `npm test -- --run server/lib/beads-board.test.ts server/routes/beads.test.ts`. Included in commit `e4b960a`.
+**Results:** Updated `server/lib/beads-board.ts` to use a four-column Beads-native model (`todo`, `in_progress`, `done`, `closed`) and switched the adapter query to `bd list --all --json` so genuinely closed issues are included instead of filtered out. Refreshed focused adapter and route tests to cover the Closed column and the `--all` query path. Tests: `npm test -- --run server/lib/beads-board.test.ts server/routes/beads.test.ts`.
 
 ---
 
@@ -68,7 +68,7 @@ This pass should stay narrowly scoped. We do not need to redesign the full Beads
 
 **Status:** ✅ Complete
 
-**Results:** Updated the Beads frontend normalization/hooks/header/board rendering to keep separate `done` and `closed` columns end-to-end while still reusing existing read-only Kanban cards. Added Closed counts in the Beads header and rendered a fourth Closed lane in the board. Tests/builds: `npm test -- --run src/features/kanban/beads.test.ts` and `npm run build`. Included in commit `e4b960a`.
+**Results:** Updated the Beads frontend normalization/hooks/header/board rendering to keep separate `done` and `closed` columns end-to-end while still reusing existing read-only Kanban cards. Added Closed counts in the Beads header and rendered a fourth Closed lane in the board. Tests/builds: `npm test -- --run src/features/kanban/beads.test.ts` and `npm run build`.
 
 ---
 
@@ -89,7 +89,7 @@ This pass should stay narrowly scoped. We do not need to redesign the full Beads
 
 **Status:** ✅ Complete
 
-**Results:** Restarted the local Nerve server on `127.0.0.1:3080` so live verification used the rebuilt `server-dist/`. Confirmed `/api/beads/board?sourceId=openclaw` now returns four columns with the expected counts (`todo=1`, `in_progress=1`, `done=1`, `closed=9`) and visible cards in each lane. Verified the live UI in Beads mode shows the Closed stat chip and a rendered Closed column for the `~/.openclaw` source; captured browser evidence after widening the viewport so the Closed lane is visible. Verification landed alongside commit `e4b960a`.
+**Results:** Restarted the local Nerve server on `127.0.0.1:3080` so live verification used the rebuilt `server-dist/`. Confirmed `/api/beads/board?sourceId=openclaw` now returns four columns with the expected counts (`todo=1`, `in_progress=1`, `done=1`, `closed=9`) and visible cards in each lane. Verified the live UI in Beads mode shows the Closed stat chip and a rendered Closed column for the `~/.openclaw` source; captured browser evidence after widening the viewport so the Closed lane is visible.
 
 ---
 
@@ -100,7 +100,7 @@ This pass should stay narrowly scoped. We do not need to redesign the full Beads
 **What We Built:** Extended the Beads board backend and frontend from a three-column simplification to a Beads-native four-column model, then verified the live `~/.openclaw` board renders To Do, In Progress, Done, and Closed with matching API/UI counts.
 
 **Commits:**
-- `e4b960a` - Add Closed column support to Beads board
+- `aeef182` - Add Closed column support to Beads board
 
 **Lessons Learned:** The backend needed `bd list --all --json` to surface truly closed work, and the frontend was cleaner once it tracked Beads columns directly instead of collapsing everything into Kanban status buckets.
 
