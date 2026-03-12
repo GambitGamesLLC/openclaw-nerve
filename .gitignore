@@ -49,3 +49,7 @@ wave-reviews/
 server/data/kanban/tasks.json
 server/data/kanban/audit.log
 node_modules
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

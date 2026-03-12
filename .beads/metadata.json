@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "openclaw_nerve",
+  "project_id": "c29417ca-d4f8-43d1-9500-4e18311b2478"
+}
