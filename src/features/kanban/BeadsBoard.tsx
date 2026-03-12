@@ -7,6 +7,7 @@ interface BeadsBoardProps {
   todoTasks: KanbanTask[];
   inProgressTasks: KanbanTask[];
   doneTasks: KanbanTask[];
+  closedTasks: KanbanTask[];
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -19,6 +20,7 @@ const COLUMN_CONFIG = [
   { key: 'todo', label: 'To Do', accent: 'text-blue-400' },
   { key: 'in-progress', label: 'In Progress', accent: 'text-cyan-400' },
   { key: 'done', label: 'Done', accent: 'text-green-400' },
+  { key: 'closed', label: 'Closed', accent: 'text-slate-300' },
 ] as const;
 
 function SkeletonColumn() {
@@ -82,6 +84,7 @@ export const BeadsBoard = memo(function BeadsBoard({
   todoTasks,
   inProgressTasks,
   doneTasks,
+  closedTasks,
   loading,
   error,
   onRetry,
@@ -139,6 +142,7 @@ export const BeadsBoard = memo(function BeadsBoard({
         <BeadsColumn label="To Do" accent="text-blue-400" tasks={todoTasks} onCardClick={onCardClick} />
         <BeadsColumn label="In Progress" accent="text-cyan-400" tasks={inProgressTasks} onCardClick={onCardClick} />
         <BeadsColumn label="Done" accent="text-green-400" tasks={doneTasks} onCardClick={onCardClick} />
+        <BeadsColumn label="Closed" accent="text-slate-300" tasks={closedTasks} onCardClick={onCardClick} />
       </div>
     </div>
   );

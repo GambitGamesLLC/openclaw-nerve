@@ -2,7 +2,7 @@
  * Server-side Beads board adapter.
  *
  * Resolves an env-configured Beads source, shells out to `bd` inside that repo,
- * and projects Beads issues into a simple three-column board DTO for the v1 UI.
+ * and projects Beads issues into a four-column Beads-native board DTO.
  * @module
  */
 
@@ -15,7 +15,7 @@ import { listBeadsSources, resolveBeadsSource, type BeadsSource, config } from '
 
 const execFile = promisify(execFileCallback);
 
-export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done';
+export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done' | 'closed';
 
 export interface BeadsSourceDto {
   id: string;
@@ -147,6 +147,7 @@ export function projectBeadsStatusToColumn(status: string | null | undefined): B
 
   switch (normalized) {
     case 'closed':
+      return 'closed';
     case 'done':
     case 'complete':
     case 'completed':
@@ -166,6 +167,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
     todo: [],
     in_progress: [],
     done: [],
+    closed: [],
   };
 
   for (const issue of rawIssues) {
@@ -197,6 +199,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
     { key: 'todo', title: 'To Do', itemCount: buckets.todo.length, items: buckets.todo },
     { key: 'in_progress', title: 'In Progress', itemCount: buckets.in_progress.length, items: buckets.in_progress },
     { key: 'done', title: 'Done', itemCount: buckets.done.length, items: buckets.done },
+    { key: 'closed', title: 'Closed', itemCount: buckets.closed.length, items: buckets.closed },
   ];
 
   return {
@@ -236,7 +239,7 @@ export async function getBeadsBoard(sourceId?: string | null): Promise<BeadsBoar
   const source = resolveBeadsSource(sourceId);
   if (!source) throw new InvalidBeadsSourceError(sourceId);
 
-  const issues = await execBdJson<BdIssueListItem[]>(source, ['list', '--json']);
+  const issues = await execBdJson<BdIssueListItem[]>(source, ['list', '--all', '--json']);
   if (!Array.isArray(issues)) {
     throw new BeadsAdapterError(source.id, `Unexpected bd output for source "${source.id}"`);
   }

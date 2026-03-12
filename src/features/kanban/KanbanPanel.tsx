@@ -48,8 +48,8 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
     selectedSourceId,
     setSelectedSourceId,
     board: beadsBoard,
-    tasksByStatus: beadsTasksByStatus,
-    statusCounts: beadsStatusCounts,
+    tasksByColumn: beadsTasksByColumn,
+    columnCounts: beadsColumnCounts,
     loading: beadsLoading,
     error: beadsError,
     hasAnyTasks: beadsHasAnyTasks,
@@ -124,7 +124,8 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
       <KanbanHeader
         filters={filters}
         onFiltersChange={setFilters}
-        statusCounts={boardMode === 'beads' ? beadsStatusCounts : statusCounts}
+        statusCounts={statusCounts}
+        beadsColumnCounts={beadsColumnCounts}
         onCreateTask={openCreateDialog}
         proposals={proposals}
         pendingProposalCount={pendingProposalCount}
@@ -141,9 +142,10 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-4 pb-4">
         {boardMode === 'beads' ? (
           <BeadsBoard
-            todoTasks={beadsTasksByStatus('todo')}
-            inProgressTasks={beadsTasksByStatus('in-progress')}
-            doneTasks={beadsTasksByStatus('done')}
+            todoTasks={beadsTasksByColumn('todo')}
+            inProgressTasks={beadsTasksByColumn('in_progress')}
+            doneTasks={beadsTasksByColumn('done')}
+            closedTasks={beadsTasksByColumn('closed')}
             loading={beadsLoading}
             error={beadsError}
             onRetry={() => fetchBeadsBoard(selectedSourceId)}

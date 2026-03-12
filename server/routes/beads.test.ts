@@ -52,7 +52,7 @@ describe('Beads API routes', () => {
     const getBeadsBoard = vi.fn().mockResolvedValue({
       source: { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false },
       generatedAt: '2026-03-11T22:00:00.000Z',
-      totalCount: 1,
+      totalCount: 2,
       columns: [
         { key: 'todo', title: 'To Do', itemCount: 0, items: [] },
         {
@@ -79,6 +79,29 @@ describe('Beads API routes', () => {
           ],
         },
         { key: 'done', title: 'Done', itemCount: 0, items: [] },
+        {
+          key: 'closed',
+          title: 'Closed',
+          itemCount: 1,
+          items: [
+            {
+              id: 'nerve-closed',
+              title: 'Closed issue',
+              description: null,
+              rawStatus: 'closed',
+              columnKey: 'closed',
+              priority: 2,
+              issueType: 'task',
+              owner: null,
+              createdAt: null,
+              updatedAt: null,
+              closedAt: '2026-03-11T23:00:00.000Z',
+              dependencyCount: 0,
+              dependentCount: 0,
+              commentCount: 0,
+            },
+          ],
+        },
       ],
     });
 
@@ -100,9 +123,15 @@ describe('Beads API routes', () => {
     expect(res.status).toBe(200);
     expect(getBeadsBoard).toHaveBeenCalledWith('alpha');
 
-    const json = await res.json() as { source: { id: string }; totalCount: number };
+    const json = await res.json() as { source: { id: string }; totalCount: number; columns: Array<{ key: string; itemCount: number }> };
     expect(json.source.id).toBe('alpha');
-    expect(json.totalCount).toBe(1);
+    expect(json.totalCount).toBe(2);
+    expect(json.columns.map((column) => [column.key, column.itemCount])).toEqual([
+      ['todo', 0],
+      ['in_progress', 1],
+      ['done', 0],
+      ['closed', 1],
+    ]);
   });
 
   it('returns 404 when the requested Beads source id is invalid', async () => {

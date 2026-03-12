@@ -5,7 +5,7 @@ import type { TaskStatus, TaskPriority } from './types';
 import type { KanbanFilters } from './hooks/useKanban';
 import { ProposalInbox } from './ProposalInbox';
 import type { KanbanProposal } from './hooks/useProposals';
-import type { BoardMode, BeadsSourceDto } from './beads';
+import type { BoardMode, BeadsBoardColumnKey, BeadsSourceDto } from './beads';
 
 /* ── Stats chip ── */
 function StatChip({ label, count, accent }: { label: string; count: number; accent: string }) {
@@ -45,6 +45,7 @@ interface KanbanHeaderProps {
   filters: KanbanFilters;
   onFiltersChange: (filters: KanbanFilters) => void;
   statusCounts: Record<TaskStatus, number>;
+  beadsColumnCounts?: Record<BeadsBoardColumnKey, number>;
   onCreateTask: () => void;
   proposals?: KanbanProposal[];
   pendingProposalCount?: number;
@@ -61,6 +62,7 @@ export const KanbanHeader = memo(function KanbanHeader({
   filters,
   onFiltersChange,
   statusCounts,
+  beadsColumnCounts,
   onCreateTask,
   proposals = [],
   pendingProposalCount = 0,
@@ -133,10 +135,11 @@ export const KanbanHeader = memo(function KanbanHeader({
           {isBeadsMode ? 'Beads Board' : 'Tasks'}
         </h1>
         <div className="hidden sm:flex items-center gap-1.5">
-          <StatChip label="To Do" count={statusCounts.todo} accent="text-blue-400" />
-          <StatChip label="In Progress" count={statusCounts['in-progress']} accent="text-cyan-400" />
+          <StatChip label="To Do" count={isBeadsMode ? (beadsColumnCounts?.todo ?? 0) : statusCounts.todo} accent="text-blue-400" />
+          <StatChip label="In Progress" count={isBeadsMode ? (beadsColumnCounts?.in_progress ?? 0) : statusCounts['in-progress']} accent="text-cyan-400" />
           {!isBeadsMode && <StatChip label="Review" count={statusCounts.review} accent="text-amber-400" />}
-          <StatChip label="Done" count={statusCounts.done} accent="text-green-400" />
+          <StatChip label="Done" count={isBeadsMode ? (beadsColumnCounts?.done ?? 0) : statusCounts.done} accent="text-green-400" />
+          {isBeadsMode && <StatChip label="Closed" count={beadsColumnCounts?.closed ?? 0} accent="text-slate-300" />}
         </div>
 
         <div className="flex-1" />
@@ -259,11 +262,11 @@ export const KanbanHeader = memo(function KanbanHeader({
         </div>
       </div>
 
-      {/* Row 2: Filter controls (collapsible) */}
+      {/* Row 2: filters */}
       {!isBeadsMode && showFilters && (
-        <div className="flex items-center gap-2 flex-wrap pt-1">
-          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Priority:</span>
-          {(['critical', 'high', 'normal', 'low'] as TaskPriority[]).map(p => (
+        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-border/40 bg-card/50 px-3 py-2">
+          <span className="text-[11px] font-semibold text-muted-foreground mr-1">Priority</span>
+          {(['critical', 'high', 'normal', 'low'] as const).map((p) => (
             <FilterPill
               key={p}
               label={p.charAt(0).toUpperCase() + p.slice(1)}
@@ -275,9 +278,9 @@ export const KanbanHeader = memo(function KanbanHeader({
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="text-[10px] text-muted-foreground hover:text-foreground underline ml-2"
+              className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
             >
-              Clear all
+              Clear filters
             </button>
           )}
         </div>

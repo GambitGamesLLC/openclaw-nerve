@@ -17,14 +17,14 @@ describe('beads board adapter', () => {
     vi.restoreAllMocks();
   });
 
-  it('projects Beads statuses into the v1 three-column board model', async () => {
+  it('projects Beads statuses into a four-column Beads-native board model', async () => {
     const mod = await import('./beads-board.js');
 
     const board = mod.projectBeadsIssuesToBoard(defaultSource, [
       { id: 'todo-1', title: 'Open task', status: 'open', priority: 1 },
       { id: 'prog-1', title: 'Working task', status: 'in_progress', priority: 2 },
-      { id: 'done-1', title: 'Closed task', status: 'closed', priority: 3 },
-      { id: 'done-2', title: 'Resolved task', status: 'resolved', priority: 0 },
+      { id: 'done-1', title: 'Resolved task', status: 'resolved', priority: 0 },
+      { id: 'closed-1', title: 'Closed task', status: 'closed', priority: 3 },
       { id: 'todo-2', title: 'Unknown status task', status: 'blocked' },
       { title: 'missing id should be ignored' },
     ]);
@@ -39,11 +39,13 @@ describe('beads board adapter', () => {
     expect(board.columns.map((column) => [column.key, column.itemCount])).toEqual([
       ['todo', 2],
       ['in_progress', 1],
-      ['done', 2],
+      ['done', 1],
+      ['closed', 1],
     ]);
     expect(board.columns[0].items.map((item) => item.id)).toEqual(['todo-1', 'todo-2']);
     expect(board.columns[1].items.map((item) => item.id)).toEqual(['prog-1']);
-    expect(board.columns[2].items.map((item) => item.id)).toEqual(['done-1', 'done-2']);
+    expect(board.columns[2].items.map((item) => item.id)).toEqual(['done-1']);
+    expect(board.columns[3].items.map((item) => item.id)).toEqual(['closed-1']);
   });
 
   it('lists safe DTOs for configured Beads sources', async () => {
@@ -70,6 +72,7 @@ describe('beads board adapter', () => {
       callback(null, {
         stdout: JSON.stringify([
           { id: 'nerve-z7s', title: 'Adapter', status: 'in_progress', dependency_count: 1 },
+          { id: 'nerve-closed', title: 'Closed', status: 'closed', dependency_count: 0 },
         ]),
         stderr: '',
       });
@@ -99,7 +102,7 @@ describe('beads board adapter', () => {
 
     expect(execFileMock).toHaveBeenCalledWith(
       expect.stringMatching(/(^bd$|\/bd$)/),
-      ['list', '--json'],
+      ['list', '--all', '--json'],
       expect.objectContaining({
         cwd: '/repos/alpha',
         env: expect.objectContaining({ PATH: expect.stringContaining('/.local/bin') }),
@@ -107,6 +110,7 @@ describe('beads board adapter', () => {
       expect.any(Function),
     );
     expect(board.columns[1].items[0]?.id).toBe('nerve-z7s');
+    expect(board.columns[3].items[0]?.id).toBe('nerve-closed');
     expect(board.source.id).toBe('alpha');
   });
 

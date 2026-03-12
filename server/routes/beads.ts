@@ -2,7 +2,7 @@
  * Beads board API routes.
  *
  * GET /api/beads/sources       — List safe, env-configured Beads sources
- * GET /api/beads/board         — Return a three-column Beads board projection
+ * GET /api/beads/board         — Return a four-column Beads-native board projection
  * @module
  */
 

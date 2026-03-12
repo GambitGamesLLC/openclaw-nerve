@@ -16,17 +16,18 @@ describe('Beads board normalization', () => {
     expect(mapBeadsPriorityToKanban(null)).toBe('normal');
   });
 
-  it('maps three Beads board columns onto supported Kanban statuses', () => {
+  it('maps four Beads board columns onto supported card statuses', () => {
     expect(mapBeadsColumnToTaskStatus('todo')).toBe('todo');
     expect(mapBeadsColumnToTaskStatus('in_progress')).toBe('in-progress');
     expect(mapBeadsColumnToTaskStatus('done')).toBe('done');
+    expect(mapBeadsColumnToTaskStatus('closed')).toBe('done');
   });
 
-  it('normalizes board DTO cards into read-only Kanban task cards', () => {
+  it('normalizes board DTO cards into read-only Beads column cards', () => {
     const board: BeadsBoardDto = {
       source: { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
       generatedAt: '2026-03-11T22:00:00.000Z',
-      totalCount: 2,
+      totalCount: 3,
       columns: [
         {
           key: 'todo',
@@ -52,19 +53,40 @@ describe('Beads board normalization', () => {
         {
           key: 'in_progress',
           title: 'In Progress',
-          itemCount: 0,
-          items: [],
+          itemCount: 1,
+          items: [{
+            id: 'nerve-working',
+            title: 'Keep shipping',
+            description: null,
+            rawStatus: 'in_progress',
+            columnKey: 'in_progress',
+            priority: 2,
+            issueType: 'task',
+            owner: null,
+            createdAt: null,
+            updatedAt: null,
+            closedAt: null,
+            dependencyCount: 0,
+            dependentCount: 0,
+            commentCount: 0,
+          }],
         },
         {
           key: 'done',
           title: 'Done',
+          itemCount: 0,
+          items: [],
+        },
+        {
+          key: 'closed',
+          title: 'Closed',
           itemCount: 1,
           items: [{
             id: 'nerve-ddk',
             title: 'Source registry',
             description: null,
             rawStatus: 'closed',
-            columnKey: 'done',
+            columnKey: 'closed',
             priority: 2,
             issueType: 'task',
             owner: null,
@@ -81,8 +103,9 @@ describe('Beads board normalization', () => {
 
     const normalized = normalizeBeadsBoard(board);
     expect(normalized.todo).toHaveLength(1);
-    expect(normalized['in-progress']).toHaveLength(0);
-    expect(normalized.done).toHaveLength(1);
+    expect(normalized.in_progress).toHaveLength(1);
+    expect(normalized.done).toHaveLength(0);
+    expect(normalized.closed).toHaveLength(1);
 
     const todo = normalized.todo[0];
     expect(todo).toMatchObject({
@@ -94,9 +117,9 @@ describe('Beads board normalization', () => {
       labels: ['task', '2 dep', '1 comment'],
     });
 
-    const done = mapBeadsCardToKanbanTask(board.columns[2].items[0], 0);
-    expect(done.status).toBe('done');
-    expect(done.result).toBe('Raw Beads status: closed');
-    expect(done.resultAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
+    const closed = mapBeadsCardToKanbanTask(board.columns[3].items[0], 0);
+    expect(closed.status).toBe('done');
+    expect(closed.result).toBeUndefined();
+    expect(closed.resultAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
   });
 });

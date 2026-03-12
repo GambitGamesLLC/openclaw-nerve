@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { KanbanTask, TaskStatus } from '../types';
-import type { BeadsBoardDto, BeadsSourceDto, BeadsSourcesResponse } from '../beads';
+import type { BeadsBoardColumnKey, BeadsBoardDto, BeadsSourceDto, BeadsSourcesResponse } from '../beads';
 import { normalizeBeadsBoard } from '../beads';
 
 export function useBeadsBoard() {
@@ -94,25 +93,21 @@ export function useBeadsBoard() {
   }, [selectedSourceId, fetchBoard]);
 
   const normalized = useMemo(() => board ? normalizeBeadsBoard(board) : {
-    backlog: [],
     todo: [],
-    'in-progress': [],
-    review: [],
+    in_progress: [],
     done: [],
-    cancelled: [],
+    closed: [],
   }, [board]);
 
-  const tasksByStatus = useCallback((status: TaskStatus): KanbanTask[] => {
-    return normalized[status] ?? [];
+  const tasksByColumn = useCallback((columnKey: BeadsBoardColumnKey) => {
+    return normalized[columnKey] ?? [];
   }, [normalized]);
 
-  const statusCounts = useMemo(() => ({
-    backlog: 0,
+  const columnCounts = useMemo(() => ({
     todo: normalized.todo.length,
-    'in-progress': normalized['in-progress'].length,
-    review: 0,
+    in_progress: normalized.in_progress.length,
     done: normalized.done.length,
-    cancelled: 0,
+    closed: normalized.closed.length,
   }), [normalized]);
 
   return {
@@ -120,8 +115,8 @@ export function useBeadsBoard() {
     selectedSourceId,
     setSelectedSourceId,
     board,
-    tasksByStatus,
-    statusCounts,
+    tasksByColumn,
+    columnCounts,
     loading: loadingSources || loadingBoard,
     error,
     hasAnyTasks: (board?.totalCount ?? 0) > 0,

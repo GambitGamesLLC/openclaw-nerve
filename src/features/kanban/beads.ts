@@ -1,6 +1,6 @@
 import type { KanbanTask } from './types';
 
-export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done';
+export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done' | 'closed';
 
 export interface BeadsSourceDto {
   id: string;
@@ -46,6 +46,7 @@ export interface BeadsSourcesResponse {
 }
 
 export type BoardMode = 'kanban' | 'beads';
+export type BeadsBoardTasksByColumn = Record<BeadsBoardColumnKey, KanbanTask[]>;
 
 export function mapBeadsPriorityToKanban(priority: number | null | undefined): KanbanTask['priority'] {
   if (typeof priority !== 'number' || !Number.isFinite(priority)) return 'normal';
@@ -60,6 +61,7 @@ export function mapBeadsColumnToTaskStatus(columnKey: BeadsBoardColumnKey): Kanb
     case 'in_progress':
       return 'in-progress';
     case 'done':
+    case 'closed':
       return 'done';
     case 'todo':
     default:
@@ -102,20 +104,18 @@ export function mapBeadsCardToKanbanTask(card: BeadsBoardCardDto, columnOrder: n
   };
 }
 
-export function normalizeBeadsBoard(board: BeadsBoardDto): Record<KanbanTask['status'], KanbanTask[]> {
-  const normalized: Record<KanbanTask['status'], KanbanTask[]> = {
-    backlog: [],
+export function normalizeBeadsBoard(board: BeadsBoardDto): BeadsBoardTasksByColumn {
+  const normalized: BeadsBoardTasksByColumn = {
     todo: [],
-    'in-progress': [],
-    review: [],
+    in_progress: [],
     done: [],
-    cancelled: [],
+    closed: [],
   };
 
   for (const column of board.columns) {
     column.items.forEach((card, index) => {
       const task = mapBeadsCardToKanbanTask(card, index);
-      normalized[task.status].push(task);
+      normalized[column.key].push(task);
     });
   }
 
