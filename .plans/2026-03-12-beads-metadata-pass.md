@@ -101,7 +101,7 @@ Because the current Beads board is largely read-only, this is also a good chance
 **What We Built:** Expanded the Beads board DTO and normalization path to carry Beads-native metadata, added compact scan-friendly Beads card chrome, and introduced a dedicated read-only Beads detail drawer so richer metadata is available on demand without cluttering the board. Live verification against the real `~/.openclaw` Beads source passed after rebuilding and restarting the local Nerve server.
 
 **Commits:**
-- `bd5a714` - Add Beads-native metadata cards and drawer
+- `0181bfd` - Add Beads-native metadata cards and drawer
 
 **Lessons Learned:** Restarting the local packaged Nerve server matters after frontend bundle changes; otherwise the browser can keep serving stale assets and produce misleading runtime errors during verification.
 
