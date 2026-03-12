@@ -31,6 +31,132 @@ const HOME = process.env.HOME || os.homedir();
 const SUPPORTED_LANGUAGE_CODES = new Set(SUPPORTED_LANGUAGES.map((l) => l.code));
 
 const LANGUAGE_ENV_VALUE = process.env.NERVE_LANGUAGE ?? process.env.LANGUAGE;
+const DEFAULT_OPENCLAW_ROOT = path.join(HOME, '.openclaw');
+const DEFAULT_BEADS_PROJECTS_ROOT = path.join(DEFAULT_OPENCLAW_ROOT, 'workspace', 'projects');
+const BEADS_SOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
+
+export interface BeadsSource {
+  id: string;
+  label: string;
+  rootPath: string;
+  kind: 'openclaw' | 'project';
+}
+
+interface ParsedBeadsSources {
+  sources: BeadsSource[];
+  defaultSourceId: string;
+}
+
+function expandHomePath(input: string): string {
+  if (input === '~') return HOME;
+  if (input.startsWith('~/')) return path.join(HOME, input.slice(2));
+  return input;
+}
+
+function isWithinDirectory(targetPath: string, rootPath: string): boolean {
+  const relative = path.relative(rootPath, targetPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function normalizeBeadsRootPath(input: string): string {
+  const expanded = expandHomePath(input.trim());
+  const resolved = path.resolve(expanded);
+  try {
+    return fs.realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function parseBeadsSources(
+  rawSources: string | undefined,
+  rawDefaultSourceId: string | undefined,
+  rawProjectsRoot: string | undefined,
+): ParsedBeadsSources {
+  const projectsRoot = normalizeBeadsRootPath(rawProjectsRoot || DEFAULT_BEADS_PROJECTS_ROOT);
+  const openclawRoot = normalizeBeadsRootPath(DEFAULT_OPENCLAW_ROOT);
+  const sources: BeadsSource[] = [
+    {
+      id: 'openclaw',
+      label: '~/.openclaw',
+      rootPath: openclawRoot,
+      kind: 'openclaw',
+    },
+  ];
+  const seenIds = new Set(sources.map((source) => source.id));
+
+  for (const entry of (rawSources || '').split(/[,\n]+/).map((part) => part.trim()).filter(Boolean)) {
+    const [rawId, rawLabel, rawRootPath, ...extra] = entry.split('|').map((part) => part.trim());
+    if (!rawId || !rawLabel || !rawRootPath || extra.length > 0) {
+      console.warn(
+        `[config] ⚠ Skipping NERVE_BEADS_SOURCES entry "${entry}" — expected format id|label|/abs/path`,
+      );
+      continue;
+    }
+
+    const id = rawId.toLowerCase();
+    if (!BEADS_SOURCE_ID_PATTERN.test(id)) {
+      console.warn(
+        `[config] ⚠ Skipping Beads source "${rawId}" — ids must match ${BEADS_SOURCE_ID_PATTERN}`,
+      );
+      continue;
+    }
+
+    if (seenIds.has(id)) {
+      console.warn(`[config] ⚠ Skipping duplicate Beads source id "${id}"`);
+      continue;
+    }
+
+    const rootPath = normalizeBeadsRootPath(rawRootPath);
+    const kind = rootPath === openclawRoot ? 'openclaw' : 'project';
+    const isAllowed = kind === 'openclaw'
+      ? rootPath === openclawRoot
+      : isWithinDirectory(rootPath, projectsRoot);
+
+    if (!isAllowed) {
+      console.warn(
+        `[config] ⚠ Skipping Beads source "${id}" — path must be ~/.openclaw or inside ${projectsRoot}`,
+      );
+      continue;
+    }
+
+    try {
+      const stat = fs.statSync(rootPath);
+      if (!stat.isDirectory()) {
+        console.warn(`[config] ⚠ Skipping Beads source "${id}" — ${rootPath} is not a directory`);
+        continue;
+      }
+    } catch {
+      console.warn(`[config] ⚠ Skipping Beads source "${id}" — ${rootPath} does not exist`);
+      continue;
+    }
+
+    seenIds.add(id);
+    sources.push({
+      id,
+      label: rawLabel,
+      rootPath,
+      kind,
+    });
+  }
+
+  const requestedDefaultSourceId = (rawDefaultSourceId || 'openclaw').trim().toLowerCase() || 'openclaw';
+  const defaultSourceId = seenIds.has(requestedDefaultSourceId) ? requestedDefaultSourceId : 'openclaw';
+
+  if (requestedDefaultSourceId !== defaultSourceId) {
+    console.warn(
+      `[config] ⚠ NERVE_BEADS_DEFAULT_SOURCE "${requestedDefaultSourceId}" is not configured — falling back to "${defaultSourceId}"`,
+    );
+  }
+
+  return { sources, defaultSourceId };
+}
+
+const parsedBeadsSources = parseBeadsSources(
+  process.env.NERVE_BEADS_SOURCES,
+  process.env.NERVE_BEADS_DEFAULT_SOURCE,
+  process.env.NERVE_BEADS_PROJECTS_ROOT,
+);
 
 function normalizeLanguagePreference(language: string | undefined): string {
   const normalized = (language || DEFAULT_LANGUAGE).trim().toLowerCase();
@@ -86,6 +212,14 @@ export const config = {
   certPath: path.join(PROJECT_ROOT, 'certs', 'cert.pem'),
   keyPath: path.join(PROJECT_ROOT, 'certs', 'key.pem'),
   bunPath: path.join(HOME, '.bun', 'bin', 'bunx'),
+
+  // Beads source registry
+  beads: {
+    projectsRoot: normalizeBeadsRootPath(process.env.NERVE_BEADS_PROJECTS_ROOT || DEFAULT_BEADS_PROJECTS_ROOT),
+    defaultSourceId: parsedBeadsSources.defaultSourceId,
+    sources: parsedBeadsSources.sources,
+  },
+
   // Limits
   limits: {
     tts: 64 * 1024,                  // 64 KB
@@ -169,6 +303,19 @@ export const WS_ALLOWED_HOSTS = new Set([
   'localhost', '127.0.0.1', '::1',
   ...(process.env.WS_ALLOWED_HOSTS?.split(',').map(h => h.trim()).filter(Boolean) ?? []),
 ]);
+
+const BEADS_SOURCE_MAP = new Map(config.beads.sources.map((source) => [source.id, source]));
+
+/** Return the configured Beads source, defaulting when sourceId is omitted. */
+export function resolveBeadsSource(sourceId?: string | null): BeadsSource | null {
+  const normalizedSourceId = sourceId?.trim().toLowerCase() || config.beads.defaultSourceId;
+  return BEADS_SOURCE_MAP.get(normalizedSourceId) ?? null;
+}
+
+/** Return the configured Beads sources in stable display order. */
+export function listBeadsSources(): readonly BeadsSource[] {
+  return config.beads.sources;
+}
 
 /** Resolve the TTS provider label for the startup banner. */
 function ttsProviderLabel(): string {

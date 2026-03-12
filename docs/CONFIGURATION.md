@@ -240,6 +240,22 @@ REPLICATE_BASE_URL=https://api.replicate.com/v1
 |----------|---------|-------------|
 | `CODEX_DIR` | `.codex` | Directory for Codex integration files |
 
+### Beads Source Registry
+
+Use these variables to define the safe allowlist of repos that future Beads board APIs/UI can target. Nerve always includes a built-in `openclaw` source pointing at `~/.openclaw`. Additional sources must live inside the configured projects root.
+
+| Variable | Default | Description |
+|---------|---------|-------------|
+| `NERVE_BEADS_SOURCES` | `""` | Comma/newline-separated `id|Label|/abs/path` entries for extra allowed Beads repos |
+| `NERVE_BEADS_DEFAULT_SOURCE` | `openclaw` | Source id used when no explicit source is provided |
+| `NERVE_BEADS_PROJECTS_ROOT` | `~/.openclaw/workspace/projects/` | Base directory that additional Beads repo sources must live under |
+
+```env
+NERVE_BEADS_SOURCES=repo-a|Repo A|~/.openclaw/workspace/projects/repo-a
+NERVE_BEADS_DEFAULT_SOURCE=repo-a
+NERVE_BEADS_PROJECTS_ROOT=~/.openclaw/workspace/projects
+```
+
 ### File Paths
 
 | Variable | Default | Description |

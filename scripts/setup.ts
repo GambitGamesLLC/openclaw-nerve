@@ -11,7 +11,7 @@
 /** Mask a token for display, with a guard for short tokens. */
 // Show token in prompts so users can verify what they entered
 
-import { existsSync, readdirSync, mkdirSync, copyFileSync, lstatSync } from 'node:fs';
+import { existsSync, readdirSync, mkdirSync, copyFileSync, lstatSync, readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 import { randomBytes } from 'node:crypto';
@@ -47,6 +47,30 @@ const args = process.argv.slice(2);
 const isHelp = args.includes('--help') || args.includes('-h');
 const isCheck = args.includes('--check');
 const isDefaults = args.includes('--defaults');
+
+function detectAgentDisplayNameDefault(existingName?: string): string {
+  if (existingName?.trim()) return existingName.trim();
+
+  const identityCandidates = [
+    resolve(homedir(), '.openclaw', 'workspace', 'IDENTITY.md'),
+    resolve(homedir(), '.openclaw', 'workspace', 'projects', 'openclaw-agent', 'IDENTITY.md'),
+  ];
+
+  for (const identityPath of identityCandidates) {
+    if (!existsSync(identityPath)) continue;
+
+    try {
+      const raw = readFileSync(identityPath, 'utf-8');
+      const match = raw.match(/^-[ \t]*\*\*Name:\*\*[ \t]*(.+)$/m);
+      const detected = match?.[1]?.trim();
+      if (detected) return detected;
+    } catch {
+      // Non-fatal — keep falling back.
+    }
+  }
+
+  return DEFAULTS.AGENT_NAME;
+}
 
 function detectPrimaryIpv4(): string | null {
   const nets = networkInterfaces();
@@ -422,7 +446,7 @@ async function collectInteractive(
   config.AGENT_NAME = await input({
     theme: promptTheme,
     message: 'Agent display name',
-    default: existing.AGENT_NAME || DEFAULTS.AGENT_NAME,
+    default: detectAgentDisplayNameDefault(existing.AGENT_NAME),
   });
 
   // ── 3/5: Access Mode ──────────────────────────────────────────────
@@ -1030,7 +1054,7 @@ async function runDefaults(existing: EnvConfig): Promise<void> {
 
   // Apply defaults for everything else
   if (!config.GATEWAY_URL) config.GATEWAY_URL = DEFAULTS.GATEWAY_URL;
-  if (!config.AGENT_NAME) config.AGENT_NAME = DEFAULTS.AGENT_NAME;
+  if (!config.AGENT_NAME) config.AGENT_NAME = detectAgentDisplayNameDefault();
   if (!config.PORT) config.PORT = DEFAULTS.PORT;
   if (!config.HOST) config.HOST = DEFAULTS.HOST;
 

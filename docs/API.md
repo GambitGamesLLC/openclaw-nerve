@@ -29,6 +29,7 @@ Nerve exposes a REST + SSE API served by [Hono](https://hono.dev/) on the config
 - [Codex Limits](#codex-limits)
 - [Claude Code Limits](#claude-code-limits)
 - [Kanban](#kanban)
+- [Beads Board](#beads-board)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
 
@@ -1773,6 +1774,75 @@ See [Configuration -- Kanban](./CONFIGURATION.md#kanban) for all available field
 **Response:** The full updated config object.
 
 **Errors:** 400 if validation fails.
+
+---
+
+## Beads Board
+
+These endpoints expose a backend-only Beads board projection built from the server-side `bd` CLI adapter. They accept a configured `sourceId`, not a raw filesystem path.
+
+### `GET /api/beads/sources`
+
+List the env-configured Beads sources that Nerve is allowed to query.
+
+**Rate Limit:** General (60/min)
+
+**Response:**
+
+```json
+{
+  "defaultSourceId": "openclaw",
+  "sources": [
+    {
+      "id": "openclaw",
+      "label": "~/.openclaw",
+      "kind": "openclaw",
+      "isDefault": true
+    },
+    {
+      "id": "my-project",
+      "label": "My Project",
+      "kind": "project",
+      "isDefault": false
+    }
+  ]
+}
+```
+
+### `GET /api/beads/board?sourceId=<id>`
+
+Return a normalized three-column Beads board for the selected source. When `sourceId` is omitted, the configured default source is used.
+
+**Rate Limit:** General (60/min)
+
+**Response:**
+
+```json
+{
+  "source": {
+    "id": "openclaw",
+    "label": "~/.openclaw",
+    "kind": "openclaw",
+    "isDefault": true
+  },
+  "generatedAt": "2026-03-11T22:00:00.000Z",
+  "totalCount": 3,
+  "columns": [
+    { "key": "todo", "title": "To Do", "itemCount": 1, "items": [] },
+    { "key": "in_progress", "title": "In Progress", "itemCount": 1, "items": [] },
+    { "key": "done", "title": "Done", "itemCount": 1, "items": [] }
+  ]
+}
+```
+
+**Column projection:**
+- `closed`, `done`, `complete`, `completed`, `resolved` → `done`
+- `in_progress`, `active`, `working` → `in_progress`
+- anything else → `todo`
+
+**Errors:**
+- `404` when the requested `sourceId` is not configured
+- `502` when the server cannot read Beads data from the selected source
 
 ---
 

@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { KanbanTask } from './types';
+import type { BoardMode } from './beads';
 import { useKanban } from './hooks/useKanban';
+import { useBeadsBoard } from './hooks/useBeadsBoard';
 import { useProposals } from './hooks/useProposals';
 import { KanbanHeader } from './KanbanHeader';
 import { KanbanBoard } from './KanbanBoard';
+import { BeadsBoard } from './BeadsBoard';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
 
@@ -19,6 +22,8 @@ interface KanbanPanelProps {
  * Full board with header, columns, create dialog, and detail drawer.
  */
 export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPanelProps = {}) {
+  const [boardMode, setBoardMode] = useState<BoardMode>('kanban');
+
   const {
     tasks,
     loading,
@@ -37,6 +42,19 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
     rejectTask,
     abortTask,
   } = useKanban();
+
+  const {
+    sources: beadsSources,
+    selectedSourceId,
+    setSelectedSourceId,
+    board: beadsBoard,
+    tasksByStatus: beadsTasksByStatus,
+    statusCounts: beadsStatusCounts,
+    loading: beadsLoading,
+    error: beadsError,
+    hasAnyTasks: beadsHasAnyTasks,
+    fetchBoard: fetchBeadsBoard,
+  } = useBeadsBoard();
 
   const {
     proposals,
@@ -61,10 +79,17 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
     }
   }, [initialTaskId, tasks, onInitialTaskConsumed]);
 
+  useEffect(() => {
+    if (boardMode === 'beads') {
+      setSelectedTask(null);
+    }
+  }, [boardMode]);
+
   /* ── Card click → open drawer ── */
   const handleCardClick = useCallback((task: KanbanTask) => {
+    if (boardMode !== 'kanban') return;
     setSelectedTask(task);
-  }, []);
+  }, [boardMode]);
 
   /* ── Close drawer ── */
   const handleCloseDrawer = useCallback(() => {
@@ -99,26 +124,44 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
       <KanbanHeader
         filters={filters}
         onFiltersChange={setFilters}
-        statusCounts={statusCounts}
+        statusCounts={boardMode === 'beads' ? beadsStatusCounts : statusCounts}
         onCreateTask={openCreateDialog}
         proposals={proposals}
         pendingProposalCount={pendingProposalCount}
         onApproveProposal={async (id) => { await approveProposal(id); await fetchTasks(); }}
         onRejectProposal={async (id) => { await rejectProposal(id); }}
+        boardMode={boardMode}
+        onBoardModeChange={setBoardMode}
+        beadsSources={beadsSources}
+        selectedBeadsSourceId={selectedSourceId}
+        onBeadsSourceChange={setSelectedSourceId}
       />
 
       {/* Board body */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-4 pb-4">
-        <KanbanBoard
-          tasksByStatus={tasksByStatus}
-          onCardClick={handleCardClick}
-          loading={loading}
-          error={error}
-          onRetry={() => fetchTasks()}
-          hasAnyTasks={tasks.length > 0}
-          onCreateTask={openCreateDialog}
-          reorderTask={reorderTask}
-        />
+        {boardMode === 'beads' ? (
+          <BeadsBoard
+            todoTasks={beadsTasksByStatus('todo')}
+            inProgressTasks={beadsTasksByStatus('in-progress')}
+            doneTasks={beadsTasksByStatus('done')}
+            loading={beadsLoading}
+            error={beadsError}
+            onRetry={() => fetchBeadsBoard(selectedSourceId)}
+            hasAnyTasks={beadsHasAnyTasks}
+            sourceLabel={beadsBoard?.source.label}
+          />
+        ) : (
+          <KanbanBoard
+            tasksByStatus={tasksByStatus}
+            onCardClick={handleCardClick}
+            loading={loading}
+            error={error}
+            onRetry={() => fetchTasks()}
+            hasAnyTasks={tasks.length > 0}
+            onCreateTask={openCreateDialog}
+            reorderTask={reorderTask}
+          />
+        )}
       </div>
 
       {/* Create Task Modal */}
@@ -129,16 +172,18 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
       />
 
       {/* Task Detail Drawer */}
-      <TaskDetailDrawer
-        task={selectedTask}
-        onClose={handleCloseDrawer}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        onExecute={executeTask}
-        onApprove={approveTask}
-        onReject={rejectTask}
-        onAbort={abortTask}
-      />
+      {boardMode === 'kanban' && (
+        <TaskDetailDrawer
+          task={selectedTask}
+          onClose={handleCloseDrawer}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onExecute={executeTask}
+          onApprove={approveTask}
+          onReject={rejectTask}
+          onAbort={abortTask}
+        />
+      )}
     </div>
   );
 }

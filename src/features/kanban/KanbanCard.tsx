@@ -59,15 +59,21 @@ interface KanbanCardProps {
   isOverlay?: boolean;
   /** Alias for isOverlay (compat with KanbanBoard) */
   isDragOverlay?: boolean;
+  /** Disable sortable drag behavior while keeping the same card UI. */
+  sortable?: boolean;
 }
 
-export const KanbanCard = memo(function KanbanCard({ task, onClick, isOverlay, isDragOverlay }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ task, onClick, isOverlay, isDragOverlay, sortable = true }: KanbanCardProps) {
   const overlay = isOverlay || isDragOverlay;
-  return overlay ? (
-    <CardContent task={task} onClick={onClick} isDragging isOverlay />
-  ) : (
-    <SortableCard task={task} onClick={onClick} />
-  );
+  if (overlay) {
+    return <CardContent task={task} onClick={onClick} isDragging isOverlay />;
+  }
+
+  if (!sortable) {
+    return <CardContent task={task} onClick={onClick} />;
+  }
+
+  return <SortableCard task={task} onClick={onClick} />;
 });
 
 /* ── Sortable wrapper (only used for in-place cards, not overlay) ── */

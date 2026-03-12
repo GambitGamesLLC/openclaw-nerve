@@ -944,7 +944,7 @@ ExecStart=${node_bin} server-dist/index.js
 EnvironmentFile=${working_dir}/.env
 Environment=NODE_ENV=production
 Environment=HOME=${install_home}
-Environment=PATH=${node_dir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PATH=${install_home}/.local/bin:${install_home}/.npm-global/bin:${install_home}/.volta/bin:${install_home}/.bun/bin:${node_dir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Restart=on-failure
 RestartSec=5
 

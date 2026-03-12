@@ -1,9 +1,16 @@
 /** Tests for server/lib/config.ts — env-driven config, helpers, and banner. */
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 describe('config module', () => {
   const originalEnv = { ...process.env };
+
+  async function importFreshConfig() {
+    vi.resetModules();
+    return import('./config.js');
+  }
 
   afterEach(() => {
     process.env = { ...originalEnv };
@@ -344,6 +351,90 @@ describe('config module', () => {
       const provider: string = config.sttProvider;
       expect(provider).toBe('openai');
       updateConfig('sttProvider', 'local');
+    });
+  });
+
+  describe('beads source registry', () => {
+    it('defaults to the built-in ~/.openclaw source', async () => {
+      const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-home-'));
+      await fs.mkdir(path.join(homeDir, '.openclaw', 'workspace', 'projects'), { recursive: true });
+      process.env.HOME = homeDir;
+      delete process.env.NERVE_BEADS_SOURCES;
+      delete process.env.NERVE_BEADS_DEFAULT_SOURCE;
+      delete process.env.NERVE_BEADS_PROJECTS_ROOT;
+
+      const { config, resolveBeadsSource, listBeadsSources } = await importFreshConfig();
+
+      expect(config.beads.defaultSourceId).toBe('openclaw');
+      expect(config.beads.sources).toEqual([
+        {
+          id: 'openclaw',
+          label: '~/.openclaw',
+          rootPath: path.join(homeDir, '.openclaw'),
+          kind: 'openclaw',
+        },
+      ]);
+      expect(listBeadsSources()).toEqual(config.beads.sources);
+      expect(resolveBeadsSource()).toEqual(config.beads.sources[0]);
+    });
+
+    it('parses configured project sources and resolves the configured default', async () => {
+      const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-home-'));
+      const projectsRoot = path.join(homeDir, '.openclaw', 'workspace', 'projects');
+      const projectRoot = path.join(projectsRoot, 'alpha');
+      await fs.mkdir(projectRoot, { recursive: true });
+
+      process.env.HOME = homeDir;
+      process.env.NERVE_BEADS_SOURCES = `alpha|Alpha Repo|${projectRoot}`;
+      process.env.NERVE_BEADS_DEFAULT_SOURCE = 'alpha';
+      delete process.env.NERVE_BEADS_PROJECTS_ROOT;
+
+      const { config, resolveBeadsSource } = await importFreshConfig();
+
+      expect(config.beads.defaultSourceId).toBe('alpha');
+      expect(config.beads.projectsRoot).toBe(projectsRoot);
+      expect(config.beads.sources).toEqual([
+        {
+          id: 'openclaw',
+          label: '~/.openclaw',
+          rootPath: path.join(homeDir, '.openclaw'),
+          kind: 'openclaw',
+        },
+        {
+          id: 'alpha',
+          label: 'Alpha Repo',
+          rootPath: projectRoot,
+          kind: 'project',
+        },
+      ]);
+      expect(resolveBeadsSource('alpha')).toEqual(config.beads.sources[1]);
+      expect(resolveBeadsSource('missing')).toBeNull();
+    });
+
+    it('rejects sources outside ~/.openclaw and the configured projects root', async () => {
+      const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-home-'));
+      const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-outside-'));
+      await fs.mkdir(path.join(homeDir, '.openclaw', 'workspace', 'projects'), { recursive: true });
+
+      process.env.HOME = homeDir;
+      process.env.NERVE_BEADS_SOURCES = `outside|Outside|${outsideRoot}`;
+      process.env.NERVE_BEADS_DEFAULT_SOURCE = 'outside';
+      delete process.env.NERVE_BEADS_PROJECTS_ROOT;
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { config, resolveBeadsSource } = await importFreshConfig();
+
+      expect(config.beads.sources).toEqual([
+        {
+          id: 'openclaw',
+          label: '~/.openclaw',
+          rootPath: path.join(homeDir, '.openclaw'),
+          kind: 'openclaw',
+        },
+      ]);
+      expect(config.beads.defaultSourceId).toBe('openclaw');
+      expect(resolveBeadsSource('outside')).toBeNull();
+      expect(warnSpy).toHaveBeenCalled();
     });
   });
 });
