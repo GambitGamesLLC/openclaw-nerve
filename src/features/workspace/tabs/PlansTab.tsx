@@ -4,7 +4,7 @@ import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { usePlans, type PlanSummary } from '../hooks/usePlans';
 
 interface PlansTabProps {
-  onOpenPlan?: (path: string) => void;
+  onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
 }
 
@@ -74,7 +74,7 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPlan, onOpenTask }: PlansTabProps) {
+export function PlansTab({ onOpenPath, onOpenTask }: PlansTabProps) {
   const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans();
   const [search, setSearch] = useState('');
 
@@ -104,7 +104,7 @@ export function PlansTab({ onOpenPlan, onOpenTask }: PlansTabProps) {
       void loadPlan(path);
       return;
     }
-    onOpenPlan?.(path);
+    onOpenPath?.(path);
   }
 
   return (
@@ -212,12 +212,13 @@ export function PlansTab({ onOpenPlan, onOpenTask }: PlansTabProps) {
                     ))}
                   </div>
                 </div>
-                {onOpenPlan && (
+                {onOpenPath && (
                   <button
-                    onClick={() => onOpenPlan(selectedPlan.path)}
+                    onClick={() => onOpenPath(selectedPlan.path)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                    title="Open this path inside Nerve"
                   >
-                    Open in Editor
+                    Open in Nerve
                     <ArrowUpRight size={11} />
                   </button>
                 )}
@@ -231,7 +232,7 @@ export function PlansTab({ onOpenPlan, onOpenTask }: PlansTabProps) {
                   className="pt-3 text-sm"
                   plans={plans}
                   onOpenPlanReference={handleOpenPlanReference}
-                  onOpenPath={onOpenPlan}
+                  onOpenPath={onOpenPath}
                   onOpenTask={onOpenTask}
                 />
               )}

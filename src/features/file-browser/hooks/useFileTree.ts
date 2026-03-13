@@ -1,6 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { TreeEntry } from '../types';
 
+function findEntry(entries: TreeEntry[], target: string): TreeEntry | null {
+  for (const entry of entries) {
+    if (entry.path === target) return entry;
+    if (entry.children) {
+      const found = findEntry(entry.children, target);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 const STORAGE_KEY = 'nerve-file-tree-expanded';
 
 /** Load expanded paths from localStorage for persistence. */
@@ -54,6 +65,7 @@ function clearEntryFromTree(entries: TreeEntry[], targetPath: string): TreeEntry
 /** Hook for managing file tree state with workspace info and persistence. */
 export function useFileTree() {
   const [entries, setEntries] = useState<TreeEntry[]>([]);
+  const entriesRef = useRef<TreeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(loadExpandedPaths);
@@ -66,6 +78,10 @@ export function useFileTree() {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   // Persist expanded paths
   useEffect(() => {
@@ -159,16 +175,6 @@ export function useFileTree() {
     if (expandedPaths.has(dirPath)) return;
 
     // Check if children are already loaded in the tree
-    const findEntry = (es: TreeEntry[], target: string): TreeEntry | null => {
-      for (const e of es) {
-        if (e.path === target) return e;
-        if (e.children) {
-          const found = findEntry(e.children, target);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
     const entry = findEntry(entries, dirPath);
     if (entry?.children !== null && entry?.children !== undefined) return;
 
@@ -234,6 +240,52 @@ export function useFileTree() {
     }
   }, [expandedPaths, refreshDirectory]);
 
+  const ensureDirectoryLoaded = useCallback(async (dirPath: string) => {
+    const entry = findEntry(entriesRef.current, dirPath);
+    if (entry?.type !== 'directory') return;
+    if (entry.children !== null && entry.children !== undefined) return;
+
+    setLoadingPaths((prev) => new Set([...prev, dirPath]));
+    const children = await fetchChildren(dirPath);
+    if (!mountedRef.current) return;
+
+    setLoadingPaths((prev) => {
+      const next = new Set(prev);
+      next.delete(dirPath);
+      return next;
+    });
+
+    if (children) {
+      setEntries((prev) => {
+        const next = mergeChildren(prev, dirPath, children);
+        entriesRef.current = next;
+        return next;
+      });
+    }
+  }, [fetchChildren]);
+
+  const revealPath = useCallback(async (targetPath: string, kind: 'file' | 'directory') => {
+    const normalized = targetPath.replace(/^\.\//, '').replace(/\/+$|^\/+/, '');
+    if (!normalized) return;
+
+    const segments = normalized.split('/').filter(Boolean);
+    const ancestors = kind === 'directory'
+      ? segments.map((_, index) => segments.slice(0, index + 1).join('/'))
+      : segments.slice(0, -1).map((_, index) => segments.slice(0, index + 1).join('/'));
+
+    for (const dirPath of ancestors) {
+      setExpandedPaths((prev) => {
+        if (prev.has(dirPath)) return prev;
+        const next = new Set(prev);
+        next.add(dirPath);
+        return next;
+      });
+      await ensureDirectoryLoaded(dirPath);
+    }
+
+    setSelectedPath(normalized);
+  }, [ensureDirectoryLoaded]);
+
   return {
     entries,
     loading,
@@ -246,5 +298,6 @@ export function useFileTree() {
     selectFile,
     refresh,
     handleFileChange,
+    revealPath,
   };
 }

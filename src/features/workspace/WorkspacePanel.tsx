@@ -75,11 +75,11 @@ interface WorkspacePanelProps {
   onOpenBoard?: () => void;
   /** Open a specific task in the full board view. */
   onOpenTask?: (taskId: string) => void;
-  /** Open a repo-local plan in the existing editor tabs. */
-  onOpenPlan?: (path: string) => void;
+  /** Open or reveal a safe workspace path inside Nerve. */
+  onOpenPath?: (path: string) => void;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPlan }: WorkspacePanelProps) {
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath }: WorkspacePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const { activeCount } = useCrons();
 
@@ -124,7 +124,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         </div>
         <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
           {visitedTabs.has('plans') && (
-            <PlansTab onOpenPlan={onOpenPlan} onOpenTask={onOpenTask} />
+            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">

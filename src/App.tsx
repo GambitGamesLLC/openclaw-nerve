@@ -28,6 +28,7 @@ import { createCommands } from '@/features/command-palette/commands';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { SpawnAgentDialog } from '@/features/sessions/SpawnAgentDialog';
 import { FileTreePanel, TabbedContentArea, useOpenFiles } from '@/features/file-browser';
+import { isImageFile } from '@/features/file-browser/utils/fileTypes';
 
 // Lazy-loaded features (not needed in initial bundle)
 const SettingsDrawer = lazy(() => import('@/features/settings/SettingsDrawer').then(m => ({ default: m.SettingsDrawer })));
@@ -97,6 +98,7 @@ export default function App({ onLogout }: AppProps) {
       return localStorage.getItem('nerve-file-tree-collapsed') === 'true';
     } catch { return false; }
   });
+  const [revealRequest, setRevealRequest] = useState<{ id: number; path: string; kind: 'file' | 'directory' } | null>(null);
 
   // Sync localStorage when state changes
   useEffect(() => {
@@ -187,6 +189,23 @@ export default function App({ onLogout }: AppProps) {
     setPendingTaskId(taskId);
     setViewMode('kanban');
   }, [setViewMode]);
+
+  const openWorkspacePath = useCallback(async (targetPath: string) => {
+    const res = await fetch(`/api/files/resolve?path=${encodeURIComponent(targetPath)}`);
+    const data = await res.json().catch(() => null) as { ok?: boolean; path?: string; type?: 'file' | 'directory'; binary?: boolean } | null;
+    if (!res.ok || !data?.ok || !data.path || !data.type) {
+      return;
+    }
+
+    if (data.type === 'file' && (!data.binary || isImageFile(data.path))) {
+      setRevealRequest(null);
+      await openFile(data.path);
+      return;
+    }
+
+    setFileBrowserCollapsed(false);
+    setRevealRequest({ id: Date.now(), path: data.path, kind: data.type });
+  }, [openFile]);
 
   // Build command list with stable references
   const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -404,7 +423,7 @@ export default function App({ onLogout }: AppProps) {
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
           <PanelErrorBoundary name="Workspace">
-            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPlan={openFile} />
+            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} />
           </PanelErrorBoundary>
         </div>
       </div>
@@ -437,7 +456,7 @@ export default function App({ onLogout }: AppProps) {
   const compactWorkspacePanel = (
     <Suspense fallback={<div className="p-4 text-muted-foreground text-xs">Loading workspace…</div>}>
       <PanelErrorBoundary name="Workspace">
-        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPlan={openFile} />
+        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} />
       </PanelErrorBoundary>
     </Suspense>
   );
@@ -552,6 +571,7 @@ export default function App({ onLogout }: AppProps) {
             <FileTreePanel
               onOpenFile={openFile}
               lastChangedPath={lastChangedPath}
+              revealRequest={revealRequest}
               onRemapOpenPaths={remapOpenPaths}
               onCloseOpenPaths={closeOpenPathsByPrefix}
               isCompactLayout={isCompactLayout}

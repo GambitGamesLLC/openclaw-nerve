@@ -84,6 +84,32 @@ describe('file-browser routes', () => {
     });
   });
 
+  describe('GET /api/files/resolve', () => {
+    it('classifies a workspace file as an openable file target', async () => {
+      await fs.writeFile(path.join(tmpDir, 'docs-note.md'), '# hi');
+      const app = await buildApp();
+      const res = await app.request('/api/files/resolve?path=docs-note.md');
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { ok: boolean; path: string; type: string; binary: boolean };
+      expect(json).toEqual({ ok: true, path: 'docs-note.md', type: 'file', binary: false });
+    });
+
+    it('classifies a workspace directory as a revealable directory target', async () => {
+      await fs.mkdir(path.join(tmpDir, 'docs'));
+      const app = await buildApp();
+      const res = await app.request('/api/files/resolve?path=docs');
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as { ok: boolean; path: string; type: string; binary: boolean };
+      expect(json).toEqual({ ok: true, path: 'docs', type: 'directory', binary: false });
+    });
+
+    it('returns 403 for invalid or excluded targets', async () => {
+      const app = await buildApp();
+      const res = await app.request('/api/files/resolve?path=../../etc');
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('GET /api/files/read', () => {
     it('returns 400 when path is missing', async () => {
       const app = await buildApp();

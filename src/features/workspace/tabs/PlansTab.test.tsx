@@ -74,12 +74,12 @@ describe('PlansTab', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads plans, renders safe clickable references, and preserves editor handoff', async () => {
+  it('loads plans, renders safe clickable references, and preserves workspace path handoff', async () => {
     const user = userEvent.setup();
-    const onOpenPlan = vi.fn();
+    const onOpenPath = vi.fn();
     const onOpenTask = vi.fn();
 
-    render(<PlansTab onOpenPlan={onOpenPlan} onOpenTask={onOpenTask} />);
+    render(<PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} />);
 
     const activePlanButton = await screen.findByRole('button', { name: /active plan/i });
     expect(activePlanButton).toBeInTheDocument();
@@ -89,13 +89,13 @@ describe('PlansTab', () => {
     expect(onOpenTask).toHaveBeenCalledWith('nerve-413');
 
     await user.click(screen.getByRole('button', { name: 'src/features/workspace/tabs/PlansTab.tsx' }));
-    expect(onOpenPlan).toHaveBeenCalledWith('src/features/workspace/tabs/PlansTab.tsx');
+    expect(onOpenPath).toHaveBeenCalledWith('src/features/workspace/tabs/PlansTab.tsx');
 
     await user.click(screen.getByRole('button', { name: '.plans/archive/2026-03-01-old.md' }));
     expect(await screen.findByText('Archive body')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /open in editor/i }));
-    expect(onOpenPlan).toHaveBeenCalledWith('.plans/archive/2026-03-01-old.md');
+    await user.click(screen.getByRole('button', { name: /open in nerve/i }));
+    expect(onOpenPath).toHaveBeenCalledWith('.plans/archive/2026-03-01-old.md');
   });
 
   it('filters plans by bead id search', async () => {

@@ -165,6 +165,35 @@ app.get('/api/files/tree', async (c) => {
 
 // ── GET /api/files/read ──────────────────────────────────────────────
 
+app.get('/api/files/resolve', async (c) => {
+  const targetPath = c.req.query('path');
+  if (!targetPath) {
+    return c.json({ ok: false, error: 'Missing path parameter' }, 400);
+  }
+
+  const resolved = await resolveWorkspacePath(targetPath);
+  if (!resolved) {
+    return c.json({ ok: false, error: 'Invalid or excluded path' }, 403);
+  }
+
+  let stat;
+  try {
+    stat = await fs.stat(resolved);
+  } catch {
+    return c.json({ ok: false, error: 'Path not found' }, 404);
+  }
+
+  const root = getWorkspaceRoot();
+  const relative = path.relative(root, resolved).split(path.sep).join('/');
+
+  return c.json({
+    ok: true,
+    path: relative,
+    type: stat.isDirectory() ? 'directory' : 'file',
+    binary: stat.isFile() ? isBinary(path.basename(resolved)) : false,
+  });
+});
+
 app.get('/api/files/read', async (c) => {
   const filePath = c.req.query('path');
   if (!filePath) {

@@ -1,6 +1,6 @@
 /** Tests for useFileTree hook - workspace info handling and tree operations. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useFileTree } from './useFileTree';
 import type { TreeEntry } from '../types';
 
@@ -208,6 +208,58 @@ describe('useFileTree', () => {
       });
     });
 
+    it('reveals a nested workspace path by expanding its parent directories', async () => {
+      const mockFetch = vi.mocked(fetch);
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            entries: [
+              { name: 'src', path: 'src', type: 'directory' as const, children: null },
+            ],
+            workspaceInfo: { isCustomWorkspace: false, rootPath: '/workspace' },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            entries: [
+              { name: 'features', path: 'src/features', type: 'directory' as const, children: null },
+            ],
+            workspaceInfo: { isCustomWorkspace: false, rootPath: '/workspace' },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ok: true,
+            entries: [
+              { name: 'demo.tsx', path: 'src/features/demo.tsx', type: 'file' as const, children: null },
+            ],
+            workspaceInfo: { isCustomWorkspace: false, rootPath: '/workspace' },
+          }),
+        } as Response);
+
+      const { result } = renderHook(() => useFileTree());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.revealPath('src/features/demo.tsx', 'file');
+      });
+
+      await waitFor(() => {
+        expect(result.current.expandedPaths.has('src')).toBe(true);
+        expect(result.current.expandedPaths.has('src/features')).toBe(true);
+        expect(result.current.selectedPath).toBe('src/features/demo.tsx');
+      });
+    });
+
     it('toggles directory expansion', async () => {
       const mockFetch = vi.mocked(fetch);
       
@@ -346,6 +398,7 @@ describe('useFileTree', () => {
         'selectFile',
         'refresh',
         'handleFileChange',
+        'revealPath',
       ];
 
       expect(returnKeys).toEqual(expect.arrayContaining(expectedKeys));

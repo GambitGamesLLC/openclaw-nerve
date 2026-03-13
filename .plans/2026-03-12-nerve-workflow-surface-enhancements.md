@@ -148,36 +148,40 @@ These should remain separate but related tracks. The Beads board should become a
 
 **Bead ID:** `nerve-0lv`  
 **SubAgent:** `research`  
-**Prompt:** Research the safest and simplest way for Nerve on this Zorin host to open valid local folders/files from clickable paths into the desktop file explorer. Prefer a narrow local-only integration with clear path validation and no arbitrary command execution risk.
+**Prompt:** Research and, if appropriate for a small first pass, implement the safest and simplest way for Nerve on this Zorin host to open valid local folders/files from clickable paths. If the target path is inside the exposed workspace and is already openable in Nerve UI, prefer opening it inside Nerve itself (for example as a new Nerve UI tab in the workspace/file-view area) so it works from remote viewers like a mobile phone as well as on-host sessions. Only fall back to host-local desktop/file-explorer opening for paths or actions that are not meaningfully openable inside Nerve. Keep path validation narrow and avoid arbitrary command execution risk. Critically, design explicit fallback behavior for remote viewers (for example mobile phone or any terminal/browser that is not the same machine/session as the running agent): path clicks must not assume local desktop-open is possible. The UX should safely account for non-local viewing contexts and degrade gracefully, for example by preferring Nerve-internal file viewing when available, otherwise showing copyable paths, an explanatory tooltip/state, an alternate "open in editor on host" handoff, or another safe host-routed fallback rather than a broken or misleading local-open action.
 
 **Folders Created/Deleted/Modified:**
 - `docs/` (optional)
+- `src/` (if a small UI pass is included)
+- `server/` (if a small host-routed integration is included)
 - `.plans/`
 
 **Files Created/Deleted/Modified:**
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
 - optional design notes
+- optional narrow implementation files if a safe first pass is obvious
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Shipped a narrow workspace-first path-opening pass instead of adding any host-desktop launcher assumptions. Safe clickable path handling now resolves the target through a new server-side `/api/files/resolve` classifier, then prefers Nerve-native actions: workspace text files open in existing editor tabs, image files continue to open inline via the existing file viewer, and directories (plus non-inline binary files) are revealed/selected in the existing file explorer. That means remote viewers and non-local-terminal sessions still get a meaningful in-Nerve result instead of a broken `xdg-open`-style handoff. I deliberately did **not** add host-local desktop/file-explorer launching in this pass because it would be less safe, less portable, and ambiguous for phone/remote viewers; the product now degrades gracefully by staying inside Nerve whenever possible and revealing the path in the workspace tree otherwise. Implementation details: added `/api/files/resolve`, threaded a generic `onOpenPath` flow through the Plans surface, taught the file tree hook/panel to reveal nested targets by expanding/selecting them, and updated inline path affordance copy from “open in editor” to “open inside Nerve.” Exact files changed: `server/routes/file-browser.ts`, `server/routes/file-browser.test.ts`, `src/App.tsx`, `src/features/file-browser/FileTreePanel.tsx`, `src/features/file-browser/hooks/useFileTree.ts`, `src/features/file-browser/hooks/useFileTree.test.ts`, `src/features/workspace/WorkspacePanel.tsx`, `src/features/workspace/tabs/PlansTab.tsx`, `src/features/workspace/tabs/PlansTab.test.tsx`, `src/features/markdown/inlineReferences.tsx`, and this plan file. Validation: `npm test -- --run server/routes/file-browser.test.ts src/features/workspace/tabs/PlansTab.test.tsx src/features/markdown/MarkdownRenderer.references.test.tsx src/features/file-browser/hooks/useFileTree.test.ts` ✅, `npm run build` ✅. Local UX verification: production UI loaded against the existing local Nerve instance on `http://127.0.0.1:3080`; gateway connection succeeded and the workspace/file explorer surface rendered. I did not perform a fully scripted end-to-end click path inside a live plan preview, but the runtime loaded cleanly and the new path-opening behavior is covered by focused route/component/hook tests. Committed on the current branch with message `Open workspace paths inside Nerve first`. Push/close details follow in final results.
 
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Partial — Tasks 1-5 complete, Task 6 pending
+**Status:** ✅ Complete
 
-**What We Built:** Nerve now has a working first-pass workflow surface across Beads and Plans: richer Beads-native metadata, a conservative Closed-column UX pass, a documented bead↔plan linkage model, a first-class `/.plans/` browser, and safe clickable references inside plan previews. The reference pass is intentionally narrow: known plan paths open within the Plans surface, safe repo-relative paths reuse the existing editor handoff, and conservative bead IDs reuse board navigation rather than introducing any broader path-opening or autolink behavior.
+**What We Built:** Nerve now has a working first-pass workflow surface across Beads, Plans, references, and safe local path opening. The shipped path-opening behavior is intentionally workspace-first: safe clickable workspace files open inside Nerve, safe clickable workspace directories are revealed in the Nerve file explorer, and non-inline binary files also fall back to an in-Nerve reveal instead of assuming the viewer can launch a host-local desktop app. That keeps the workflow usable from remote viewers (including phones) while staying narrowly validated and avoiding arbitrary command execution or misleading `xdg-open` assumptions.
 
 **Commits:**
 - `0181bfd` - Surface richer Beads metadata on board cards and details
 - `033e90d` - Add Beads detail drawer and live board wiring
 - `220dbbf` - Improve Beads closed-column ergonomics
-- Document bead-to-plan linkage model
-- Task 5 commit pending
+- `90be573` - Finalize bead-plan linkage plan notes
+- `ea08eee` - Add safe clickable workflow references
+- `Open workspace paths inside Nerve first` (Task 6)
 
-**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery. For reference rendering, staying inside already-safe actions (plan preview selection, existing editor handoff, existing board navigation) is enough to ship useful workflow wins without opening the door to aggressive autolinking.
+**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery. For reference rendering and path opening, the safest first move is to reuse already-safe internal surfaces (plan preview selection, existing editor/file viewer tabs, existing file tree) rather than jumping straight to host-local launch behavior that breaks down for remote viewers.
 
 ---
 

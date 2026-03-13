@@ -53,6 +53,8 @@ interface FileTreePanelProps {
   onCloseOpenPaths?: (pathPrefix: string) => void;
   /** Called externally when a file changes (SSE) — refreshes affected directory */
   lastChangedPath?: string | null;
+  /** Ask the tree to reveal and select a workspace path. */
+  revealRequest?: { id: number; path: string; kind: 'file' | 'directory' } | null;
   /** Mobile layout flag - when true, collapsed panel is completely hidden */
   isCompactLayout?: boolean;
   /** Callback to notify parent of collapse state changes */
@@ -78,13 +80,14 @@ export function FileTreePanel({
   onRemapOpenPaths,
   onCloseOpenPaths,
   lastChangedPath,
+  revealRequest,
   isCompactLayout = false,
   onCollapseChange,
   collapsed,
 }: FileTreePanelProps) {
   const {
     entries, loading, error, expandedPaths, selectedPath,
-    loadingPaths, workspaceInfo, toggleDirectory, selectFile, refresh, handleFileChange,
+    loadingPaths, workspaceInfo, toggleDirectory, selectFile, refresh, handleFileChange, revealPath,
   } = useFileTree();
 
   // React to external file changes
@@ -95,6 +98,14 @@ export function FileTreePanel({
       handleFileChange(lastChangedPath);
     }
   }, [lastChangedPath, handleFileChange]);
+
+  const prevRevealId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!revealRequest) return;
+    if (revealRequest.id === prevRevealId.current) return;
+    prevRevealId.current = revealRequest.id;
+    void revealPath(revealRequest.path, revealRequest.kind);
+  }, [revealPath, revealRequest]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef(loadWidth());

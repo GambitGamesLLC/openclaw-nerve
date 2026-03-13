@@ -143,7 +143,7 @@ export function renderInlineReferences(text: string, options: InlineReferenceOpt
           type="button"
           className="inline rounded-sm border border-purple/20 bg-purple/10 px-1 py-0 font-mono text-[0.92em] text-purple hover:bg-purple/15 cursor-pointer"
           onClick={() => onOpenPath(core)}
-          title={`Open ${core} in the editor`}
+          title={`Open ${core} inside Nerve`}
         >
           {highlightText(core, searchQuery)}
         </button>,
@@ -156,7 +156,7 @@ export function renderInlineReferences(text: string, options: InlineReferenceOpt
           type="button"
           className="inline rounded-sm border border-border/60 bg-muted/30 px-1 py-0 font-mono text-[0.92em] text-foreground hover:bg-muted/50 cursor-pointer"
           onClick={() => onOpenPath(normalizedPath)}
-          title={`Open ${normalizedPath} in the editor`}
+          title={`Open ${normalizedPath} inside Nerve`}
         >
           {highlightText(core, searchQuery)}
         </button>,
