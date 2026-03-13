@@ -5,12 +5,17 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
+import { renderInlineReferences, type ReferencePlanSummary } from './inlineReferences';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
   searchQuery?: string;
   suppressImages?: boolean;
+  plans?: ReferencePlanSummary[];
+  onOpenPlanReference?: (path: string) => void;
+  onOpenPath?: (path: string) => void;
+  onOpenTask?: (taskId: string) => void;
 }
 
 function highlightText(text: string, query: string): React.ReactNode {
@@ -28,18 +33,33 @@ function highlightText(text: string, query: string): React.ReactNode {
   );
 }
 
-// Process React children to apply search highlighting to text nodes
-function processChildren(children: React.ReactNode, searchQuery?: string): React.ReactNode {
-  if (!searchQuery?.trim()) return children;
-  
+// Process React children to apply search highlighting and conservative inline references.
+function processChildren(
+  children: React.ReactNode,
+  options: {
+    searchQuery?: string;
+    plans?: ReferencePlanSummary[];
+    onOpenPlanReference?: (path: string) => void;
+    onOpenPath?: (path: string) => void;
+    onOpenTask?: (taskId: string) => void;
+  } = {},
+): React.ReactNode {
+  const { searchQuery } = options;
+
   return React.Children.map(children, (child) => {
     if (typeof child === 'string') {
-      return highlightText(child, searchQuery);
+      const hasReferenceHandlers = Boolean(options.onOpenPlanReference || options.onOpenPath || options.onOpenTask);
+      return hasReferenceHandlers
+        ? renderInlineReferences(child, options)
+        : highlightText(child, searchQuery || '');
     }
     if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
+      if (typeof child.type === 'string' && (child.type === 'code' || child.type === 'a')) {
+        return child;
+      }
       if (child.props.children) {
         return React.cloneElement(child, {
-          children: processChildren(child.props.children, searchQuery),
+          children: processChildren(child.props.children, options),
         });
       }
     }
@@ -71,22 +91,57 @@ function CodeBlock({ code, language, highlightedHtml }: {
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
 /** Render markdown content with syntax highlighting, search-term highlighting, and inline charts. */
-export function MarkdownRenderer({ content, className = '', searchQuery, suppressImages }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className = '',
+  searchQuery,
+  suppressImages,
+  plans,
+  onOpenPlanReference,
+  onOpenPath,
+  onOpenTask,
+}: MarkdownRendererProps) {
   // Memoize components object to avoid unnecessary ReactMarkdown re-renders.
   // Only recreated when searchQuery or suppressImages changes.
+  const referenceOptions = useMemo(() => ({
+    searchQuery,
+    plans,
+    onOpenPlanReference,
+    onOpenPath,
+    onOpenTask,
+  }), [searchQuery, plans, onOpenPlanReference, onOpenPath, onOpenTask]);
+
   const components = useMemo(() => ({
-    // Highlight search terms in text nodes
+    // Highlight search terms in text nodes and conservatively surface inline references.
     p: ({ children }: { children?: React.ReactNode }) => (
-      <p>{processChildren(children, searchQuery)}</p>
+      <p>{processChildren(children, referenceOptions)}</p>
     ),
     li: ({ children }: { children?: React.ReactNode }) => (
-      <li>{processChildren(children, searchQuery)}</li>
+      <li>{processChildren(children, referenceOptions)}</li>
     ),
     td: ({ children }: { children?: React.ReactNode }) => (
-      <td>{processChildren(children, searchQuery)}</td>
+      <td>{processChildren(children, referenceOptions)}</td>
     ),
     th: ({ children }: { children?: React.ReactNode }) => (
-      <th>{processChildren(children, searchQuery)}</th>
+      <th>{processChildren(children, referenceOptions)}</th>
+    ),
+    h1: ({ children }: { children?: React.ReactNode }) => (
+      <h1>{processChildren(children, referenceOptions)}</h1>
+    ),
+    h2: ({ children }: { children?: React.ReactNode }) => (
+      <h2>{processChildren(children, referenceOptions)}</h2>
+    ),
+    h3: ({ children }: { children?: React.ReactNode }) => (
+      <h3>{processChildren(children, referenceOptions)}</h3>
+    ),
+    h4: ({ children }: { children?: React.ReactNode }) => (
+      <h4>{processChildren(children, referenceOptions)}</h4>
+    ),
+    h5: ({ children }: { children?: React.ReactNode }) => (
+      <h5>{processChildren(children, referenceOptions)}</h5>
+    ),
+    h6: ({ children }: { children?: React.ReactNode }) => (
+      <h6>{processChildren(children, referenceOptions)}</h6>
     ),
     code: ({ className: codeClassName, children, ...props }: { className?: string; children?: React.ReactNode }) => {
       const match = /language-(\w+)/.exec(codeClassName || '');
@@ -131,7 +186,7 @@ export function MarkdownRenderer({ content, className = '', searchQuery, suppres
       </a>
     ),
     ...(suppressImages ? { img: () => null } : {}), // When set, images handled by extractedImages + ImageLightbox
-  }), [searchQuery, suppressImages]);
+  }), [referenceOptions, searchQuery, suppressImages]);
 
   return (
     <div className={`markdown-content ${className}`}>

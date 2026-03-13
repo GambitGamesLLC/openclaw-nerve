@@ -39,7 +39,7 @@ const readResponses: Record<string, object> = {
     ok: true,
     plan: {
       ...listResponse.plans[0],
-      content: '# Active Plan\n\nBody text\n',
+      content: '# Active Plan\n\nSee nerve-413, .plans/archive/2026-03-01-old.md, and src/features/workspace/tabs/PlansTab.tsx.\n',
     },
   },
   '.plans/archive/2026-03-01-old.md': {
@@ -74,21 +74,28 @@ describe('PlansTab', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads plans, previews the selected plan, and opens editor handoff', async () => {
+  it('loads plans, renders safe clickable references, and preserves editor handoff', async () => {
     const user = userEvent.setup();
     const onOpenPlan = vi.fn();
+    const onOpenTask = vi.fn();
 
-    render(<PlansTab onOpenPlan={onOpenPlan} />);
+    render(<PlansTab onOpenPlan={onOpenPlan} onOpenTask={onOpenTask} />);
 
     const activePlanButton = await screen.findByRole('button', { name: /active plan/i });
     expect(activePlanButton).toBeInTheDocument();
-    expect(await screen.findByText('Body text')).toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: 'nerve-413' })).length).toBeGreaterThan(0);
+
+    await user.click(screen.getAllByRole('button', { name: 'nerve-413' })[0]);
+    expect(onOpenTask).toHaveBeenCalledWith('nerve-413');
+
+    await user.click(screen.getByRole('button', { name: 'src/features/workspace/tabs/PlansTab.tsx' }));
+    expect(onOpenPlan).toHaveBeenCalledWith('src/features/workspace/tabs/PlansTab.tsx');
+
+    await user.click(screen.getByRole('button', { name: '.plans/archive/2026-03-01-old.md' }));
+    expect(await screen.findByText('Archive body')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /open in editor/i }));
-    expect(onOpenPlan).toHaveBeenCalledWith('.plans/2026-03-12-active.md');
-
-    await user.click(screen.getByRole('button', { name: /archived plan/i }));
-    expect(await screen.findByText('Archive body')).toBeInTheDocument();
+    expect(onOpenPlan).toHaveBeenCalledWith('.plans/archive/2026-03-01-old.md');
   });
 
   it('filters plans by bead id search', async () => {

@@ -5,6 +5,7 @@ import { usePlans, type PlanSummary } from '../hooks/usePlans';
 
 interface PlansTabProps {
   onOpenPlan?: (path: string) => void;
+  onOpenTask?: (taskId: string) => void;
 }
 
 function formatRelativeTime(value: number): string {
@@ -73,7 +74,7 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPlan }: PlansTabProps) {
+export function PlansTab({ onOpenPlan, onOpenTask }: PlansTabProps) {
   const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans();
   const [search, setSearch] = useState('');
 
@@ -97,6 +98,14 @@ export function PlansTab({ onOpenPlan }: PlansTabProps) {
   const activePlans = filteredPlans.filter(plan => !plan.archived);
   const archivedPlans = filteredPlans.filter(plan => plan.archived);
   const renderedContent = selectedPlan ? stripFrontmatter(selectedPlan.content) : '';
+
+  function handleOpenPlanReference(path: string) {
+    if (plans.some((plan) => plan.path === path)) {
+      void loadPlan(path);
+      return;
+    }
+    onOpenPlan?.(path);
+  }
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -187,7 +196,19 @@ export function PlansTab({ onOpenPlan }: PlansTabProps) {
                     {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
                     {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
                     {selectedPlan.beadIds.map((beadId) => (
-                      <PlanBadge key={beadId} tone="muted">{beadId}</PlanBadge>
+                      onOpenTask ? (
+                        <button
+                          key={beadId}
+                          type="button"
+                          className="inline-flex items-center rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                          onClick={() => onOpenTask(beadId)}
+                          title={`Open ${beadId} in the board`}
+                        >
+                          {beadId}
+                        </button>
+                      ) : (
+                        <PlanBadge key={beadId} tone="muted">{beadId}</PlanBadge>
+                      )
                     ))}
                   </div>
                 </div>
@@ -205,7 +226,14 @@ export function PlansTab({ onOpenPlan }: PlansTabProps) {
               {isPlanLoading ? (
                 <div className="py-6 text-xs text-muted-foreground">Loading plan…</div>
               ) : (
-                <MarkdownRenderer content={renderedContent} className="pt-3 text-sm" />
+                <MarkdownRenderer
+                  content={renderedContent}
+                  className="pt-3 text-sm"
+                  plans={plans}
+                  onOpenPlanReference={handleOpenPlanReference}
+                  onOpenPath={onOpenPlan}
+                  onOpenTask={onOpenTask}
+                />
               )}
             </div>
           )}

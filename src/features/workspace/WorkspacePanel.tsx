@@ -124,7 +124,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         </div>
         <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
           {visitedTabs.has('plans') && (
-            <PlansTab onOpenPlan={onOpenPlan} />
+            <PlansTab onOpenPlan={onOpenPlan} onOpenTask={onOpenTask} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">

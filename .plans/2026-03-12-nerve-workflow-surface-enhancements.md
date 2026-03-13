@@ -130,12 +130,17 @@ These should remain separate but related tracks. The Beads board should become a
 - `.plans/`
 
 **Files Created/Deleted/Modified:**
-- UI rendering components and helpers to be determined
+- `src/features/markdown/MarkdownRenderer.tsx`
+- `src/features/markdown/inlineReferences.tsx`
+- `src/features/markdown/MarkdownRenderer.references.test.tsx`
+- `src/features/workspace/tabs/PlansTab.tsx`
+- `src/features/workspace/tabs/PlansTab.test.tsx`
+- `src/features/workspace/WorkspacePanel.tsx`
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Shipped a conservative first pass scoped to the new Plans surface so references become useful without over-linking arbitrary text or inventing new open behavior. `MarkdownRenderer` now routes plain markdown text through a small inline-reference layer that only recognizes three safe classes: known `/.plans/*.md` references, conservative repo-relative paths under existing safe prefixes (`src/`, `server/`, `docs/`, plus a short allowlist of root config files), and conservative bead IDs (`nerve-*`, `oc-*`, plus bead IDs already surfaced by known plans). Recognized plan references open inside the existing Plans preview surface when possible, which reuses the Task 4 plans UI rather than jumping straight to a new path-opening flow; recognized repo-relative file paths reuse the existing editor handoff; recognized bead IDs reuse the existing board navigation hook and are also clickable from selected-plan bead badges. Hover summaries are intentionally lightweight via button titles: plan refs show title/status/archive/path, and bead refs indicate board navigation (including linked-plan context when available). Detection remains single-token and markdown-text-only, so inline code, external links, and arbitrary hyphenated prose are left alone. Validation: `npm test -- --run src/features/markdown/MarkdownRenderer.references.test.tsx src/features/workspace/tabs/PlansTab.test.tsx server/lib/plans.test.ts` ✅, `npm run build` ✅. Local UX verification: the new interactions were exercised through component tests and production build output; an existing local Nerve instance on port 3080 was reachable but was sitting at the gateway connect screen, so full end-to-end browser verification against a live connected session was limited by gateway availability. Bead closed successfully with reason `Implemented safe clickable reference rendering and verified locally`.
 
 ---
 
@@ -161,17 +166,18 @@ These should remain separate but related tracks. The Beads board should become a
 
 ## Final Results
 
-**Status:** ⚠️ Partial — Tasks 1-3 complete, Tasks 4-6 pending
+**Status:** ⚠️ Partial — Tasks 1-5 complete, Task 6 pending
 
-**What We Built:** The Beads board now ships richer Beads-native metadata, a first conservative Closed-column UX pass, and a documented durable linkage model for moving from a bead to its repo-local plan. The linkage recommendation is to store an explicit bead-side `metadata.plan` reference while giving plans stable `plan_id` frontmatter so Nerve can recover from path drift and distinguish active, moved, archived, and missing plan states.
+**What We Built:** Nerve now has a working first-pass workflow surface across Beads and Plans: richer Beads-native metadata, a conservative Closed-column UX pass, a documented bead↔plan linkage model, a first-class `/.plans/` browser, and safe clickable references inside plan previews. The reference pass is intentionally narrow: known plan paths open within the Plans surface, safe repo-relative paths reuse the existing editor handoff, and conservative bead IDs reuse board navigation rather than introducing any broader path-opening or autolink behavior.
 
 **Commits:**
 - `0181bfd` - Surface richer Beads metadata on board cards and details
 - `033e90d` - Add Beads detail drawer and live board wiring
 - `220dbbf` - Improve Beads closed-column ergonomics
 - Document bead-to-plan linkage model
+- Task 5 commit pending
 
-**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery.
+**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery. For reference rendering, staying inside already-safe actions (plan preview selection, existing editor handoff, existing board navigation) is enough to ship useful workflow wins without opening the door to aggressive autolinking.
 
 ---
 
