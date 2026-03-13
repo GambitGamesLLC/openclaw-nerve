@@ -63,7 +63,7 @@ These should remain separate but related tracks. The Beads board should become a
 
 **Status:** ✅ Complete
 
-**Results:** Implemented a conservative Closed-column ergonomics pass without redesigning the Beads board. Closed items now collapse by default when any exist, a compact summary rail keeps Closed visible as a first-class lane without dominating the board, a top-right show/hide toggle allows quick expansion/collapse, and the expanded Closed lane uses reduced visual weight so To Do / In Progress / Done stay visually primary. Access to closed cards and the existing detail drawer is preserved. Validation: `npm test -- --run src/features/kanban/BeadsBoard.test.tsx src/features/kanban/beads.test.ts src/features/kanban/BeadsDetailDrawer.test.tsx` ✅, `npm run build` ✅. Committed in `ade8f0c` (`Improve Beads closed-column ergonomics`). Bead closed with reason: `Implemented Closed-column UX pass and verified locally`.
+**Results:** Implemented a conservative Closed-column ergonomics pass without redesigning the Beads board. Closed items now collapse by default when any exist, a compact summary rail keeps Closed visible as a first-class lane without dominating the board, a top-right show/hide toggle allows quick expansion/collapse, and the expanded Closed lane uses reduced visual weight so To Do / In Progress / Done stay visually primary. Access to closed cards and the existing detail drawer is preserved. Validation: `npm test -- --run src/features/kanban/BeadsBoard.test.tsx src/features/kanban/beads.test.ts src/features/kanban/BeadsDetailDrawer.test.tsx` ✅, `npm run build` ✅. Committed in `220dbbf` (`Improve Beads closed-column ergonomics`). Bead closed with reason: `Implemented Closed-column UX pass and verified locally`.
 
 ---
 
@@ -158,7 +158,7 @@ These should remain separate but related tracks. The Beads board should become a
 **Commits:**
 - `0181bfd` - Surface richer Beads metadata on board cards and details
 - `033e90d` - Add Beads detail drawer and live board wiring
-- `ade8f0c` - Improve Beads closed-column ergonomics
+- `220dbbf` - Improve Beads closed-column ergonomics
 
 **Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign.
 
