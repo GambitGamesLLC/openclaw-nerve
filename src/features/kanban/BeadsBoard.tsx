@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { Database, Inbox } from 'lucide-react';
+import { memo, useEffect, useRef, useState } from 'react';
+import { ChevronRight, Database, Inbox, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import type { KanbanTask } from './types';
 import { KanbanCard } from './KanbanCard';
 
@@ -47,15 +47,23 @@ function BeadsColumn({
   accent,
   tasks,
   onCardClick,
+  tone = 'default',
 }: {
   label: string;
   accent: string;
   tasks: KanbanTask[];
   onCardClick: (task: KanbanTask) => void;
+  tone?: 'default' | 'muted';
 }) {
+  const isMuted = tone === 'muted';
+
   return (
-    <div className="flex flex-col min-w-[280px] w-[320px] max-w-[360px] h-full shrink-0 bg-background/50 rounded-lg border border-border/40">
-      <div className="sticky top-0 z-10 flex items-center justify-between h-10 px-3 bg-background/80 backdrop-blur-sm border-b border-border/40 rounded-t-lg">
+    <div className={`flex flex-col min-w-[280px] w-[320px] max-w-[360px] h-full shrink-0 rounded-lg border ${
+      isMuted ? 'bg-muted/20 border-border/30 opacity-90' : 'bg-background/50 border-border/40'
+    }`}>
+      <div className={`sticky top-0 z-10 flex items-center justify-between h-10 px-3 backdrop-blur-sm border-b rounded-t-lg ${
+        isMuted ? 'bg-muted/25 border-border/30' : 'bg-background/80 border-border/40'
+      }`}>
         <span className={`text-xs font-bold uppercase tracking-wider ${accent}`}>
           {label}
         </span>
@@ -80,6 +88,41 @@ function BeadsColumn({
   );
 }
 
+function ClosedSummaryRail({ count, onShow }: { count: number; onShow: () => void }) {
+  return (
+    <div className="flex flex-col min-w-[180px] w-[200px] max-w-[220px] h-full shrink-0 rounded-lg border border-border/30 bg-muted/15">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 h-10 px-3 bg-muted/20 backdrop-blur-sm border-b border-border/30 rounded-t-lg">
+        <div className="min-w-0">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Closed</span>
+        </div>
+        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm tabular-nums">
+          {count}
+        </span>
+      </div>
+
+      <div className="flex-1 px-3 py-3 flex flex-col justify-between gap-3 text-left">
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-foreground/90">Hidden by default</p>
+          <p className="text-[11px] leading-4 text-muted-foreground">
+            Keep active work front-and-center while preserving fast access to closed issues.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onShow}
+          className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md border border-border/60 bg-background/70 text-[11px] font-semibold text-foreground hover:bg-background transition-colors cursor-pointer"
+          aria-label={`Show Closed column (${count} items)`}
+        >
+          <PanelRightOpen size={14} />
+          <span>Show Closed</span>
+          <ChevronRight size={12} className="text-muted-foreground" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export const BeadsBoard = memo(function BeadsBoard({
   todoTasks,
   inProgressTasks,
@@ -92,6 +135,17 @@ export const BeadsBoard = memo(function BeadsBoard({
   sourceLabel,
   onCardClick = () => {},
 }: BeadsBoardProps) {
+  const [showClosed, setShowClosed] = useState(false);
+  const initializedClosedPreferenceRef = useRef(false);
+
+  useEffect(() => {
+    if (initializedClosedPreferenceRef.current) return;
+    if (loading || error || !hasAnyTasks) return;
+
+    setShowClosed(closedTasks.length === 0);
+    initializedClosedPreferenceRef.current = true;
+  }, [closedTasks.length, error, hasAnyTasks, loading]);
+
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -136,13 +190,37 @@ export const BeadsBoard = memo(function BeadsBoard({
     );
   }
 
+  const isClosedCollapsed = closedTasks.length > 0 && !showClosed;
+
   return (
     <div className="h-full overflow-x-auto">
-      <div className="flex gap-3 p-0 min-w-min h-full">
+      <div className="mb-2 flex items-center justify-end">
+        {closedTasks.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowClosed((current) => !current)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border/60 bg-background/70 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors cursor-pointer"
+            aria-pressed={showClosed}
+            aria-label={showClosed ? `Hide Closed column (${closedTasks.length} items)` : `Toggle Closed column (${closedTasks.length} items)`}
+          >
+            {showClosed ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+            <span>{showClosed ? 'Hide Closed' : 'Show Closed'}</span>
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 tabular-nums text-[10px] text-foreground/80">
+              {closedTasks.length}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-3 p-0 min-w-min h-[calc(100%-2.5rem)]">
         <BeadsColumn label="To Do" accent="text-blue-400" tasks={todoTasks} onCardClick={onCardClick} />
         <BeadsColumn label="In Progress" accent="text-cyan-400" tasks={inProgressTasks} onCardClick={onCardClick} />
         <BeadsColumn label="Done" accent="text-green-400" tasks={doneTasks} onCardClick={onCardClick} />
-        <BeadsColumn label="Closed" accent="text-slate-300" tasks={closedTasks} onCardClick={onCardClick} />
+        {isClosedCollapsed ? (
+          <ClosedSummaryRail count={closedTasks.length} onShow={() => setShowClosed(true)} />
+        ) : (
+          <BeadsColumn label="Closed" accent="text-slate-300" tasks={closedTasks} onCardClick={onCardClick} tone="muted" />
+        )}
       </div>
     </div>
   );

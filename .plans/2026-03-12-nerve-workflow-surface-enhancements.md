@@ -1,7 +1,7 @@
 # Gambit OpenClaw Nerve — workflow surface enhancements
 
 **Date:** 2026-03-12  
-**Status:** Draft  
+**Status:** In Progress  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -40,9 +40,9 @@ These should remain separate but related tracks. The Beads board should become a
 - `server/lib/beads-board.ts` (if DTO expansion is needed)
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Implemented and verified live. The board now carries richer Beads-native metadata into card surfaces, Beads card clicks open a read-only `BeadsDetailDrawer`, and the live Nerve UI/API were verified against the real `~/.openclaw` Beads source. Durable work shipped in commits `0181bfd` and `033e90d`.
 
 ---
 
@@ -53,16 +53,17 @@ These should remain separate but related tracks. The Beads board should become a
 **Prompt:** Improve UX for the Beads Closed column so it remains first-class without overwhelming active work. Evaluate collapsed-by-default behavior, show/hide toggles, reduced visual weight, and lightweight summarization patterns that preserve access to closed items.
 
 **Folders Created/Deleted/Modified:**
-- `src/`
+- `src/features/kanban/`
 - `.plans/`
 
 **Files Created/Deleted/Modified:**
-- `src/features/kanban/**/*`
+- `src/features/kanban/BeadsBoard.tsx`
+- `src/features/kanban/BeadsBoard.test.tsx`
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Implemented a conservative Closed-column ergonomics pass without redesigning the Beads board. Closed items now collapse by default when any exist, a compact summary rail keeps Closed visible as a first-class lane without dominating the board, a top-right show/hide toggle allows quick expansion/collapse, and the expanded Closed lane uses reduced visual weight so To Do / In Progress / Done stay visually primary. Access to closed cards and the existing detail drawer is preserved. Validation: `npm test -- --run src/features/kanban/BeadsBoard.test.tsx src/features/kanban/beads.test.ts src/features/kanban/BeadsDetailDrawer.test.tsx` ✅, `npm run build` ✅. Committed in `ade8f0c` (`Improve Beads closed-column ergonomics`). Bead closed with reason: `Implemented Closed-column UX pass and verified locally`.
 
 ---
 
@@ -150,14 +151,16 @@ These should remain separate but related tracks. The Beads board should become a
 
 ## Final Results
 
-**Status:** ⏳ Draft
+**Status:** ⚠️ Partial — Tasks 1-2 complete, Tasks 3-6 pending
 
-**What We Built:** Pending.
+**What We Built:** The Beads board now ships richer Beads-native metadata and a first conservative Closed-column UX pass. Closed issues remain directly accessible, but active workflow columns stay visually primary via collapsed-by-default treatment, a compact Closed summary rail, and a reduced-weight expanded Closed lane.
 
 **Commits:**
-- Pending.
+- `0181bfd` - Surface richer Beads metadata on board cards and details
+- `033e90d` - Add Beads detail drawer and live board wiring
+- `ade8f0c` - Improve Beads closed-column ergonomics
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign.
 
 ---
 
