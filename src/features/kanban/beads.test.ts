@@ -49,6 +49,13 @@ describe('Beads board normalization', () => {
             dependencyCount: 2,
             dependentCount: 0,
             commentCount: 1,
+            linkedPlan: {
+              path: '.plans/archive/2026-03-12-active.md',
+              title: 'Workflow Plan',
+              archived: true,
+              status: 'Complete',
+              updatedAt: Date.parse('2026-03-11T21:35:00.000Z'),
+            },
           }],
         },
         {
@@ -71,6 +78,7 @@ describe('Beads board normalization', () => {
             dependencyCount: 0,
             dependentCount: 0,
             commentCount: 0,
+            linkedPlan: null,
           }],
         },
         {
@@ -127,6 +135,13 @@ describe('Beads board normalization', () => {
         dependencyCount: 2,
         dependentCount: 0,
         commentCount: 1,
+        linkedPlan: {
+          path: '.plans/archive/2026-03-12-active.md',
+          title: 'Workflow Plan',
+          archived: true,
+          status: 'Complete',
+          updatedAt: Date.parse('2026-03-11T21:35:00.000Z'),
+        },
       },
     });
 

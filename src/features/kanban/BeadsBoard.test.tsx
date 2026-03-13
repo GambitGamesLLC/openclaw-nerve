@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BeadsBoard } from './BeadsBoard';
 import type { KanbanTask } from './types';
+
+const COLUMN_VISIBILITY_STORAGE_KEY = 'nerve:beadsBoardColumnVisibility';
 
 function makeTask(id: string, title: string): KanbanTask {
   return {
@@ -28,8 +30,25 @@ function makeTask(id: string, title: string): KanbanTask {
   };
 }
 
-describe('BeadsBoard closed-column UX', () => {
-  it('collapses Closed by default when closed items exist', () => {
+describe('BeadsBoard column visibility UX', () => {
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    const localStorageMock = {
+      getItem: vi.fn((key: string) => (store.has(key) ? store.get(key)! : null)),
+      setItem: vi.fn((key: string, value: string) => { store.set(key, String(value)); }),
+      removeItem: vi.fn((key: string) => { store.delete(key); }),
+      clear: vi.fn(() => { store.clear(); }),
+    };
+
+    vi.stubGlobal('localStorage', localStorageMock);
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('hides Closed by default when closed items exist', () => {
     render(
       <BeadsBoard
         todoTasks={[makeTask('todo-1', 'Active task')]}
@@ -44,17 +63,47 @@ describe('BeadsBoard closed-column UX', () => {
     );
 
     expect(screen.getByRole('button', { name: /show closed column/i })).toBeInTheDocument();
-    expect(screen.getByText('Hidden by default')).toBeInTheDocument();
     expect(screen.queryByText('Closed task')).not.toBeInTheDocument();
+    expect(screen.getByText('Hidden: Closed')).toBeInTheDocument();
   });
 
-  it('reveals closed cards when expanded', async () => {
+  it('treats show and hide as first-class controls for every major column', async () => {
     const user = userEvent.setup();
-    const onCardClick = vi.fn();
 
     render(
       <BeadsBoard
-        todoTasks={[makeTask('todo-1', 'Active task')]}
+        todoTasks={[makeTask('todo-1', 'To Do task')]}
+        inProgressTasks={[makeTask('progress-1', 'In Progress task')]}
+        doneTasks={[makeTask('done-1', 'Done task')]}
+        closedTasks={[makeTask('closed-1', 'Closed task')]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /hide to do column/i }));
+    await user.click(screen.getByRole('button', { name: /hide in progress column/i }));
+    await user.click(screen.getByRole('button', { name: /hide done column/i }));
+
+    expect(screen.queryByText('To Do task')).not.toBeInTheDocument();
+    expect(screen.queryByText('In Progress task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Done task')).not.toBeInTheDocument();
+    expect(screen.getByText('Hidden: To Do, In Progress, Done, Closed')).toBeInTheDocument();
+    expect(screen.getByText('All Beads columns are hidden')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show closed column/i }));
+
+    const closedCard = screen.getByRole('button', { name: /closed task/i });
+    expect(closedCard).toBeInTheDocument();
+  });
+
+  it('persists column visibility globally across remounts', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <BeadsBoard
+        todoTasks={[makeTask('todo-1', 'To Do task')]}
         inProgressTasks={[]}
         doneTasks={[]}
         closedTasks={[makeTask('closed-1', 'Closed task')]}
@@ -62,22 +111,42 @@ describe('BeadsBoard closed-column UX', () => {
         error={null}
         onRetry={vi.fn()}
         hasAnyTasks
-        onCardClick={onCardClick}
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: /hide to do column/i }));
     await user.click(screen.getByRole('button', { name: /show closed column/i }));
 
-    const closedCard = screen.getByRole('button', { name: /closed task/i });
-    expect(closedCard).toBeInTheDocument();
+    expect(localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY)).toBe(
+      JSON.stringify({
+        todo: false,
+        in_progress: true,
+        done: true,
+        closed: true,
+      }),
+    );
 
-    await user.click(closedCard);
-    expect(onCardClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'closed-1' }));
+    unmount();
 
-    expect(screen.getByRole('button', { name: /hide closed column/i })).toBeInTheDocument();
+    render(
+      <BeadsBoard
+        todoTasks={[makeTask('todo-1', 'To Do task')]}
+        inProgressTasks={[]}
+        doneTasks={[]}
+        closedTasks={[makeTask('closed-1', 'Closed task')]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+      />,
+    );
+
+    expect(screen.queryByText('To Do task')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /show to do column/i })).toBeInTheDocument();
+    expect(screen.getByText('Closed task')).toBeInTheDocument();
   });
 
-  it('keeps Closed visible when there are no closed items', () => {
+  it('still shows Closed by default when there are no closed items', () => {
     render(
       <BeadsBoard
         todoTasks={[makeTask('todo-1', 'Active task')]}
@@ -92,7 +161,6 @@ describe('BeadsBoard closed-column UX', () => {
     );
 
     expect(screen.getByText('Closed')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /show closed column/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('Hidden by default')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /hide closed column/i })).toBeInTheDocument();
   });
 });

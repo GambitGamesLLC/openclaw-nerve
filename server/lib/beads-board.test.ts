@@ -18,9 +18,26 @@ describe('beads board adapter', () => {
   });
 
   it('projects Beads statuses into a four-column Beads-native board model', async () => {
+    vi.doMock('./plans.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./plans.js')>();
+      return {
+        ...actual,
+        findRepoPlanByBeadId: async (beadId: string) => beadId === 'todo-1' ? {
+          path: '.plans/archive/2026-03-12-linked.md',
+          title: 'Linked Plan',
+          archived: true,
+          status: 'Complete',
+          updatedAt: 1234,
+          planId: null,
+          beadIds: ['todo-1'],
+          preview: 'Linked preview',
+        } : null,
+      };
+    });
+
     const mod = await import('./beads-board.js');
 
-    const board = mod.projectBeadsIssuesToBoard(defaultSource, [
+    const board = await mod.projectBeadsIssuesToBoard(defaultSource, [
       { id: 'todo-1', title: 'Open task', status: 'open', priority: 1, labels: ['ui', 'board'] },
       { id: 'prog-1', title: 'Working task', status: 'in_progress', priority: 2 },
       { id: 'done-1', title: 'Resolved task', status: 'resolved', priority: 0 },
@@ -34,6 +51,7 @@ describe('beads board adapter', () => {
       label: 'Alpha Repo',
       kind: 'project',
       isDefault: false,
+      isCustom: false,
     });
     expect(board.totalCount).toBe(5);
     expect(board.columns.map((column) => [column.key, column.itemCount])).toEqual([
@@ -44,27 +62,29 @@ describe('beads board adapter', () => {
     ]);
     expect(board.columns[0].items.map((item) => item.id)).toEqual(['todo-1', 'todo-2']);
     expect(board.columns[0].items[0]?.labels).toEqual(['ui', 'board']);
+    expect(board.columns[0].items[0]?.linkedPlan).toMatchObject({
+      path: '.plans/archive/2026-03-12-linked.md',
+      title: 'Linked Plan',
+      archived: true,
+    });
     expect(board.columns[1].items.map((item) => item.id)).toEqual(['prog-1']);
     expect(board.columns[2].items.map((item) => item.id)).toEqual(['done-1']);
     expect(board.columns[3].items.map((item) => item.id)).toEqual(['closed-1']);
   });
 
-  it('lists safe DTOs for configured Beads sources', async () => {
-    vi.doMock('./config.js', () => ({
-      config: {
-        beads: { defaultSourceId: 'openclaw' },
-      },
-      listBeadsSources: () => ([
-        { id: 'openclaw', label: '~/.openclaw', rootPath: '/home/test/.openclaw', kind: 'openclaw' },
-        { id: 'alpha', label: 'Alpha Repo', rootPath: '/repos/alpha', kind: 'project' },
+  it('lists safe DTOs for managed Beads sources', async () => {
+    vi.doMock('./beads-sources.js', () => ({
+      listManagedBeadsSourceDtos: () => ([
+        { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
+        { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: true },
       ]),
-      resolveBeadsSource: vi.fn(),
+      resolveManagedBeadsSource: vi.fn(),
     }));
 
     const mod = await import('./beads-board.js');
     expect(mod.listBeadsSourceDtos()).toEqual([
-      { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
-      { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false },
+      { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
+      { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: true },
     ]);
   });
 
@@ -90,12 +110,11 @@ describe('beads board adapter', () => {
         execFile: execFileMock,
       };
     });
-    vi.doMock('./config.js', () => ({
-      config: {
-        beads: { defaultSourceId: 'alpha' },
-      },
-      listBeadsSources: () => ([defaultSource]),
-      resolveBeadsSource: (sourceId?: string | null) => sourceId === 'alpha' ? defaultSource : null,
+    vi.doMock('./beads-sources.js', () => ({
+      listManagedBeadsSourceDtos: () => ([
+        { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: false },
+      ]),
+      resolveManagedBeadsSource: (sourceId?: string | null) => sourceId === 'alpha' ? defaultSource : null,
     }));
 
     const mod = await import('./beads-board.js');
@@ -130,12 +149,9 @@ describe('beads board adapter', () => {
         execFile: execFileMock,
       };
     });
-    vi.doMock('./config.js', () => ({
-      config: {
-        beads: { defaultSourceId: 'openclaw' },
-      },
-      listBeadsSources: () => ([]),
-      resolveBeadsSource: () => null,
+    vi.doMock('./beads-sources.js', () => ({
+      listManagedBeadsSourceDtos: () => ([]),
+      resolveManagedBeadsSource: () => null,
     }));
 
     const mod = await import('./beads-board.js');

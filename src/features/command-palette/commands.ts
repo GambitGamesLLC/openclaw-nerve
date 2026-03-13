@@ -23,6 +23,7 @@ export interface CommandActions {
   onRefreshSessions: () => void;
   onRefreshMemory: () => void;
   onSetViewMode?: (mode: ViewMode) => void;
+  boardLabel?: 'Tasks' | 'Beads';
 }
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -50,6 +51,8 @@ const FONT_LABELS: Record<FontName, string> = {
 
 /** Build the full list of command-palette commands from action callbacks. */
 export function createCommands(actions: CommandActions): Command[] {
+  const boardLabel = actions.boardLabel || 'Tasks';
+  const boardLabelLower = boardLabel.toLowerCase();
   const themeCommands: Command[] = (Object.keys(themes) as ThemeName[]).map((key) => ({
     id: `theme-${key}`,
     label: `Theme: ${THEME_LABELS[key] || key}`,
@@ -186,10 +189,10 @@ export function createCommands(actions: CommandActions): Command[] {
     ...(actions.onSetViewMode ? [
       {
         id: 'open-kanban',
-        label: 'Open Tasks View',
+        label: `Open ${boardLabel} View`,
         action: () => actions.onSetViewMode!('kanban'),
         category: 'kanban' as const,
-        keywords: ['kanban', 'board', 'tasks', 'view'],
+        keywords: ['kanban', 'board', boardLabelLower, 'tasks', 'view'],
       },
       {
         id: 'open-chat',
@@ -200,10 +203,10 @@ export function createCommands(actions: CommandActions): Command[] {
       },
       {
         id: 'create-kanban-task',
-        label: 'Create Task',
+        label: boardLabel === 'Beads' ? 'Open Beads Board' : 'Create Task',
         action: () => actions.onSetViewMode!('kanban'),
         category: 'kanban' as const,
-        keywords: ['kanban', 'task', 'create', 'new', 'add'],
+        keywords: ['kanban', boardLabelLower, 'task', 'create', 'new', 'add'],
       },
     ] : []),
     ...themeCommands,

@@ -21,6 +21,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ChatPanel, type ChatPanelHandle } from '@/features/chat/ChatPanel';
 import type { TTSProvider } from '@/features/tts/useTTS';
 import type { ViewMode } from '@/features/command-palette/commands';
+import type { WorkflowShellConfigDto } from '@/features/kanban/beads';
 import { ResizablePanels } from '@/components/ResizablePanels';
 import { getContextLimit, DEFAULT_GATEWAY_WS } from '@/lib/constants';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -44,6 +45,14 @@ const KanbanPanel = lazy(() => import('@/features/kanban/KanbanPanel').then(m =>
 interface AppProps {
   onLogout?: () => void;
 }
+
+const DEFAULT_WORKFLOW_SHELL: WorkflowShellConfigDto = {
+  primarySurface: 'native',
+  prefersBeads: false,
+  hideNativeTasks: false,
+  navigationLabel: 'Tasks',
+  defaultBoardMode: 'kanban',
+};
 
 export default function App({ onLogout }: AppProps) {
   // Gateway state
@@ -181,6 +190,9 @@ export default function App({ onLogout }: AppProps) {
     return 'chat';
   });
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [requestedWorkspaceTab, setRequestedWorkspaceTab] = useState<'plans' | null>(null);
+  const [requestedPlanPath, setRequestedPlanPath] = useState<string | null>(null);
+  const [workflowShell, setWorkflowShell] = useState<WorkflowShellConfigDto>(DEFAULT_WORKFLOW_SHELL);
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeRaw(mode);
     try { localStorage.setItem('nerve:viewMode', mode); } catch { /* ignore */ }
@@ -189,6 +201,11 @@ export default function App({ onLogout }: AppProps) {
     setPendingTaskId(taskId);
     setViewMode('kanban');
   }, [setViewMode]);
+
+  const openPlanInWorkspace = useCallback((planPath: string) => {
+    setRequestedWorkspaceTab('plans');
+    setRequestedPlanPath(planPath);
+  }, []);
 
   const openWorkspacePath = useCallback(async (targetPath: string) => {
     const res = await fetch(`/api/files/resolve?path=${encodeURIComponent(targetPath)}`);
@@ -234,9 +251,10 @@ export default function App({ onLogout }: AppProps) {
     onRefreshSessions: refreshSessions,
     onRefreshMemory: refreshMemories,
     onSetViewMode: setViewMode,
+    boardLabel: workflowShell.navigationLabel,
   }), [openSpawnDialog, handleReset, toggleSound, handleAbort, openSettings, openSearch,
     setTheme, setFont, setTtsProvider, handleToggleWakeWord, toggleEvents, toggleLog, toggleTelemetry,
-    refreshSessions, refreshMemories, setViewMode]);
+    refreshSessions, refreshMemories, setViewMode, workflowShell.navigationLabel]);
 
   // Keyboard shortcut handlers with useCallback
   const handleOpenPalette = useCallback(() => setPaletteOpen(true), []);
@@ -326,6 +344,25 @@ export default function App({ onLogout }: AppProps) {
     // Safari fallback
     mq.addListener(onChange);
     return () => mq.removeListener(onChange);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const res = await fetch('/api/server-info', { signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json() as { workflow?: WorkflowShellConfigDto };
+        if (data.workflow) {
+          setWorkflowShell(data.workflow);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    })();
+
+    return () => controller.abort();
   }, []);
 
   // Handler for session changes
@@ -423,7 +460,7 @@ export default function App({ onLogout }: AppProps) {
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
           <PanelErrorBoundary name="Workspace">
-            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} />
+            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
           </PanelErrorBoundary>
         </div>
       </div>
@@ -456,7 +493,7 @@ export default function App({ onLogout }: AppProps) {
   const compactWorkspacePanel = (
     <Suspense fallback={<div className="p-4 text-muted-foreground text-xs">Loading workspace…</div>}>
       <PanelErrorBoundary name="Workspace">
-        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} />
+        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
       </PanelErrorBoundary>
     </Suspense>
   );
@@ -527,6 +564,7 @@ export default function App({ onLogout }: AppProps) {
         workspacePanel={compactWorkspacePanel}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        boardLabel={workflowShell.navigationLabel}
       />
       
       <PanelErrorBoundary name="Settings">
@@ -590,7 +628,13 @@ export default function App({ onLogout }: AppProps) {
         {viewMode === 'kanban' && (
           <div className="flex-1 flex flex-col min-w-0 min-h-0 boot-panel">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-muted-foreground text-xs bg-background">Loading…</div>}>
-              <KanbanPanel initialTaskId={pendingTaskId} onInitialTaskConsumed={() => setPendingTaskId(null)} />
+              <KanbanPanel
+                initialTaskId={pendingTaskId}
+                onInitialTaskConsumed={() => setPendingTaskId(null)}
+                defaultBoardMode={workflowShell.defaultBoardMode}
+                hideNativeTasks={workflowShell.hideNativeTasks}
+                onOpenPlan={openPlanInWorkspace}
+              />
             </Suspense>
           </div>
         )}

@@ -47,6 +47,19 @@ interface ParsedBeadsSources {
   defaultSourceId: string;
 }
 
+export type WorkflowPrimarySurface = 'native' | 'beads';
+
+function parseWorkflowPrimarySurface(rawValue: string | undefined): WorkflowPrimarySurface {
+  const normalized = (rawValue || 'native').trim().toLowerCase();
+  if (normalized === 'beads') return 'beads';
+  if (normalized === 'native' || normalized === '') return 'native';
+
+  console.warn(
+    `[config] ⚠ NERVE_WORKFLOW_PRIMARY "${rawValue}" is invalid — expected "native" or "beads"; falling back to "native"`,
+  );
+  return 'native';
+}
+
 function expandHomePath(input: string): string {
   if (input === '~') return HOME;
   if (input.startsWith('~/')) return path.join(HOME, input.slice(2));
@@ -157,6 +170,9 @@ const parsedBeadsSources = parseBeadsSources(
   process.env.NERVE_BEADS_DEFAULT_SOURCE,
   process.env.NERVE_BEADS_PROJECTS_ROOT,
 );
+const workflowPrimarySurface = parseWorkflowPrimarySurface(process.env.NERVE_WORKFLOW_PRIMARY);
+const hideNativeTasks = (process.env.NERVE_HIDE_NATIVE_TASKS || 'false').toLowerCase() === 'true';
+const prefersBeadsWorkflow = workflowPrimarySurface === 'beads' || hideNativeTasks;
 
 function normalizeLanguagePreference(language: string | undefined): string {
   const normalized = (language || DEFAULT_LANGUAGE).trim().toLowerCase();
@@ -218,6 +234,15 @@ export const config = {
     projectsRoot: normalizeBeadsRootPath(process.env.NERVE_BEADS_PROJECTS_ROOT || DEFAULT_BEADS_PROJECTS_ROOT),
     defaultSourceId: parsedBeadsSources.defaultSourceId,
     sources: parsedBeadsSources.sources,
+  },
+
+  // Workflow shell / board mode behavior
+  workflow: {
+    primarySurface: workflowPrimarySurface,
+    prefersBeads: prefersBeadsWorkflow,
+    hideNativeTasks,
+    navigationLabel: prefersBeadsWorkflow ? 'Beads' : 'Tasks',
+    defaultBoardMode: prefersBeadsWorkflow ? 'beads' : 'kanban',
   },
 
   // Limits

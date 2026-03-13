@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { BeadsDetailDrawer } from './BeadsDetailDrawer';
 import type { KanbanTask } from './types';
@@ -27,12 +28,22 @@ const task: KanbanTask = {
     commentCount: 3,
     createdAt: Date.parse('2026-03-12T17:59:35Z'),
     updatedAt: Date.parse('2026-03-12T18:08:12Z'),
+    linkedPlan: {
+      path: '.plans/archive/2026-03-12-nerve-usability.md',
+      title: 'Nerve usability pass',
+      archived: true,
+      status: 'In Progress',
+      updatedAt: Date.parse('2026-03-12T18:10:00Z'),
+    },
   },
 };
 
 describe('BeadsDetailDrawer', () => {
-  it('renders richer Beads metadata in a read-only drawer', () => {
-    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={vi.fn()} />);
+  it('renders richer Beads metadata in a read-only drawer', async () => {
+    const user = userEvent.setup();
+    const onOpenPlan = vi.fn();
+
+    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={vi.fn()} onOpenPlan={onOpenPlan} />);
 
     expect(screen.getByRole('dialog', { name: 'Beads issue details' })).toBeInTheDocument();
     expect(screen.getByText('nerve-rfd')).toBeInTheDocument();
@@ -40,5 +51,10 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('@gambitgamesllc@gmail.com')).toBeInTheDocument();
     expect(screen.getByText('beads, ux')).toBeInTheDocument();
     expect(screen.getByText('Use real data already present in ~/.openclaw.')).toBeInTheDocument();
+    expect(screen.getByText('Nerve usability pass')).toBeInTheDocument();
+    expect(screen.getByText('.plans/archive/2026-03-12-nerve-usability.md')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /open in plans/i }));
+    expect(onOpenPlan).toHaveBeenCalledWith('.plans/archive/2026-03-12-nerve-usability.md');
   });
 });

@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { extractPlanPreview, extractPlanStatus, extractPlanTitle, listRepoPlans, parsePlanContent, readRepoPlan } from './plans.js';
+import { extractPlanPreview, extractPlanStatus, extractPlanTitle, findRepoPlanByBeadId, listRepoPlans, parsePlanContent, readRepoPlan } from './plans.js';
 
 const originalCwd = process.cwd();
 let tempDir: string;
@@ -80,6 +80,38 @@ Archived preview.
       status: 'Complete',
       archived: true,
     });
+  });
+
+  it('finds linked plans by bead id across active and archived locations', async () => {
+    await writePlan('.plans/archive/2026-03-01-old.md', `---
+bead_ids: [nerve-arch]
+---
+# Archived Match
+`);
+    await writePlan('.plans/2026-03-13-active.md', `---
+bead_ids: [nerve-live, nerve-dup]
+---
+# Active Match
+`);
+    await writePlan('.plans/archive/2026-03-10-older.md', `---
+bead_ids: [nerve-dup]
+---
+# Older Match
+`);
+
+    await expect(findRepoPlanByBeadId('nerve-live')).resolves.toMatchObject({
+      path: '.plans/2026-03-13-active.md',
+      archived: false,
+    });
+    await expect(findRepoPlanByBeadId('nerve-arch')).resolves.toMatchObject({
+      path: '.plans/archive/2026-03-01-old.md',
+      archived: true,
+    });
+    await expect(findRepoPlanByBeadId('nerve-dup')).resolves.toMatchObject({
+      path: '.plans/2026-03-13-active.md',
+      archived: false,
+    });
+    await expect(findRepoPlanByBeadId('')).resolves.toBeNull();
   });
 
   it('reads a single plan and rejects paths outside .plans', async () => {

@@ -25,12 +25,16 @@ export function useBeadsBoard() {
       const data: BeadsSourcesResponse = await res.json();
       setSources(data.sources);
 
-      const nextSourceId = data.defaultSourceId
+      const nextSourceId = data.lastSourceId
+        || data.defaultSourceId
         || data.sources.find((source) => source.isDefault)?.id
         || data.sources[0]?.id
         || '';
 
-      setSelectedSourceId((current) => current || nextSourceId);
+      setSelectedSourceId((current) => {
+        if (current && data.sources.some((source) => source.id === current)) return current;
+        return nextSourceId;
+      });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Failed to load Beads sources');
@@ -71,6 +75,37 @@ export function useBeadsBoard() {
     }
   }, [selectedSourceId]);
 
+  const addSource = useCallback(async ({ label, rootPath }: { label?: string; rootPath: string }) => {
+    const res = await fetch('/api/beads/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, rootPath }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { details?: string } | null;
+      throw new Error(body?.details || `HTTP ${res.status}`);
+    }
+
+    const source = await res.json() as BeadsSourceDto;
+    await fetchSources();
+    setSelectedSourceId(source.id);
+    return source;
+  }, [fetchSources]);
+
+  const removeSource = useCallback(async (sourceId: string) => {
+    const res = await fetch(`/api/beads/sources/${encodeURIComponent(sourceId)}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { details?: string } | null;
+      throw new Error(body?.details || `HTTP ${res.status}`);
+    }
+
+    await fetchSources();
+  }, [fetchSources]);
+
   useEffect(() => {
     fetchSources();
     return () => {
@@ -83,6 +118,21 @@ export function useBeadsBoard() {
     if (!selectedSourceId) return;
     fetchBoard(selectedSourceId);
   }, [selectedSourceId, fetchBoard]);
+
+  useEffect(() => {
+    if (!selectedSourceId) return;
+    const controller = new AbortController();
+    void fetch('/api/beads/selection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceId: selectedSourceId }),
+      signal: controller.signal,
+    }).catch(() => {
+      // Selection persistence is best-effort; keep the board usable even if it fails.
+    });
+
+    return () => controller.abort();
+  }, [selectedSourceId]);
 
   useEffect(() => {
     if (!selectedSourceId) return;
@@ -122,5 +172,7 @@ export function useBeadsBoard() {
     hasAnyTasks: (board?.totalCount ?? 0) > 0,
     fetchSources,
     fetchBoard,
+    addSource,
+    removeSource,
   };
 }

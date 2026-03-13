@@ -77,6 +77,7 @@ app.get('/api/server-info', rateLimitGeneral, async (c) => {
     gatewayStartedAt: await getGatewayStartedAt(),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     agentName: config.agentName,
+    workflow: config.workflow,
   });
 });
 

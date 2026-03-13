@@ -34,6 +34,14 @@ export interface TaskRunLink {
   error?: string;
 }
 
+export interface LinkedPlanSummary {
+  path: string;
+  title: string;
+  archived: boolean;
+  status?: string | null;
+  updatedAt: number;
+}
+
 export interface BeadsTaskMetadata {
   issueId: string;
   rawStatus: string;
@@ -46,6 +54,7 @@ export interface BeadsTaskMetadata {
   createdAt?: number;
   updatedAt?: number;
   closedAt?: number;
+  linkedPlan?: LinkedPlanSummary;
 }
 
 export interface KanbanTask {

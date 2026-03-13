@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { X, Clock, Link2, GitBranch, MessageSquare, Tag, User, CircleDot } from 'lucide-react';
+import { X, Clock, Link2, GitBranch, MessageSquare, Tag, User, CircleDot, FileText, FolderArchive, ArrowUpRight } from 'lucide-react';
 import type { KanbanTask } from './types';
 
 interface BeadsDetailDrawerProps {
   task: KanbanTask | null;
   sourceLabel?: string;
   onClose: () => void;
+  onOpenPlan?: (planPath: string) => void;
 }
 
 function formatDateTime(value?: number): string {
@@ -33,7 +34,7 @@ function MetadataRow({
   );
 }
 
-export function BeadsDetailDrawer({ task, sourceLabel, onClose }: BeadsDetailDrawerProps) {
+export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: BeadsDetailDrawerProps) {
   const metadata = task?.beads;
   const isOpen = task !== null && metadata !== undefined;
 
@@ -106,6 +107,47 @@ export function BeadsDetailDrawer({ task, sourceLabel, onClose }: BeadsDetailDra
                 <MetadataRow icon={<Clock size={12} />} label="Updated" value={formatDateTime(metadata.updatedAt)} />
                 <MetadataRow icon={<Clock size={12} />} label="Closed" value={formatDateTime(metadata.closedAt)} />
               </div>
+
+              {metadata.linkedPlan && (
+                <div className="border-t border-border/50 pt-3 space-y-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Linked plan</h4>
+                  <div className="rounded-md border border-border/40 bg-muted/20 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
+                            <FileText size={12} />
+                            {metadata.linkedPlan.title}
+                          </span>
+                          {metadata.linkedPlan.archived && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                              <FolderArchive size={10} />
+                              Archived
+                            </span>
+                          )}
+                          {metadata.linkedPlan.status && (
+                            <span className="inline-flex items-center rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {metadata.linkedPlan.status}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{metadata.linkedPlan.path}</div>
+                        <div className="mt-2 text-[11px] text-muted-foreground">Updated {formatDateTime(metadata.linkedPlan.updatedAt)}</div>
+                      </div>
+                      {onOpenPlan && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenPlan(metadata.linkedPlan!.path)}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                        >
+                          Open in Plans
+                          <ArrowUpRight size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {task.result && (
                 <div className="border-t border-border/50 pt-3">

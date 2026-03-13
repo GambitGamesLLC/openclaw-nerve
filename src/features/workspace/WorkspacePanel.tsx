@@ -5,7 +5,7 @@
  * Tab action buttons (add, refresh) render in the tab bar header.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { WorkspaceTabs, type TabId } from './WorkspaceTabs';
 import { MemoryTab, CronsTab, ConfigTab, SkillsTab, PlansTab } from './tabs';
 import { useCrons } from './hooks/useCrons';
@@ -77,9 +77,13 @@ interface WorkspacePanelProps {
   onOpenTask?: (taskId: string) => void;
   /** Open or reveal a safe workspace path inside Nerve. */
   onOpenPath?: (path: string) => void;
+  /** Server-driven label for the workflow surface. */
+  boardLabel?: 'Tasks' | 'Beads';
+  requestedTab?: TabId | null;
+  requestedPlanPath?: string | null;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath }: WorkspacePanelProps) {
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath, boardLabel = 'Tasks', requestedTab = null, requestedPlanPath = null }: WorkspacePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const { activeCount } = useCrons();
 
@@ -98,6 +102,11 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
     } catch { /* ignore */ }
   }, []);
 
+  useEffect(() => {
+    if (!requestedTab || requestedTab === activeTab) return;
+    handleTabChange(requestedTab);
+  }, [requestedTab, activeTab, handleTabChange]);
+
   return (
     <div className={compact ? 'h-[70vh] max-h-[70vh] flex flex-col min-h-0' : 'h-full flex flex-col min-h-0'}>
       <WorkspaceTabs
@@ -105,6 +114,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         onTabChange={handleTabChange}
         cronCount={activeCount || undefined}
         kanbanCount={undefined}
+        boardLabel={boardLabel}
       />
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className={activeTab === 'memory' ? 'h-full' : 'hidden'} hidden={activeTab !== 'memory'} role="tabpanel" id="workspace-tabpanel-memory" aria-labelledby="workspace-tab-memory">
@@ -124,7 +134,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         </div>
         <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
           {visitedTabs.has('plans') && (
-            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} />
+            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} requestedPlanPath={requestedPlanPath} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">

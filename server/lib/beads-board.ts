@@ -11,17 +11,22 @@ import { accessSync, constants } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { listBeadsSources, resolveBeadsSource, type BeadsSource, config } from './config.js';
+import { type BeadsSource } from './config.js';
+import { findRepoPlanByBeadId, type PlanSummary } from './plans.js';
+import { listManagedBeadsSourceDtos, resolveManagedBeadsSource, type ManagedBeadsSourceDto } from './beads-sources.js';
 
 const execFile = promisify(execFileCallback);
 
 export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done' | 'closed';
 
-export interface BeadsSourceDto {
-  id: string;
-  label: string;
-  kind: 'openclaw' | 'project';
-  isDefault: boolean;
+export type BeadsSourceDto = ManagedBeadsSourceDto;
+
+export interface LinkedPlanSummaryDto {
+  path: string;
+  title: string;
+  archived: boolean;
+  status: string | null;
+  updatedAt: number;
 }
 
 export interface BeadsBoardCardDto {
@@ -40,6 +45,7 @@ export interface BeadsBoardCardDto {
   dependencyCount: number;
   dependentCount: number;
   commentCount: number;
+  linkedPlan: LinkedPlanSummaryDto | null;
 }
 
 export interface BeadsBoardColumnDto {
@@ -93,11 +99,12 @@ export class BeadsAdapterError extends Error {
 }
 
 function toSourceDto(source: BeadsSource): BeadsSourceDto {
-  return {
+  return listManagedBeadsSourceDtos().find((entry) => entry.id === source.id) ?? {
     id: source.id,
     label: source.label,
     kind: source.kind,
-    isDefault: source.id === config.beads.defaultSourceId,
+    isDefault: false,
+    isCustom: false,
   };
 }
 
@@ -184,7 +191,18 @@ export function projectBeadsStatusToColumn(status: string | null | undefined): B
   }
 }
 
-export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssueExportItem[]): BeadsBoardDto {
+function toLinkedPlanSummaryDto(plan: PlanSummary | null): LinkedPlanSummaryDto | null {
+  if (!plan) return null;
+  return {
+    path: plan.path,
+    title: plan.title,
+    archived: plan.archived,
+    status: plan.status,
+    updatedAt: plan.updatedAt,
+  };
+}
+
+export async function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssueExportItem[]): Promise<BeadsBoardDto> {
   const buckets: Record<BeadsBoardColumnKey, BeadsBoardCardDto[]> = {
     todo: [],
     in_progress: [],
@@ -197,6 +215,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
 
     const rawStatus = normalizeString(issue.status) || 'open';
     const columnKey = projectBeadsStatusToColumn(rawStatus);
+    const linkedPlan = await findRepoPlanByBeadId(issue.id);
     const card: BeadsBoardCardDto = {
       id: issue.id,
       title: issue.title,
@@ -213,6 +232,7 @@ export function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssu
       dependencyCount: normalizeCount(issue.dependency_count),
       dependentCount: normalizeCount(issue.dependent_count),
       commentCount: normalizeCount(issue.comment_count),
+      linkedPlan: toLinkedPlanSummaryDto(linkedPlan),
     };
 
     buckets[columnKey].push(card);
@@ -255,11 +275,11 @@ async function execBdJsonl<T>(source: BeadsSource, args: string[]): Promise<T[]>
 }
 
 export function listBeadsSourceDtos(): BeadsSourceDto[] {
-  return listBeadsSources().map(toSourceDto);
+  return listManagedBeadsSourceDtos();
 }
 
 export async function getBeadsBoard(sourceId?: string | null): Promise<BeadsBoardDto> {
-  const source = resolveBeadsSource(sourceId);
+  const source = resolveManagedBeadsSource(sourceId);
   if (!source) throw new InvalidBeadsSourceError(sourceId);
 
   const issues = await execBdJsonl<BdIssueExportItem>(source, ['export']);
@@ -267,5 +287,5 @@ export async function getBeadsBoard(sourceId?: string | null): Promise<BeadsBoar
     throw new BeadsAdapterError(source.id, `Unexpected bd output for source "${source.id}"`);
   }
 
-  return projectBeadsIssuesToBoard(source, issues);
+  return await projectBeadsIssuesToBoard(source, issues);
 }

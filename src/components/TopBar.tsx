@@ -76,6 +76,8 @@ interface TopBarProps {
   viewMode?: ViewMode;
   /** Callback to change the view mode. */
   onViewModeChange?: (mode: ViewMode) => void;
+  /** Server-driven label for the kanban/beads workflow surface. */
+  boardLabel?: 'Tasks' | 'Beads';
 }
 
 /**
@@ -98,6 +100,7 @@ export function TopBar({
   workspacePanel,
   viewMode = 'chat',
   onViewModeChange,
+  boardLabel = 'Tasks',
 }: TopBarProps) {
   const [activePanel, setActivePanel] = useState<PanelId>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -204,8 +207,8 @@ export function TopBar({
               </button>
               <button
                 onClick={() => onViewModeChange('kanban')}
-                title="Tasks View"
-                aria-label="Switch to tasks view"
+                title={`${boardLabel} View`}
+                aria-label={`Switch to ${boardLabel.toLowerCase()} view`}
                 aria-pressed={viewMode === 'kanban'}
                 className={`flex items-center gap-1 px-2 h-6 text-[10px] transition-colors cursor-pointer ${
                   viewMode === 'kanban'
@@ -214,7 +217,7 @@ export function TopBar({
                 }`}
               >
                 <LayoutGrid size={12} aria-hidden="true" />
-                <span className="hidden sm:inline">Tasks</span>
+                <span className="hidden sm:inline">{boardLabel}</span>
               </button>
             </div>
           )}

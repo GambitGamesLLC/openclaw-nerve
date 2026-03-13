@@ -25,12 +25,18 @@ describe('Beads API routes', () => {
     vi.doMock('../lib/config.js', () => ({
       config: { beads: { defaultSourceId: 'openclaw' } },
     }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => 'alpha',
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
     vi.doMock('../lib/beads-board.js', () => ({
       BeadsAdapterError: class BeadsAdapterError extends Error {},
       InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
       listBeadsSourceDtos: () => ([
-        { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
-        { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false },
+        { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
+        { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: true },
       ]),
       getBeadsBoard: vi.fn(),
     }));
@@ -39,18 +45,19 @@ describe('Beads API routes', () => {
     const res = await app.request('/api/beads/sources');
     expect(res.status).toBe(200);
 
-    const json = await res.json() as { defaultSourceId: string; sources: Array<Record<string, unknown>> };
+    const json = await res.json() as { defaultSourceId: string; lastSourceId: string; sources: Array<Record<string, unknown>> };
     expect(json.defaultSourceId).toBe('openclaw');
+    expect(json.lastSourceId).toBe('alpha');
     expect(json.sources).toEqual([
-      { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
-      { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false },
+      { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
+      { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: true },
     ]);
     expect(JSON.stringify(json)).not.toContain('rootPath');
   });
 
   it('returns a projected board for a selected source id', async () => {
     const getBeadsBoard = vi.fn().mockResolvedValue({
-      source: { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false },
+      source: { id: 'alpha', label: 'Alpha Repo', kind: 'project', isDefault: false, isCustom: true },
       generatedAt: '2026-03-11T22:00:00.000Z',
       totalCount: 2,
       columns: [
@@ -111,6 +118,12 @@ describe('Beads API routes', () => {
     vi.doMock('../lib/config.js', () => ({
       config: { beads: { defaultSourceId: 'openclaw' } },
     }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
     vi.doMock('../lib/beads-board.js', () => ({
       BeadsAdapterError: class BeadsAdapterError extends Error {},
       InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
@@ -143,6 +156,12 @@ describe('Beads API routes', () => {
     vi.doMock('../lib/config.js', () => ({
       config: { beads: { defaultSourceId: 'openclaw' } },
     }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
     vi.doMock('../lib/beads-board.js', () => ({
       BeadsAdapterError: class BeadsAdapterError extends Error {},
       InvalidBeadsSourceError,
@@ -153,5 +172,84 @@ describe('Beads API routes', () => {
     const app = await buildApp();
     const res = await app.request('/api/beads/board?sourceId=nope');
     expect(res.status).toBe(404);
+  });
+
+  it('adds a managed Beads source via POST /api/beads/sources', async () => {
+    const addManagedBeadsSource = vi.fn().mockResolvedValue({
+      id: 'gambit-openclaw-nerve',
+      label: 'Gambit OpenClaw Nerve',
+      kind: 'project',
+      isDefault: false,
+      isCustom: true,
+    });
+
+    vi.doMock('../middleware/rate-limit.js', () => ({
+      rateLimitGeneral: async (_c: unknown, next: () => Promise<void>) => next(),
+    }));
+    vi.doMock('../lib/config.js', () => ({
+      config: { beads: { defaultSourceId: 'openclaw' } },
+    }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource,
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
+    vi.doMock('../lib/beads-board.js', () => ({
+      BeadsAdapterError: class BeadsAdapterError extends Error {},
+      InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
+      listBeadsSourceDtos: vi.fn(),
+      getBeadsBoard: vi.fn(),
+    }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/beads/sources', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        label: 'Gambit OpenClaw Nerve',
+        rootPath: '/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(addManagedBeadsSource).toHaveBeenCalledWith({
+      label: 'Gambit OpenClaw Nerve',
+      rootPath: '/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve',
+    });
+  });
+
+  it('persists the last-viewed Beads source selection', async () => {
+    const setManagedLastSourceId = vi.fn().mockResolvedValue('alpha');
+
+    vi.doMock('../middleware/rate-limit.js', () => ({
+      rateLimitGeneral: async (_c: unknown, next: () => Promise<void>) => next(),
+    }));
+    vi.doMock('../lib/config.js', () => ({
+      config: { beads: { defaultSourceId: 'openclaw' } },
+    }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId,
+    }));
+    vi.doMock('../lib/beads-board.js', () => ({
+      BeadsAdapterError: class BeadsAdapterError extends Error {},
+      InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
+      listBeadsSourceDtos: vi.fn(),
+      getBeadsBoard: vi.fn(),
+    }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/beads/selection', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sourceId: 'alpha' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(setManagedLastSourceId).toHaveBeenCalledWith('alpha');
+    await expect(res.json()).resolves.toEqual({ sourceId: 'alpha' });
   });
 });

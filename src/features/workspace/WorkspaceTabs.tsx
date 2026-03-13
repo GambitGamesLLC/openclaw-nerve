@@ -27,10 +27,11 @@ interface WorkspaceTabsProps {
   onTabChange: (tab: TabId) => void;
   cronCount?: number;
   kanbanCount?: number;
+  boardLabel?: 'Tasks' | 'Beads';
 }
 
 /** Horizontal tab bar for workspace sections (Memory, Crons, Skills, Config). */
-export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount }: WorkspaceTabsProps) {
+export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount, boardLabel = 'Tasks' }: WorkspaceTabsProps) {
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const currentIndex = TABS.findIndex(t => t.id === activeTab);
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
@@ -58,6 +59,7 @@ export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount }
           : tab.id === 'kanban' && kanbanCount ? kanbanCount
           : undefined;
         const Icon = tab.icon;
+        const label = tab.id === 'kanban' ? boardLabel : tab.label;
         return (
           <button
             key={tab.id}
@@ -77,7 +79,7 @@ export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount }
             data-active={isActive}
           >
             <Icon size={11} />
-            <span className="uppercase">{tab.label}</span>
+            <span className="uppercase">{label}</span>
             {badge !== undefined && (
               <span className="text-[9px] opacity-70">({badge})</span>
             )}

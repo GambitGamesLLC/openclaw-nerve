@@ -7,6 +7,15 @@ export interface BeadsSourceDto {
   label: string;
   kind: 'openclaw' | 'project';
   isDefault: boolean;
+  isCustom: boolean;
+}
+
+export interface LinkedPlanSummaryDto {
+  path: string;
+  title: string;
+  archived: boolean;
+  status: string | null;
+  updatedAt: number;
 }
 
 export interface BeadsBoardCardDto {
@@ -25,6 +34,7 @@ export interface BeadsBoardCardDto {
   dependencyCount: number;
   dependentCount: number;
   commentCount: number;
+  linkedPlan: LinkedPlanSummaryDto | null;
 }
 
 export interface BeadsBoardColumnDto {
@@ -43,10 +53,21 @@ export interface BeadsBoardDto {
 
 export interface BeadsSourcesResponse {
   defaultSourceId: string | null;
+  lastSourceId: string | null;
   sources: BeadsSourceDto[];
 }
 
 export type BoardMode = 'kanban' | 'beads';
+export type WorkflowPrimarySurface = 'native' | 'beads';
+
+export interface WorkflowShellConfigDto {
+  primarySurface: WorkflowPrimarySurface;
+  prefersBeads: boolean;
+  hideNativeTasks: boolean;
+  navigationLabel: 'Tasks' | 'Beads';
+  defaultBoardMode: BoardMode;
+}
+
 export type BeadsBoardTasksByColumn = Record<BeadsBoardColumnKey, KanbanTask[]>;
 
 export function mapBeadsPriorityToKanban(priority: number | null | undefined): KanbanTask['priority'] {
@@ -109,6 +130,7 @@ export function mapBeadsCardToKanbanTask(card: BeadsBoardCardDto, columnOrder: n
       createdAt: toOptionalEpoch(card.createdAt),
       updatedAt: toOptionalEpoch(card.updatedAt),
       closedAt,
+      linkedPlan: card.linkedPlan ?? undefined,
     },
   };
 }

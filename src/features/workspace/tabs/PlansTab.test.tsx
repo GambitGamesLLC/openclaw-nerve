@@ -98,6 +98,13 @@ describe('PlansTab', () => {
     expect(onOpenPath).toHaveBeenCalledWith('.plans/archive/2026-03-01-old.md');
   });
 
+  it('honors an externally requested plan path including archived plans', async () => {
+    render(<PlansTab requestedPlanPath=".plans/archive/2026-03-01-old.md" />);
+
+    expect(await screen.findByText('Archive body')).toBeInTheDocument();
+    expect(screen.getAllByText('.plans/archive/2026-03-01-old.md').length).toBeGreaterThan(0);
+  });
+
   it('filters plans by bead id search', async () => {
     const user = userEvent.setup();
 

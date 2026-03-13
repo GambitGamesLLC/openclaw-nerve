@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { KanbanTask } from './types';
-import type { BoardMode } from './beads';
+import type { BoardMode, BeadsBoardColumnKey } from './beads';
 import { useKanban } from './hooks/useKanban';
 import { useBeadsBoard } from './hooks/useBeadsBoard';
 import { useProposals } from './hooks/useProposals';
@@ -16,14 +16,26 @@ interface KanbanPanelProps {
   initialTaskId?: string | null;
   /** Called after the initial task drawer has been opened (to clear the ID). */
   onInitialTaskConsumed?: () => void;
+  /** Server-driven default board mode for workflow-shell behavior. */
+  defaultBoardMode?: BoardMode;
+  /** When true, fully hide native-task affordances and stay in Beads mode. */
+  hideNativeTasks?: boolean;
+  /** Open a linked repo-local plan in the shared Plans surface. */
+  onOpenPlan?: (planPath: string) => void;
 }
 
 /**
  * Main Kanban panel — replaces the placeholder from Wave 1.
  * Full board with header, columns, create dialog, and detail drawer.
  */
-export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPanelProps = {}) {
-  const [boardMode, setBoardMode] = useState<BoardMode>('kanban');
+export function KanbanPanel({
+  initialTaskId,
+  onInitialTaskConsumed,
+  defaultBoardMode = 'kanban',
+  hideNativeTasks = false,
+  onOpenPlan,
+}: KanbanPanelProps = {}) {
+  const [boardMode, setBoardMode] = useState<BoardMode>(hideNativeTasks ? 'beads' : defaultBoardMode);
 
   const {
     tasks,
@@ -55,6 +67,8 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
     error: beadsError,
     hasAnyTasks: beadsHasAnyTasks,
     fetchBoard: fetchBeadsBoard,
+    addSource: addBeadsSource,
+    removeSource: removeBeadsSource,
   } = useBeadsBoard();
 
   const {
@@ -69,26 +83,50 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
   const [selectedBeadsTask, setSelectedBeadsTask] = useState<KanbanTask | null>(null);
   const consumedRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    setBoardMode(hideNativeTasks ? 'beads' : defaultBoardMode);
+  }, [defaultBoardMode, hideNativeTasks]);
+
   // Auto-open drawer for initialTaskId
   useEffect(() => {
     if (!initialTaskId || initialTaskId === consumedRef.current) return;
-    const match = tasks.find((t) => t.id === initialTaskId);
-    if (match) {
+
+    const nativeMatch = tasks.find((t) => t.id === initialTaskId);
+    if (nativeMatch) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time sync from prop
-      setSelectedTask(match);
+      setBoardMode('kanban');
+      setSelectedTask(nativeMatch);
+      consumedRef.current = initialTaskId;
+      onInitialTaskConsumed?.();
+      return;
+    }
+
+    const beadsColumns: BeadsBoardColumnKey[] = ['todo', 'in_progress', 'done', 'closed'];
+    const beadsMatch = beadsColumns
+      .flatMap((column) => beadsTasksByColumn(column))
+      .find((t) => t.id === initialTaskId);
+    if (beadsMatch) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time sync from prop
+      setBoardMode('beads');
+      setSelectedBeadsTask(beadsMatch);
       consumedRef.current = initialTaskId;
       onInitialTaskConsumed?.();
     }
-  }, [initialTaskId, tasks, onInitialTaskConsumed]);
+  }, [initialTaskId, tasks, beadsTasksByColumn, onInitialTaskConsumed]);
 
   useEffect(() => {
+    if (hideNativeTasks && boardMode !== 'beads') {
+      setBoardMode('beads');
+      return;
+    }
+
     if (boardMode === 'beads') {
       setSelectedTask(null);
       return;
     }
 
     setSelectedBeadsTask(null);
-  }, [boardMode]);
+  }, [boardMode, hideNativeTasks]);
 
   /* ── Card click → open drawer ── */
   const handleCardClick = useCallback((task: KanbanTask) => {
@@ -150,6 +188,13 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
         beadsSources={beadsSources}
         selectedBeadsSourceId={selectedSourceId}
         onBeadsSourceChange={setSelectedSourceId}
+        onBeadsSourceAdd={async (input) => {
+          await addBeadsSource(input);
+        }}
+        onBeadsSourceRemove={async (sourceId) => {
+          await removeBeadsSource(sourceId);
+        }}
+        hideNativeTasks={hideNativeTasks}
       />
 
       {/* Board body */}
@@ -207,6 +252,7 @@ export function KanbanPanel({ initialTaskId, onInitialTaskConsumed }: KanbanPane
           task={selectedBeadsTask}
           sourceLabel={beadsBoard?.source.label}
           onClose={handleCloseBeadsDrawer}
+          onOpenPlan={onOpenPlan}
         />
       )}
     </div>

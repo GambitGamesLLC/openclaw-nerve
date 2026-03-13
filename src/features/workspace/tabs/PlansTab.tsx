@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { usePlans, type PlanSummary } from '../hooks/usePlans';
@@ -6,6 +6,7 @@ import { usePlans, type PlanSummary } from '../hooks/usePlans';
 interface PlansTabProps {
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
+  requestedPlanPath?: string | null;
 }
 
 function formatRelativeTime(value: number): string {
@@ -74,7 +75,7 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPath, onOpenTask }: PlansTabProps) {
+export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTabProps) {
   const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans();
   const [search, setSearch] = useState('');
 
@@ -98,6 +99,14 @@ export function PlansTab({ onOpenPath, onOpenTask }: PlansTabProps) {
   const activePlans = filteredPlans.filter(plan => !plan.archived);
   const archivedPlans = filteredPlans.filter(plan => plan.archived);
   const renderedContent = selectedPlan ? stripFrontmatter(selectedPlan.content) : '';
+
+  useEffect(() => {
+    if (!requestedPlanPath) return;
+    if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
+    if (selectedPath === requestedPlanPath) return;
+    void loadPlan(requestedPlanPath);
+  }, [requestedPlanPath, plans, selectedPath, loadPlan]);
+
 
   function handleOpenPlanReference(path: string) {
     if (plans.some((plan) => plan.path === path)) {

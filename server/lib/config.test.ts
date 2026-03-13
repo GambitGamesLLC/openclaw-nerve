@@ -354,6 +354,49 @@ describe('config module', () => {
     });
   });
 
+  describe('workflow shell config', () => {
+    it('defaults to native tasks compatibility mode', async () => {
+      delete process.env.NERVE_WORKFLOW_PRIMARY;
+      delete process.env.NERVE_HIDE_NATIVE_TASKS;
+
+      const { config } = await importFreshConfig();
+
+      expect(config.workflow).toEqual({
+        primarySurface: 'native',
+        prefersBeads: false,
+        hideNativeTasks: false,
+        navigationLabel: 'Tasks',
+        defaultBoardMode: 'kanban',
+      });
+    });
+
+    it('enables beads-first shell mode from env', async () => {
+      process.env.NERVE_WORKFLOW_PRIMARY = 'beads';
+      delete process.env.NERVE_HIDE_NATIVE_TASKS;
+
+      const { config } = await importFreshConfig();
+
+      expect(config.workflow.primarySurface).toBe('beads');
+      expect(config.workflow.prefersBeads).toBe(true);
+      expect(config.workflow.hideNativeTasks).toBe(false);
+      expect(config.workflow.navigationLabel).toBe('Beads');
+      expect(config.workflow.defaultBoardMode).toBe('beads');
+    });
+
+    it('forces beads mode when native tasks are hidden', async () => {
+      process.env.NERVE_WORKFLOW_PRIMARY = 'native';
+      process.env.NERVE_HIDE_NATIVE_TASKS = 'true';
+
+      const { config } = await importFreshConfig();
+
+      expect(config.workflow.primarySurface).toBe('native');
+      expect(config.workflow.prefersBeads).toBe(true);
+      expect(config.workflow.hideNativeTasks).toBe(true);
+      expect(config.workflow.navigationLabel).toBe('Beads');
+      expect(config.workflow.defaultBoardMode).toBe('beads');
+    });
+  });
+
   describe('beads source registry', () => {
     it('defaults to the built-in ~/.openclaw source', async () => {
       const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-home-'));

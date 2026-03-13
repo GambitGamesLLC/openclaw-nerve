@@ -1,6 +1,15 @@
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Filter, Plus, X, Inbox } from 'lucide-react';
+import { Search, Filter, Plus, X, Inbox, FolderPlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type { TaskStatus, TaskPriority } from './types';
 import type { KanbanFilters } from './hooks/useKanban';
 import { ProposalInbox } from './ProposalInbox';
@@ -56,6 +65,9 @@ interface KanbanHeaderProps {
   beadsSources?: BeadsSourceDto[];
   selectedBeadsSourceId?: string;
   onBeadsSourceChange?: (sourceId: string) => void;
+  onBeadsSourceAdd?: (input: { label?: string; rootPath: string }) => Promise<void> | void;
+  onBeadsSourceRemove?: (sourceId: string) => Promise<void> | void;
+  hideNativeTasks?: boolean;
 }
 
 export const KanbanHeader = memo(function KanbanHeader({
@@ -73,9 +85,17 @@ export const KanbanHeader = memo(function KanbanHeader({
   beadsSources = [],
   selectedBeadsSourceId = '',
   onBeadsSourceChange,
+  onBeadsSourceAdd,
+  onBeadsSourceRemove,
+  hideNativeTasks = false,
 }: KanbanHeaderProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
+  const [showSourceManager, setShowSourceManager] = useState(false);
+  const [sourceLabel, setSourceLabel] = useState('');
+  const [sourceRootPath, setSourceRootPath] = useState('');
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [sourceBusy, setSourceBusy] = useState(false);
   const [searchValue, setSearchValue] = useState(filters.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const filtersRef = useRef(filters);
@@ -123,168 +143,317 @@ export const KanbanHeader = memo(function KanbanHeader({
     onFiltersChange({ q: '', priority: [], assignee: '', labels: [] });
   }, [onFiltersChange]);
 
+  const handleAddSource = useCallback(async () => {
+    if (!onBeadsSourceAdd) return;
+    const rootPath = sourceRootPath.trim();
+    const label = sourceLabel.trim();
+    if (!rootPath) {
+      setSourceError('Project root path is required.');
+      return;
+    }
+
+    setSourceBusy(true);
+    setSourceError(null);
+    try {
+      await onBeadsSourceAdd({
+        rootPath,
+        label: label || undefined,
+      });
+      setSourceLabel('');
+      setSourceRootPath('');
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : 'Failed to add source');
+    } finally {
+      setSourceBusy(false);
+    }
+  }, [onBeadsSourceAdd, sourceLabel, sourceRootPath]);
+
+  const handleRemoveSource = useCallback(async (sourceId: string) => {
+    if (!onBeadsSourceRemove) return;
+    setSourceBusy(true);
+    setSourceError(null);
+    try {
+      await onBeadsSourceRemove(sourceId);
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : 'Failed to remove source');
+    } finally {
+      setSourceBusy(false);
+    }
+  }, [onBeadsSourceRemove]);
+
   const hasActiveFilters = filters.q || filters.priority.length > 0 || filters.assignee || filters.labels.length > 0;
   const isBeadsMode = boardMode === 'beads';
 
   return (
-    <div className="shrink-0 px-4 pt-3 pb-2 space-y-2">
-      {/* Row 1: title + stats + actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Left: title + stats */}
-        <h1 className="text-sm font-bold text-foreground tracking-wide uppercase">
-          {isBeadsMode ? 'Beads Board' : 'Tasks'}
-        </h1>
-        <div className="hidden sm:flex items-center gap-1.5">
-          <StatChip label="To Do" count={isBeadsMode ? (beadsColumnCounts?.todo ?? 0) : statusCounts.todo} accent="text-blue-400" />
-          <StatChip label="In Progress" count={isBeadsMode ? (beadsColumnCounts?.in_progress ?? 0) : statusCounts['in-progress']} accent="text-cyan-400" />
-          {!isBeadsMode && <StatChip label="Review" count={statusCounts.review} accent="text-amber-400" />}
-          <StatChip label="Done" count={isBeadsMode ? (beadsColumnCounts?.done ?? 0) : statusCounts.done} accent="text-green-400" />
-          {isBeadsMode && <StatChip label="Closed" count={beadsColumnCounts?.closed ?? 0} accent="text-slate-300" />}
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Right: mode + source + native-only controls */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="inline-flex items-center rounded-md border border-border/60 bg-background/70 p-0.5">
-            <button
-              type="button"
-              onClick={() => onBoardModeChange?.('kanban')}
-              className={`h-7 px-2.5 text-[11px] font-semibold rounded-sm transition-colors ${
-                !isBeadsMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Native
-            </button>
-            <button
-              type="button"
-              onClick={() => onBoardModeChange?.('beads')}
-              className={`h-7 px-2.5 text-[11px] font-semibold rounded-sm transition-colors ${
-                isBeadsMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Beads
-            </button>
+    <>
+      <div className="shrink-0 px-4 pt-3 pb-2 space-y-2">
+        {/* Row 1: title + stats + actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Left: title + stats */}
+          <h1 className="text-sm font-bold text-foreground tracking-wide uppercase">
+            {isBeadsMode ? 'Beads Board' : 'Tasks'}
+          </h1>
+          <div className="hidden sm:flex items-center gap-1.5">
+            <StatChip label="To Do" count={isBeadsMode ? (beadsColumnCounts?.todo ?? 0) : statusCounts.todo} accent="text-blue-400" />
+            <StatChip label="In Progress" count={isBeadsMode ? (beadsColumnCounts?.in_progress ?? 0) : statusCounts['in-progress']} accent="text-cyan-400" />
+            {!isBeadsMode && <StatChip label="Review" count={statusCounts.review} accent="text-amber-400" />}
+            <StatChip label="Done" count={isBeadsMode ? (beadsColumnCounts?.done ?? 0) : statusCounts.done} accent="text-green-400" />
+            {isBeadsMode && <StatChip label="Closed" count={beadsColumnCounts?.closed ?? 0} accent="text-slate-300" />}
           </div>
 
-          {isBeadsMode && (
-            <select
-              value={selectedBeadsSourceId}
-              onChange={(e) => onBeadsSourceChange?.(e.target.value)}
-              className="h-8 min-w-[170px] max-w-[260px] rounded-md border border-input bg-transparent px-2.5 text-xs text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
-              aria-label="Select Beads source"
-            >
-              {beadsSources.length === 0 ? (
-                <option value="">No sources</option>
-              ) : (
-                beadsSources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.label}
-                  </option>
-                ))
-              )}
-            </select>
-          )}
+          <div className="flex-1" />
 
-          {!isBeadsMode && (
-            <>
-              {/* Search */}
-              <div className="relative">
-                <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchValue}
-                  onChange={e => handleSearchChange(e.target.value)}
-                  placeholder="Search tasks…"
-                  className="h-8 w-[180px] sm:w-[240px] pl-7 pr-2 text-xs rounded-md border border-input bg-transparent placeholder:text-muted-foreground text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
-                />
-                {searchValue && (
-                  <button
-                    onClick={() => handleSearchChange('')}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Filter toggle */}
-              <Button
-                variant={showFilters ? 'secondary' : 'outline'}
-                size="icon-sm"
-                onClick={() => setShowFilters(!showFilters)}
-                title="Toggle filters"
-              >
-                <Filter size={14} />
-              </Button>
-
-              {/* Proposal inbox */}
-              <div className="relative" ref={inboxRef}>
-                <Button
-                  variant={showInbox ? 'secondary' : 'outline'}
-                  size="icon-sm"
-                  onClick={() => setShowInbox(!showInbox)}
-                  title="Agent proposals"
+          {/* Right: mode + source + native-only controls */}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {!hideNativeTasks && (
+              <div className="inline-flex items-center rounded-md border border-border/60 bg-background/70 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => onBoardModeChange?.('kanban')}
+                  className={`h-7 px-2.5 text-[11px] font-semibold rounded-sm transition-colors ${
+                    !isBeadsMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <Inbox size={14} />
-                  {pendingProposalCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
-                      {pendingProposalCount}
-                    </span>
+                  Native
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBoardModeChange?.('beads')}
+                  className={`h-7 px-2.5 text-[11px] font-semibold rounded-sm transition-colors ${
+                    isBeadsMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Beads
+                </button>
+              </div>
+            )}
+
+            {isBeadsMode && (
+              <>
+                <select
+                  value={selectedBeadsSourceId}
+                  onChange={(e) => onBeadsSourceChange?.(e.target.value)}
+                  className="h-8 min-w-[170px] max-w-[260px] rounded-md border border-input bg-transparent px-2.5 text-xs text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+                  aria-label="Select Beads source"
+                >
+                  {beadsSources.length === 0 ? (
+                    <option value="">No sources</option>
+                  ) : (
+                    beadsSources.map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.label}
+                      </option>
+                    ))
                   )}
+                </select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => {
+                    setSourceError(null);
+                    setShowSourceManager(true);
+                  }}
+                >
+                  <FolderPlus size={14} />
+                  <span className="hidden sm:inline">Manage sources</span>
+                </Button>
+              </>
+            )}
+
+            {!isBeadsMode && (
+              <>
+                {/* Search */}
+                <div className="relative">
+                  <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchValue}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    placeholder="Search tasks…"
+                    className="h-8 w-[180px] sm:w-[240px] pl-7 pr-2 text-xs rounded-md border border-input bg-transparent placeholder:text-muted-foreground text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+                  />
+                  {searchValue && (
+                    <button
+                      onClick={() => handleSearchChange('')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter toggle */}
+                <Button
+                  variant={showFilters ? 'secondary' : 'outline'}
+                  size="icon-sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  title="Toggle filters"
+                >
+                  <Filter size={14} />
                 </Button>
 
-                {/* Inbox popover */}
-                {showInbox && (
-                  <div className="absolute right-0 top-full mt-1 w-[340px] bg-popover border border-border rounded-lg shadow-lg z-50">
-                    <div className="px-3 py-2 border-b border-border/40">
-                      <span className="text-xs font-semibold text-foreground">Agent Proposals</span>
-                      {pendingProposalCount > 0 && (
-                        <span className="ml-2 text-[10px] text-muted-foreground">{pendingProposalCount} pending</span>
-                      )}
-                    </div>
-                    <ProposalInbox
-                      proposals={proposals}
-                      onApprove={(id) => onApproveProposal?.(id)}
-                      onReject={(id) => onRejectProposal?.(id)}
-                    />
-                  </div>
-                )}
-              </div>
+                {/* Proposal inbox */}
+                <div className="relative" ref={inboxRef}>
+                  <Button
+                    variant={showInbox ? 'secondary' : 'outline'}
+                    size="icon-sm"
+                    onClick={() => setShowInbox(!showInbox)}
+                    title="Agent proposals"
+                  >
+                    <Inbox size={14} />
+                    {pendingProposalCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+                        {pendingProposalCount}
+                      </span>
+                    )}
+                  </Button>
 
-              {/* Create */}
-              <Button size="sm" onClick={onCreateTask}>
-                <Plus size={14} />
-                <span className="hidden sm:inline">New Task</span>
-              </Button>
-            </>
-          )}
+                  {/* Inbox popover */}
+                  {showInbox && (
+                    <div className="absolute right-0 top-full mt-1 w-[340px] bg-popover border border-border rounded-lg shadow-lg z-50">
+                      <div className="px-3 py-2 border-b border-border/40">
+                        <span className="text-xs font-semibold text-foreground">Agent Proposals</span>
+                        {pendingProposalCount > 0 && (
+                          <span className="ml-2 text-[10px] text-muted-foreground">{pendingProposalCount} pending</span>
+                        )}
+                      </div>
+                      <ProposalInbox
+                        proposals={proposals}
+                        onApprove={(id) => onApproveProposal?.(id)}
+                        onReject={(id) => onRejectProposal?.(id)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Create */}
+                <Button size="sm" onClick={onCreateTask}>
+                  <Plus size={14} />
+                  <span className="hidden sm:inline">New Task</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Row 2: filters */}
+        {!isBeadsMode && showFilters && (
+          <div className="flex items-center gap-2 flex-wrap rounded-lg border border-border/40 bg-card/50 px-3 py-2">
+            <span className="text-[11px] font-semibold text-muted-foreground mr-1">Priority</span>
+            {(['critical', 'high', 'normal', 'low'] as const).map((p) => (
+              <FilterPill
+                key={p}
+                label={p.charAt(0).toUpperCase() + p.slice(1)}
+                active={filters.priority.includes(p)}
+                onClick={() => togglePriority(p)}
+              />
+            ))}
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Row 2: filters */}
-      {!isBeadsMode && showFilters && (
-        <div className="flex items-center gap-2 flex-wrap rounded-lg border border-border/40 bg-card/50 px-3 py-2">
-          <span className="text-[11px] font-semibold text-muted-foreground mr-1">Priority</span>
-          {(['critical', 'high', 'normal', 'low'] as const).map((p) => (
-            <FilterPill
-              key={p}
-              label={p.charAt(0).toUpperCase() + p.slice(1)}
-              active={filters.priority.includes(p)}
-              onClick={() => togglePriority(p)}
-            />
-          ))}
+      <Dialog open={showSourceManager} onOpenChange={setShowSourceManager}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Tracked Beads sources</DialogTitle>
+            <DialogDescription>
+              Add or remove tracked Beads/project roots here. Env-configured sources stay read-only for compatibility.
+            </DialogDescription>
+          </DialogHeader>
 
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Current sources</div>
+              <div className="max-h-[280px] overflow-auto rounded-lg border border-border/50 divide-y divide-border/40">
+                {beadsSources.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-muted-foreground">No Beads sources are configured yet.</div>
+                ) : (
+                  beadsSources.map((source) => {
+                    const isSelected = source.id === selectedBeadsSourceId;
+                    return (
+                      <div key={source.id} className="flex items-center gap-3 px-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">{source.label}</span>
+                            {isSelected && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Current</span>}
+                            {source.isDefault && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">Default</span>}
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{source.kind === 'openclaw' ? 'OpenClaw' : 'Project'}</span>
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{source.isCustom ? 'Added here' : 'From env'}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">{source.id}</div>
+                        </div>
+                        {source.isCustom ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            type="button"
+                            onClick={() => void handleRemoveSource(source.id)}
+                            disabled={sourceBusy}
+                            aria-label={`Remove ${source.label}`}
+                            title={`Remove ${source.label}`}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">Locked</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/50 bg-card/40 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add tracked project</div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground" htmlFor="beads-source-root-path">Project root path</label>
+                  <Input
+                    id="beads-source-root-path"
+                    value={sourceRootPath}
+                    onChange={(event) => setSourceRootPath(event.target.value)}
+                    placeholder="/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve"
+                    disabled={sourceBusy}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground" htmlFor="beads-source-label">Label (optional)</label>
+                  <Input
+                    id="beads-source-label"
+                    value={sourceLabel}
+                    onChange={(event) => setSourceLabel(event.target.value)}
+                    placeholder="Gambit OpenClaw Nerve"
+                    disabled={sourceBusy}
+                  />
+                </div>
+              </div>
+              {sourceError && <div className="text-xs text-destructive">{sourceError}</div>}
+              <div className="text-xs text-muted-foreground">
+                Paths must point to <code>~/.openclaw</code> or a repo inside the configured projects root.
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter showCloseButton>
+            <Button type="button" onClick={() => void handleAddSource()} disabled={sourceBusy}>
+              <FolderPlus size={14} />
+              Add source
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 });

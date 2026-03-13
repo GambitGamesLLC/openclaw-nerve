@@ -191,6 +191,14 @@ async function collectPlanFiles(dirPath: string, relativeDir = ''): Promise<stri
   return files;
 }
 
+export async function findRepoPlanByBeadId(beadId: string): Promise<PlanSummary | null> {
+  const normalizedBeadId = beadId.trim();
+  if (!normalizedBeadId) return null;
+
+  const plans = await listRepoPlans();
+  return plans.find((plan) => plan.beadIds.includes(normalizedBeadId)) ?? null;
+}
+
 export async function listRepoPlans(): Promise<PlanSummary[]> {
   const plansRoot = getPlansRoot();
 

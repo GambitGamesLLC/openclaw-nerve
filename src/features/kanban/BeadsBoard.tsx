@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { ChevronRight, Database, Inbox, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import { Database, Eye, EyeOff, Inbox } from 'lucide-react';
 import type { KanbanTask } from './types';
+import type { BeadsBoardColumnKey } from './beads';
 import { KanbanCard } from './KanbanCard';
 
 interface BeadsBoardProps {
@@ -16,12 +17,58 @@ interface BeadsBoardProps {
   onCardClick?: (task: KanbanTask) => void;
 }
 
-const COLUMN_CONFIG = [
+type ColumnVisibility = Record<BeadsBoardColumnKey, boolean>;
+
+const COLUMN_VISIBILITY_STORAGE_KEY = 'nerve:beadsBoardColumnVisibility';
+
+const COLUMN_CONFIG: Array<{ key: BeadsBoardColumnKey; label: string; accent: string; tone?: 'default' | 'muted' }> = [
   { key: 'todo', label: 'To Do', accent: 'text-blue-400' },
-  { key: 'in-progress', label: 'In Progress', accent: 'text-cyan-400' },
+  { key: 'in_progress', label: 'In Progress', accent: 'text-cyan-400' },
   { key: 'done', label: 'Done', accent: 'text-green-400' },
-  { key: 'closed', label: 'Closed', accent: 'text-slate-300' },
-] as const;
+  { key: 'closed', label: 'Closed', accent: 'text-slate-300', tone: 'muted' },
+];
+
+const DEFAULT_COLUMN_VISIBILITY: ColumnVisibility = {
+  todo: true,
+  in_progress: true,
+  done: true,
+  closed: true,
+};
+
+function readPersistedColumnVisibility(): Partial<ColumnVisibility> | null {
+  try {
+    const raw = localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    return {
+      todo: typeof parsed.todo === 'boolean' ? parsed.todo : undefined,
+      in_progress: typeof parsed.in_progress === 'boolean' ? parsed.in_progress : undefined,
+      done: typeof parsed.done === 'boolean' ? parsed.done : undefined,
+      closed: typeof parsed.closed === 'boolean' ? parsed.closed : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function mergeColumnVisibility(defaults: ColumnVisibility, saved: Partial<ColumnVisibility> | null): ColumnVisibility {
+  return {
+    todo: saved?.todo ?? defaults.todo,
+    in_progress: saved?.in_progress ?? defaults.in_progress,
+    done: saved?.done ?? defaults.done,
+    closed: saved?.closed ?? defaults.closed,
+  };
+}
+
+function buildDefaultColumnVisibility(closedCount: number): ColumnVisibility {
+  return {
+    ...DEFAULT_COLUMN_VISIBILITY,
+    closed: closedCount === 0,
+  };
+}
 
 function SkeletonColumn() {
   return (
@@ -88,41 +135,6 @@ function BeadsColumn({
   );
 }
 
-function ClosedSummaryRail({ count, onShow }: { count: number; onShow: () => void }) {
-  return (
-    <div className="flex flex-col min-w-[180px] w-[200px] max-w-[220px] h-full shrink-0 rounded-lg border border-border/30 bg-muted/15">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 h-10 px-3 bg-muted/20 backdrop-blur-sm border-b border-border/30 rounded-t-lg">
-        <div className="min-w-0">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Closed</span>
-        </div>
-        <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm tabular-nums">
-          {count}
-        </span>
-      </div>
-
-      <div className="flex-1 px-3 py-3 flex flex-col justify-between gap-3 text-left">
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium text-foreground/90">Hidden by default</p>
-          <p className="text-[11px] leading-4 text-muted-foreground">
-            Keep active work front-and-center while preserving fast access to closed issues.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onShow}
-          className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md border border-border/60 bg-background/70 text-[11px] font-semibold text-foreground hover:bg-background transition-colors cursor-pointer"
-          aria-label={`Show Closed column (${count} items)`}
-        >
-          <PanelRightOpen size={14} />
-          <span>Show Closed</span>
-          <ChevronRight size={12} className="text-muted-foreground" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export const BeadsBoard = memo(function BeadsBoard({
   todoTasks,
   inProgressTasks,
@@ -135,16 +147,28 @@ export const BeadsBoard = memo(function BeadsBoard({
   sourceLabel,
   onCardClick = () => {},
 }: BeadsBoardProps) {
-  const [showClosed, setShowClosed] = useState(false);
-  const initializedClosedPreferenceRef = useRef(false);
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(DEFAULT_COLUMN_VISIBILITY);
+  const initializedColumnVisibilityRef = useRef(false);
 
   useEffect(() => {
-    if (initializedClosedPreferenceRef.current) return;
+    if (initializedColumnVisibilityRef.current) return;
     if (loading || error || !hasAnyTasks) return;
 
-    setShowClosed(closedTasks.length === 0);
-    initializedClosedPreferenceRef.current = true;
+    const defaults = buildDefaultColumnVisibility(closedTasks.length);
+    const saved = readPersistedColumnVisibility();
+    setColumnVisibility(mergeColumnVisibility(defaults, saved));
+    initializedColumnVisibilityRef.current = true;
   }, [closedTasks.length, error, hasAnyTasks, loading]);
+
+  useEffect(() => {
+    if (!initializedColumnVisibilityRef.current) return;
+
+    try {
+      localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(columnVisibility));
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [columnVisibility]);
 
   if (error) {
     return (
@@ -190,38 +214,80 @@ export const BeadsBoard = memo(function BeadsBoard({
     );
   }
 
-  const isClosedCollapsed = closedTasks.length > 0 && !showClosed;
+  const tasksByColumn: Record<BeadsBoardColumnKey, KanbanTask[]> = {
+    todo: todoTasks,
+    in_progress: inProgressTasks,
+    done: doneTasks,
+    closed: closedTasks,
+  };
+
+  const visibleColumns = COLUMN_CONFIG.filter((column) => columnVisibility[column.key]);
+  const hiddenColumns = COLUMN_CONFIG.filter((column) => !columnVisibility[column.key]);
 
   return (
     <div className="h-full overflow-x-auto">
-      <div className="mb-2 flex items-center justify-end">
-        {closedTasks.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowClosed((current) => !current)}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border/60 bg-background/70 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-background transition-colors cursor-pointer"
-            aria-pressed={showClosed}
-            aria-label={showClosed ? `Hide Closed column (${closedTasks.length} items)` : `Toggle Closed column (${closedTasks.length} items)`}
-          >
-            {showClosed ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-            <span>{showClosed ? 'Hide Closed' : 'Show Closed'}</span>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 tabular-nums text-[10px] text-foreground/80">
-              {closedTasks.length}
-            </span>
-          </button>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {COLUMN_CONFIG.map((column) => {
+            const visible = columnVisibility[column.key];
+            const count = tasksByColumn[column.key].length;
+
+            return (
+              <button
+                key={column.key}
+                type="button"
+                onClick={() => setColumnVisibility((current) => ({
+                  ...current,
+                  [column.key]: !current[column.key],
+                }))}
+                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[11px] font-semibold transition-colors cursor-pointer ${
+                  visible
+                    ? 'border-border/60 bg-background/70 text-foreground hover:bg-background'
+                    : 'border-border/40 bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+                aria-pressed={visible}
+                aria-label={`${visible ? 'Hide' : 'Show'} ${column.label} column (${count} items)`}
+              >
+                {visible ? <Eye size={13} /> : <EyeOff size={13} />}
+                <span>{visible ? 'Hide' : 'Show'} {column.label}</span>
+                <span className="rounded-sm bg-muted px-1.5 py-0.5 tabular-nums text-[10px] text-foreground/80">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {hiddenColumns.length > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            Hidden: {hiddenColumns.map((column) => column.label).join(', ')}
+          </p>
         )}
       </div>
 
-      <div className="flex gap-3 p-0 min-w-min h-[calc(100%-2.5rem)]">
-        <BeadsColumn label="To Do" accent="text-blue-400" tasks={todoTasks} onCardClick={onCardClick} />
-        <BeadsColumn label="In Progress" accent="text-cyan-400" tasks={inProgressTasks} onCardClick={onCardClick} />
-        <BeadsColumn label="Done" accent="text-green-400" tasks={doneTasks} onCardClick={onCardClick} />
-        {isClosedCollapsed ? (
-          <ClosedSummaryRail count={closedTasks.length} onShow={() => setShowClosed(true)} />
-        ) : (
-          <BeadsColumn label="Closed" accent="text-slate-300" tasks={closedTasks} onCardClick={onCardClick} tone="muted" />
-        )}
-      </div>
+      {visibleColumns.length === 0 ? (
+        <div className="flex h-[calc(100%-2.5rem)] items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/10 px-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-foreground">All Beads columns are hidden</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use the column controls above to bring any lane back into view.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-3 p-0 min-w-min h-[calc(100%-2.5rem)]">
+          {visibleColumns.map((column) => (
+            <BeadsColumn
+              key={column.key}
+              label={column.label}
+              accent={column.accent}
+              tone={column.tone}
+              tasks={tasksByColumn[column.key]}
+              onCardClick={onCardClick}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 });
