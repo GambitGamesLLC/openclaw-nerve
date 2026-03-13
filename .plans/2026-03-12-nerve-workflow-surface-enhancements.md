@@ -79,11 +79,11 @@ These should remain separate but related tracks. The Beads board should become a
 
 **Files Created/Deleted/Modified:**
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
-- optional design doc if helpful
+- `docs/BEAD-PLAN-LINKAGE.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Produced a durable bead-to-plan linkage design note in `docs/BEAD-PLAN-LINKAGE.md` and linked the recommendation back into this living plan. Recommended model: store the explicit bead → plan link in bead `metadata.plan` (`plan_id`, repo-relative `path`, optional cached `title`) while giving each plan a stable `plan_id` in frontmatter plus optional `bead_ids` backlinks as a secondary index. Nerve should resolve by path first, then recover by `plan_id`, and classify the result as active/moved/archived/missing rather than treating path drift as a hard failure. Archived plans remain valid targets with an Archived badge; removed plans should degrade to a Missing state that still shows last-known path/id. Migration should be incremental: adopt frontmatter on touched plans, add bead metadata when links are intentionally created, then implement a server-side resolver and drawer-level UI before broader autolinking. Validation: `git diff --check` ✅ plus a small Node check that confirmed the design doc exists and this plan references it. Committed in `3ed03ab` (`Document bead-to-plan linkage model`).
 
 ---
 
@@ -151,17 +151,18 @@ These should remain separate but related tracks. The Beads board should become a
 
 ## Final Results
 
-**Status:** ⚠️ Partial — Tasks 1-2 complete, Tasks 3-6 pending
+**Status:** ⚠️ Partial — Tasks 1-3 complete, Tasks 4-6 pending
 
-**What We Built:** The Beads board now ships richer Beads-native metadata and a first conservative Closed-column UX pass. Closed issues remain directly accessible, but active workflow columns stay visually primary via collapsed-by-default treatment, a compact Closed summary rail, and a reduced-weight expanded Closed lane.
+**What We Built:** The Beads board now ships richer Beads-native metadata, a first conservative Closed-column UX pass, and a documented durable linkage model for moving from a bead to its repo-local plan. The linkage recommendation is to store an explicit bead-side `metadata.plan` reference while giving plans stable `plan_id` frontmatter so Nerve can recover from path drift and distinguish active, moved, archived, and missing plan states.
 
 **Commits:**
 - `0181bfd` - Surface richer Beads metadata on board cards and details
 - `033e90d` - Add Beads detail drawer and live board wiring
 - `220dbbf` - Improve Beads closed-column ergonomics
+- `3ed03ab` - Document bead-to-plan linkage model
 
-**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign.
+**Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery.
 
 ---
 
-*Completed on Pending*
+*Completed on 2026-03-12*
