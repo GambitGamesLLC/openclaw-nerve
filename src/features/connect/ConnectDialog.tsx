@@ -10,10 +10,11 @@ interface ConnectDialogProps {
   error: string;
   defaultUrl: string;
   defaultToken?: string;
+  serverSideAuth?: boolean;
 }
 
 /** Initial connection dialog for entering the gateway URL and token. */
-export function ConnectDialog({ open, onConnect, error, defaultUrl, defaultToken = '' }: ConnectDialogProps) {
+export function ConnectDialog({ open, onConnect, error, defaultUrl, defaultToken = '', serverSideAuth }: ConnectDialogProps) {
   const [url, setUrl] = useState(defaultUrl);
   const [token, setToken] = useState(defaultToken);
   const [connecting, setConnecting] = useState(false);
@@ -27,18 +28,44 @@ export function ConnectDialog({ open, onConnect, error, defaultUrl, defaultToken
   }, [defaultUrl, defaultToken, open]);
 
   const handleConnect = async () => {
-    if (!url.trim() || !token.trim()) return;
+    const isDefaultHost = url.trim() === defaultUrl.trim();
+    if (!url.trim() || (!token.trim() && (!serverSideAuth || !isDefaultHost))) return;
+
+    // Force empty token when in server-side auth mode for the default host.
+    // This allows the proxy to perform injection and prevents stale/hidden local tokens
+    // from overriding server-side credentials.
+    const effectiveToken = (serverSideAuth && isDefaultHost) ? '' : token.trim();
+
     setConnecting(true);
     try {
-      await onConnect(url.trim(), token.trim());
+      await onConnect(url.trim(), effectiveToken);
     } catch (err) {
       console.debug('[ConnectDialog] Connection failed:', err);
     }
     setConnecting(false);
   };
-
+a
   return (
     <Dialog open={open}>
+      <DialogContent className="bg-card border-border font-mono max-w-[380px] [&>button]:hidden" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle className="text-primary text-xs font-bold tracking-[2px] uppercase">
+            // CONNECT TO GATEWAY
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3.5">
+          <label className="flex flex-col gap-1 text-[11px] text-muted-foreground uppercase tracking-[1px]">
+            WebSocket URL
+            <Input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              spellCheck={false}
+              className="bg-background border-border text-foreground font-mono text-[13px]"
+            />
+          </label>
+          {(!serverSideAuth || url.trim() !== defaultUrl.trim()) && (
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground uppercase tracking-[1px]">
+              Auth Token
       <DialogContent className="shell-panel max-w-[min(92vw,560px)] p-0 overflow-hidden [&>button]:hidden" showCloseButton={false}>
         <div className="border-b border-border/70 bg-gradient-to-r from-primary/12 via-transparent to-info/6 px-5 py-4 sm:px-6">
           <DialogHeader className="gap-3 text-left">
@@ -100,6 +127,18 @@ export function ConnectDialog({ open, onConnect, error, defaultUrl, defaultToken
                 onChange={e => setToken(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleConnect()}
                 spellCheck={false}
+                className="bg-background border-border text-foreground font-mono text-[13px]"
+              />
+            </label>
+          )}
+          <Button
+            onClick={handleConnect}
+            disabled={connecting}
+            className="bg-primary text-primary-foreground font-mono text-xs font-bold tracking-[1px] uppercase"
+          >
+            {connecting ? 'CONNECTING…' : 'CONNECT'}
+          </Button>
+          {error && <div className="text-destructive text-[11px]">{error}</div>}
                 placeholder="Paste the token from your gateway config"
                 className="font-mono text-base sm:text-[13px]"
               />

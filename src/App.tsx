@@ -87,6 +87,7 @@ export default function App({ onLogout }: AppProps) {
     editableUrl, setEditableUrl,
     editableToken, setEditableToken,
     handleConnect, handleReconnect,
+    serverSideAuth,
   } = useConnectionManager();
 
   // Track last changed file path for tree refresh
@@ -503,6 +504,7 @@ export default function App({ onLogout }: AppProps) {
         error={connectError}
         defaultUrl={defaultUrl}
         defaultToken={editableToken}
+        serverSideAuth={serverSideAuth}
       />
 
       {/*
