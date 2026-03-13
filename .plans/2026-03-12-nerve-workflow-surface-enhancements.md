@@ -171,17 +171,22 @@ These should remain separate but related tracks. The Beads board should become a
 
 **Status:** ✅ Complete
 
-**What We Built:** Nerve now has a working first-pass workflow surface across Beads, Plans, references, and safe local path opening. The shipped path-opening behavior is intentionally workspace-first: safe clickable workspace files open inside Nerve, safe clickable workspace directories are revealed in the Nerve file explorer, and non-inline binary files also fall back to an in-Nerve reveal instead of assuming the viewer can launch a host-local desktop app. That keeps the workflow usable from remote viewers (including phones) while staying narrowly validated and avoiding arbitrary command execution or misleading `xdg-open` assumptions.
+**What We Built:** Completed the first-pass Nerve workflow-surface buildout around Beads, Plans, references, and safe workspace path opening. The resulting UX now covers the full path Derrick wanted: live Beads board metadata, a quieter but still first-class Closed lane, a documented durable bead↔plan linkage model, first-class `/.plans/` browsing, conservative clickable references, and workspace-first path opening that stays inside Nerve whenever possible so the same links remain useful from remote viewers like a phone.
 
 **Commits:**
 - `0181bfd` - Surface richer Beads metadata on board cards and details
 - `033e90d` - Add Beads detail drawer and live board wiring
 - `220dbbf` - Improve Beads closed-column ergonomics
+- `720cef5` - Update workflow enhancement plan status
+- `371d7e0` - Document bead-to-plan linkage model
 - `90be573` - Finalize bead-plan linkage plan notes
-- `ea08eee` - Add safe clickable workflow references
-- `Open workspace paths inside Nerve first` (Task 6)
+- `8f41ecd` - Add first-pass plans workspace surface
+- `371f4f3` - Add safe clickable references to plans surface
+- `862be27` - Open workspace paths inside Nerve first
 
 **Lessons Learned:** Treating Closed as a first-class workflow surface does not require giving it equal visual dominance. A compact summary + explicit reveal control is a better first pass than a broader board redesign. For bead/plan navigation, path-only links are too brittle; the durable compromise is an explicit bead-side link plus a plan-side stable identity for recovery. For reference rendering and path opening, the safest first move is to reuse already-safe internal surfaces (plan preview selection, existing editor/file viewer tabs, existing file tree) rather than jumping straight to host-local launch behavior that breaks down for remote viewers.
+
+**Next Session Handoff:** This plan is complete. If Derrick wants to continue Nerve work next session, the best follow-up is a light review/usability pass against the now-shipped workflow surfaces in a real connected session, plus any targeted polish that falls out of real-world use rather than another large feature wave.
 
 ---
 
