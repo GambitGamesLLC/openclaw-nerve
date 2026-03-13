@@ -4,9 +4,9 @@
  */
 
 import { useCallback } from 'react';
-import { Brain, Clock, Settings, Columns3, type LucideIcon } from 'lucide-react';
+import { Brain, Clock, Settings, Columns3, FileText, type LucideIcon } from 'lucide-react';
 
-export type TabId = 'memory' | 'crons' | 'config' | 'kanban';
+export type TabId = 'memory' | 'crons' | 'plans' | 'config' | 'kanban';
 
 interface Tab {
   id: TabId;
@@ -17,6 +17,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'memory', label: 'Memory', icon: Brain },
   { id: 'crons', label: 'Crons', icon: Clock },
+  { id: 'plans', label: 'Plans', icon: FileText },
   { id: 'kanban', label: 'Tasks', icon: Columns3 },
   { id: 'config', label: 'Config', icon: Settings },
 ];

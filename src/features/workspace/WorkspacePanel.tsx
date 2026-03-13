@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { WorkspaceTabs, type TabId } from './WorkspaceTabs';
-import { MemoryTab, CronsTab, ConfigTab, SkillsTab } from './tabs';
+import { MemoryTab, CronsTab, ConfigTab, SkillsTab, PlansTab } from './tabs';
 import { useCrons } from './hooks/useCrons';
 import { KanbanQuickView } from '@/features/kanban';
 import type { Memory } from '@/types';
@@ -58,7 +58,7 @@ const STORAGE_KEY = 'nerve-workspace-tab';
 function getInitialTab(): TabId {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && ['memory', 'crons', 'config', 'kanban'].includes(stored)) {
+    if (stored && ['memory', 'crons', 'plans', 'config', 'kanban'].includes(stored)) {
       return stored as TabId;
     }
   } catch { /* ignore */ }
@@ -75,9 +75,11 @@ interface WorkspacePanelProps {
   onOpenBoard?: () => void;
   /** Open a specific task in the full board view. */
   onOpenTask?: (taskId: string) => void;
+  /** Open a repo-local plan in the existing editor tabs. */
+  onOpenPlan?: (path: string) => void;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask }: WorkspacePanelProps) {
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPlan }: WorkspacePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const { activeCount } = useCrons();
 
@@ -118,6 +120,11 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         <div className={activeTab === 'crons' ? 'h-full' : 'hidden'} hidden={activeTab !== 'crons'} role="tabpanel" id="workspace-tabpanel-crons" aria-labelledby="workspace-tab-crons">
           {visitedTabs.has('crons') && (
             <CronsTab />
+          )}
+        </div>
+        <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
+          {visitedTabs.has('plans') && (
+            <PlansTab onOpenPlan={onOpenPlan} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">

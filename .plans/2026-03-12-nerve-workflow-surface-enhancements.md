@@ -99,12 +99,22 @@ These should remain separate but related tracks. The Beads board should become a
 - `.plans/`
 
 **Files Created/Deleted/Modified:**
-- plan-related UI/server files to be determined
+- `server/app.ts`
+- `server/lib/plans.ts`
+- `server/lib/plans.test.ts`
+- `server/routes/plans.ts`
+- `src/App.tsx`
+- `src/features/workspace/WorkspacePanel.tsx`
+- `src/features/workspace/WorkspaceTabs.tsx`
+- `src/features/workspace/hooks/usePlans.ts`
+- `src/features/workspace/tabs/index.ts`
+- `src/features/workspace/tabs/PlansTab.tsx`
+- `src/features/workspace/tabs/PlansTab.test.tsx`
 - `.plans/2026-03-12-nerve-workflow-surface-enhancements.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Implemented the first-pass plans surface end to end. Nerve now exposes repo-local `/.plans/` files through a dedicated workspace tab backed by new server routes for plan discovery and plan-content reads. The UI groups active vs archived plans, supports search across titles/paths/status/plan ids/bead ids, previews the selected plan as rendered markdown, shows plan metadata badges, and provides an optional “Open in Editor” handoff for direct file navigation. The finishing pass fixed the last failing UI test semantically rather than weakening the feature: `PlansTab.test.tsx` now asserts against the plan row buttons and scoped list state instead of using an ambiguous global `getByText('Active Plan')` query, which matches the intended UI that renders the title in multiple places. Validation: `npm test -- --run server/lib/plans.test.ts src/features/workspace/tabs/PlansTab.test.tsx` ✅, `npm run build` ✅.
 
 ---
 
