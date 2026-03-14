@@ -17,21 +17,57 @@ describe('beads board adapter', () => {
     vi.restoreAllMocks();
   });
 
-  it('projects Beads statuses into a four-column Beads-native board model', async () => {
+  it('projects Beads statuses and linked-plan resolver states', async () => {
     vi.doMock('./plans.js', async (importOriginal) => {
       const actual = await importOriginal<typeof import('./plans.js')>();
       return {
         ...actual,
-        findRepoPlanByBeadId: async (beadId: string) => beadId === 'todo-1' ? {
-          path: '.plans/archive/2026-03-12-linked.md',
-          title: 'Linked Plan',
-          archived: true,
-          status: 'Complete',
-          updatedAt: 1234,
-          planId: null,
-          beadIds: ['todo-1'],
-          preview: 'Linked preview',
-        } : null,
+        resolveRepoPlanLinkForBead: async (beadId: string) => {
+          if (beadId === 'todo-1') {
+            return {
+              state: 'moved',
+              resolvedBy: 'metadata',
+              plan: {
+                path: '.plans/archive/2026-03-12-linked.md',
+                title: 'Linked Plan',
+                archived: true,
+                status: 'Complete',
+                updatedAt: 1234,
+                planId: 'plan-linked',
+                beadIds: ['todo-1'],
+                preview: 'Linked preview',
+              },
+              lastKnown: {
+                path: '.plans/2026-03-12-linked.md',
+                title: 'Linked Plan',
+                planId: 'plan-linked',
+              },
+              metadataToWrite: {
+                path: '.plans/archive/2026-03-12-linked.md',
+                title: 'Linked Plan',
+                planId: 'plan-linked',
+              },
+              metadataNeedsWrite: false,
+            };
+          }
+
+          if (beadId === 'todo-2') {
+            return {
+              state: 'missing',
+              resolvedBy: 'metadata',
+              plan: null,
+              lastKnown: {
+                path: '.plans/2026-01-01-gone.md',
+                title: 'Gone plan',
+                planId: 'plan-gone',
+              },
+              metadataToWrite: null,
+              metadataNeedsWrite: false,
+            };
+          }
+
+          return null;
+        },
       };
     });
 
@@ -66,6 +102,13 @@ describe('beads board adapter', () => {
       path: '.plans/archive/2026-03-12-linked.md',
       title: 'Linked Plan',
       archived: true,
+      resolution: 'moved',
+      movedFromPath: '.plans/2026-03-12-linked.md',
+    });
+    expect(board.columns[0].items[1]?.linkedPlan).toMatchObject({
+      path: '.plans/2026-01-01-gone.md',
+      resolution: 'missing',
+      lastKnownPath: '.plans/2026-01-01-gone.md',
     });
     expect(board.columns[1].items.map((item) => item.id)).toEqual(['prog-1']);
     expect(board.columns[2].items.map((item) => item.id)).toEqual(['done-1']);

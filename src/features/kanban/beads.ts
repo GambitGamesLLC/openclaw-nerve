@@ -1,4 +1,4 @@
-import type { KanbanTask } from './types';
+import type { KanbanTask, LinkedPlanResolutionState } from './types';
 
 export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done' | 'closed';
 
@@ -11,12 +11,15 @@ export interface BeadsSourceDto {
 }
 
 export interface LinkedPlanSummaryDto {
-  path: string;
+  path: string | null;
   title: string;
   planId: string | null;
   archived: boolean;
   status: string | null;
-  updatedAt: number;
+  updatedAt: number | null;
+  resolution: LinkedPlanResolutionState;
+  lastKnownPath: string | null;
+  movedFromPath: string | null;
 }
 
 export interface BeadsBoardCardDto {

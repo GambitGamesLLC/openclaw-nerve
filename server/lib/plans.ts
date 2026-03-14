@@ -31,6 +31,23 @@ export interface PlanDocument extends PlanSummary {
   content: string;
 }
 
+export interface PlanLinkMetadata {
+  planId: string | null;
+  path: string | null;
+  title: string | null;
+}
+
+export type LinkedPlanResolutionState = 'active' | 'archived' | 'moved' | 'missing';
+
+export interface LinkedPlanResolution {
+  state: LinkedPlanResolutionState;
+  plan: PlanSummary | null;
+  resolvedBy: 'metadata' | 'bead_ids';
+  lastKnown: PlanLinkMetadata | null;
+  metadataToWrite: PlanLinkMetadata | null;
+  metadataNeedsWrite: boolean;
+}
+
 interface ParsedPlan {
   frontmatter: PlanFrontmatter;
   body: string;
@@ -63,6 +80,10 @@ function stripWrappingQuotes(value: string): string {
     return trimmed.slice(1, -1);
   }
   return trimmed;
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -314,12 +335,119 @@ async function collectPlanFiles(dirPath: string, relativeDir = ''): Promise<stri
   return files;
 }
 
+function findPlanByBeadIdFromPlans(plans: PlanSummary[], beadId: string): PlanSummary | null {
+  const normalizedBeadId = beadId.trim();
+  if (!normalizedBeadId) return null;
+  return plans.find((plan) => plan.beadIds.includes(normalizedBeadId)) ?? null;
+}
+
+function findPlanByPlanIdFromPlans(plans: PlanSummary[], planId: string): PlanSummary | null {
+  const normalizedPlanId = planId.trim();
+  if (!normalizedPlanId) return null;
+  return plans.find((plan) => plan.planId === normalizedPlanId) ?? null;
+}
+
+function normalizePlanLinkMetadata(metadata?: Partial<PlanLinkMetadata> | null): PlanLinkMetadata | null {
+  if (!metadata) return null;
+
+  const normalized: PlanLinkMetadata = {
+    planId: normalizeOptionalString(metadata.planId),
+    path: normalizeOptionalString(metadata.path),
+    title: normalizeOptionalString(metadata.title),
+  };
+
+  if (!normalized.planId && !normalized.path && !normalized.title) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function buildPlanLinkMetadata(plan: PlanSummary): PlanLinkMetadata {
+  return {
+    planId: plan.planId,
+    path: plan.path,
+    title: plan.title,
+  };
+}
+
+function isSamePlanLinkMetadata(left: PlanLinkMetadata | null, right: PlanLinkMetadata | null): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  return left.planId === right.planId && left.path === right.path && left.title === right.title;
+}
+
+export async function resolveRepoPlanLinkForBead(
+  beadId: string,
+  metadata?: Partial<PlanLinkMetadata> | null,
+): Promise<LinkedPlanResolution | null> {
+  const normalizedBeadId = beadId.trim();
+  if (!normalizedBeadId) return null;
+
+  const plans = await listRepoPlans();
+  const normalizedMetadata = normalizePlanLinkMetadata(metadata);
+
+  const buildResolvedResult = (
+    state: Exclude<LinkedPlanResolutionState, 'missing'>,
+    plan: PlanSummary,
+    resolvedBy: 'metadata' | 'bead_ids',
+  ): LinkedPlanResolution => {
+    const desiredMetadata = buildPlanLinkMetadata(plan);
+    return {
+      state,
+      plan,
+      resolvedBy,
+      lastKnown: normalizedMetadata,
+      metadataToWrite: desiredMetadata,
+      metadataNeedsWrite: !isSamePlanLinkMetadata(normalizedMetadata, desiredMetadata),
+    };
+  };
+
+  if (normalizedMetadata) {
+    const planByPath = normalizedMetadata.path
+      ? plans.find((plan) => plan.path === normalizedMetadata.path) ?? null
+      : null;
+    const planById = normalizedMetadata.planId
+      ? findPlanByPlanIdFromPlans(plans, normalizedMetadata.planId)
+      : null;
+
+    if (planById) {
+      const moved = Boolean(normalizedMetadata.path) && planById.path !== normalizedMetadata.path;
+      if (moved) {
+        return buildResolvedResult('moved', planById, 'metadata');
+      }
+
+      return buildResolvedResult(planById.archived ? 'archived' : 'active', planById, 'metadata');
+    }
+
+    if (planByPath) {
+      return buildResolvedResult(planByPath.archived ? 'archived' : 'active', planByPath, 'metadata');
+    }
+  }
+
+  const fallbackPlan = findPlanByBeadIdFromPlans(plans, normalizedBeadId);
+  if (fallbackPlan) {
+    return buildResolvedResult(fallbackPlan.archived ? 'archived' : 'active', fallbackPlan, 'bead_ids');
+  }
+
+  if (!normalizedMetadata) return null;
+
+  return {
+    state: 'missing',
+    plan: null,
+    resolvedBy: 'metadata',
+    lastKnown: normalizedMetadata,
+    metadataToWrite: null,
+    metadataNeedsWrite: false,
+  };
+}
+
 export async function findRepoPlanByBeadId(beadId: string): Promise<PlanSummary | null> {
   const normalizedBeadId = beadId.trim();
   if (!normalizedBeadId) return null;
 
   const plans = await listRepoPlans();
-  return plans.find((plan) => plan.beadIds.includes(normalizedBeadId)) ?? null;
+  return findPlanByBeadIdFromPlans(plans, normalizedBeadId);
 }
 
 export async function listRepoPlans(): Promise<PlanSummary[]> {

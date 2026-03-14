@@ -12,7 +12,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { type BeadsSource } from './config.js';
-import { findRepoPlanByBeadId, type PlanSummary } from './plans.js';
+import {
+  resolveRepoPlanLinkForBead,
+  type LinkedPlanResolution,
+  type LinkedPlanResolutionState,
+  type PlanLinkMetadata,
+} from './plans.js';
 import { listManagedBeadsSourceDtos, resolveManagedBeadsSource, type ManagedBeadsSourceDto } from './beads-sources.js';
 
 const execFile = promisify(execFileCallback);
@@ -22,12 +27,15 @@ export type BeadsBoardColumnKey = 'todo' | 'in_progress' | 'done' | 'closed';
 export type BeadsSourceDto = ManagedBeadsSourceDto;
 
 export interface LinkedPlanSummaryDto {
-  path: string;
+  path: string | null;
   title: string;
   planId: string | null;
   archived: boolean;
   status: string | null;
-  updatedAt: number;
+  updatedAt: number | null;
+  resolution: LinkedPlanResolutionState;
+  lastKnownPath: string | null;
+  movedFromPath: string | null;
 }
 
 export interface BeadsBoardCardDto {
@@ -72,6 +80,7 @@ interface BdIssueExportItem {
   issue_type?: unknown;
   owner?: unknown;
   labels?: unknown;
+  metadata?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
   closed_at?: unknown;
@@ -79,6 +88,13 @@ interface BdIssueExportItem {
   dependent_count?: unknown;
   comment_count?: unknown;
 }
+
+interface BeadMetadataRoot {
+  plan?: unknown;
+  [key: string]: unknown;
+}
+
+const planMetadataSyncCache = new Map<string, string>();
 
 export class InvalidBeadsSourceError extends Error {
   constructor(sourceId?: string | null) {
@@ -192,16 +208,114 @@ export function projectBeadsStatusToColumn(status: string | null | undefined): B
   }
 }
 
-function toLinkedPlanSummaryDto(plan: PlanSummary | null): LinkedPlanSummaryDto | null {
-  if (!plan) return null;
+function extractPlanMetadataFromIssueMetadata(metadata: unknown): PlanLinkMetadata | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+
+  const root = metadata as BeadMetadataRoot;
+
+  if (root.plan && typeof root.plan === 'object') {
+    const plan = root.plan as Record<string, unknown>;
+    const planId = normalizeString(plan.plan_id ?? plan.planId);
+    const planPath = normalizeString(plan.path);
+    const planTitle = normalizeString(plan.title);
+    if (planId || planPath || planTitle) {
+      return {
+        planId: planId ?? null,
+        path: planPath ?? null,
+        title: planTitle ?? null,
+      };
+    }
+  }
+
+  const flatPlanId = normalizeString(root['plan.plan_id']);
+  const flatPlanPath = normalizeString(root['plan.path']);
+  const flatPlanTitle = normalizeString(root['plan.title']);
+
+  if (flatPlanId || flatPlanPath || flatPlanTitle) {
+    return {
+      planId: flatPlanId ?? null,
+      path: flatPlanPath ?? null,
+      title: flatPlanTitle ?? null,
+    };
+  }
+
+  return null;
+}
+
+function toLinkedPlanSummaryDto(resolution: LinkedPlanResolution | null): LinkedPlanSummaryDto | null {
+  if (!resolution) return null;
+
+  if (resolution.plan) {
+    return {
+      path: resolution.plan.path,
+      title: resolution.plan.title,
+      planId: resolution.plan.planId,
+      archived: resolution.plan.archived,
+      status: resolution.plan.status,
+      updatedAt: resolution.plan.updatedAt,
+      resolution: resolution.state,
+      lastKnownPath: resolution.lastKnown?.path ?? null,
+      movedFromPath: resolution.state === 'moved' ? resolution.lastKnown?.path ?? null : null,
+    };
+  }
+
   return {
-    path: plan.path,
-    title: plan.title,
-    planId: plan.planId,
-    archived: plan.archived,
-    status: plan.status,
-    updatedAt: plan.updatedAt,
+    path: resolution.lastKnown?.path ?? null,
+    title: resolution.lastKnown?.title ?? 'Missing linked plan',
+    planId: resolution.lastKnown?.planId ?? null,
+    archived: false,
+    status: null,
+    updatedAt: null,
+    resolution: 'missing',
+    lastKnownPath: resolution.lastKnown?.path ?? null,
+    movedFromPath: null,
   };
+}
+
+function metadataSyncCacheKey(source: BeadsSource, issueId: string): string {
+  return `${source.id}:${issueId}`;
+}
+
+function metadataSignature(metadata: PlanLinkMetadata): string {
+  return JSON.stringify(metadata);
+}
+
+async function execBd(source: BeadsSource, args: string[]): Promise<void> {
+  const bdBin = resolveBdBin();
+
+  await execFile(bdBin, args, {
+    cwd: source.rootPath,
+    maxBuffer: 10 * 1024 * 1024,
+    env: {
+      ...process.env,
+      PATH: buildRuntimePath(process.env.PATH),
+    },
+  });
+}
+
+async function syncBeadPlanMetadata(
+  source: BeadsSource,
+  issueId: string,
+  metadata: PlanLinkMetadata,
+): Promise<void> {
+  const signature = metadataSignature(metadata);
+  const cacheKey = metadataSyncCacheKey(source, issueId);
+  if (planMetadataSyncCache.get(cacheKey) === signature) return;
+
+  const args = [
+    'update',
+    issueId,
+    '--set-metadata',
+    `plan.plan_id=${metadata.planId ?? ''}`,
+    '--set-metadata',
+    `plan.path=${metadata.path ?? ''}`,
+    '--set-metadata',
+    `plan.title=${metadata.title ?? ''}`,
+    '--json',
+  ];
+
+  await execBd(source, args);
+  planMetadataSyncCache.set(cacheKey, signature);
 }
 
 export async function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: BdIssueExportItem[]): Promise<BeadsBoardDto> {
@@ -217,7 +331,17 @@ export async function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: 
 
     const rawStatus = normalizeString(issue.status) || 'open';
     const columnKey = projectBeadsStatusToColumn(rawStatus);
-    const linkedPlan = await findRepoPlanByBeadId(issue.id);
+    const metadataLink = extractPlanMetadataFromIssueMetadata(issue.metadata);
+    const linkedPlanResolution = await resolveRepoPlanLinkForBead(issue.id, metadataLink);
+
+    if (linkedPlanResolution?.metadataNeedsWrite && linkedPlanResolution.metadataToWrite) {
+      try {
+        await syncBeadPlanMetadata(source, issue.id, linkedPlanResolution.metadataToWrite);
+      } catch {
+        // best-effort only; board rendering should still succeed
+      }
+    }
+
     const card: BeadsBoardCardDto = {
       id: issue.id,
       title: issue.title,
@@ -234,7 +358,7 @@ export async function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: 
       dependencyCount: normalizeCount(issue.dependency_count),
       dependentCount: normalizeCount(issue.dependent_count),
       commentCount: normalizeCount(issue.comment_count),
-      linkedPlan: toLinkedPlanSummaryDto(linkedPlan),
+      linkedPlan: toLinkedPlanSummaryDto(linkedPlanResolution),
     };
 
     buckets[columnKey].push(card);

@@ -11,6 +11,7 @@ import {
   listRepoPlans,
   parsePlanContent,
   readRepoPlan,
+  resolveRepoPlanLinkForBead,
 } from './plans.js';
 
 const originalCwd = process.cwd();
@@ -124,8 +125,8 @@ bead_ids: [nerve-dup]
   });
 
   it('adds durable linkage frontmatter for active plans and keeps archived plans untouched', async () => {
-    await writePlan('.plans/2026-03-14-live.md', `# Live plan\n\n### Task 1\n\n**Bead ID:** \`nerve-live\`\n`);
-    await writePlan('.plans/archive/2026-03-01-old.md', `# Archived plan\n\n**Bead ID:** \`nerve-archived\`\n`);
+    await writePlan('.plans/2026-03-14-live.md', '# Live plan\n\n### Task 1\n\n**Bead ID:** `nerve-live`\n');
+    await writePlan('.plans/archive/2026-03-01-old.md', '# Archived plan\n\n**Bead ID:** `nerve-archived`\n');
 
     const plans = await listRepoPlans();
 
@@ -141,6 +142,71 @@ bead_ids: [nerve-dup]
 
     const archivedContent = await fs.readFile(path.join(tempDir, '.plans/archive/2026-03-01-old.md'), 'utf-8');
     expect(archivedContent.startsWith('---\n')).toBe(false);
+  });
+
+  it('resolves metadata-first states with bead_ids fallback compatibility', async () => {
+    await writePlan('.plans/2026-03-14-active.md', `---
+plan_id: plan-active
+bead_ids: [nerve-active, nerve-fallback]
+---
+# Active
+`);
+    await writePlan('.plans/archive/2026-03-10-archived.md', `---
+plan_id: plan-archived
+bead_ids: [nerve-archived]
+---
+# Archived
+`);
+
+    const moved = await resolveRepoPlanLinkForBead('nerve-active', {
+      planId: 'plan-active',
+      path: '.plans/2026-03-10-renamed.md',
+      title: 'Old title',
+    });
+    expect(moved).toMatchObject({
+      state: 'moved',
+      resolvedBy: 'metadata',
+      metadataNeedsWrite: true,
+      plan: { path: '.plans/2026-03-14-active.md' },
+    });
+
+    const archived = await resolveRepoPlanLinkForBead('nerve-archived', {
+      planId: 'plan-archived',
+      path: '.plans/archive/2026-03-10-archived.md',
+      title: 'Archived',
+    });
+    expect(archived).toMatchObject({
+      state: 'archived',
+      resolvedBy: 'metadata',
+      metadataNeedsWrite: false,
+    });
+
+    const missing = await resolveRepoPlanLinkForBead('nerve-missing', {
+      planId: 'plan-gone',
+      path: '.plans/2026-01-01-gone.md',
+      title: 'Gone',
+    });
+    expect(missing).toMatchObject({
+      state: 'missing',
+      resolvedBy: 'metadata',
+      plan: null,
+      lastKnown: {
+        planId: 'plan-gone',
+        path: '.plans/2026-01-01-gone.md',
+      },
+    });
+
+    const fallback = await resolveRepoPlanLinkForBead('nerve-fallback');
+    expect(fallback).toMatchObject({
+      state: 'active',
+      resolvedBy: 'bead_ids',
+      metadataNeedsWrite: true,
+      metadataToWrite: {
+        planId: 'plan-active',
+        path: '.plans/2026-03-14-active.md',
+        title: 'Active',
+      },
+    });
   });
 
   it('reads a single plan and rejects paths outside .plans', async () => {

@@ -1,6 +1,20 @@
 import type { ReactNode } from 'react';
-import { X, Clock, Link2, GitBranch, MessageSquare, Tag, User, CircleDot, FileText, FolderArchive, ArrowUpRight } from 'lucide-react';
-import type { KanbanTask } from './types';
+import {
+  X,
+  Clock,
+  Link2,
+  GitBranch,
+  MessageSquare,
+  Tag,
+  User,
+  CircleDot,
+  FileText,
+  FolderArchive,
+  ArrowUpRight,
+  ArrowRightLeft,
+  TriangleAlert,
+} from 'lucide-react';
+import type { KanbanTask, LinkedPlanResolutionState } from './types';
 
 interface BeadsDetailDrawerProps {
   task: KanbanTask | null;
@@ -9,7 +23,7 @@ interface BeadsDetailDrawerProps {
   onOpenPlan?: (planPath: string) => void;
 }
 
-function formatDateTime(value?: number): string {
+function formatDateTime(value?: number | null): string {
   if (!value) return '—';
   return new Date(value).toLocaleString();
 }
@@ -34,9 +48,47 @@ function MetadataRow({
   );
 }
 
+function PlanResolutionBadge({ resolution }: { resolution: LinkedPlanResolutionState }) {
+  if (resolution === 'archived') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+        <FolderArchive size={10} />
+        Archived
+      </span>
+    );
+  }
+
+  if (resolution === 'moved') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-300">
+        <ArrowRightLeft size={10} />
+        Moved
+      </span>
+    );
+  }
+
+  if (resolution === 'missing') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-300">
+        <TriangleAlert size={10} />
+        Missing
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+      <FileText size={10} />
+      Active
+    </span>
+  );
+}
+
 export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: BeadsDetailDrawerProps) {
   const metadata = task?.beads;
   const isOpen = task !== null && metadata !== undefined;
+  const linkedPlan = metadata?.linkedPlan;
+  const canOpenLinkedPlan = Boolean(onOpenPlan && linkedPlan?.path && linkedPlan.resolution !== 'missing');
 
   return (
     <>
@@ -108,7 +160,7 @@ export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: Be
                 <MetadataRow icon={<Clock size={12} />} label="Closed" value={formatDateTime(metadata.closedAt)} />
               </div>
 
-              {metadata.linkedPlan && (
+              {linkedPlan && (
                 <div className="border-t border-border/50 pt-3 space-y-2">
                   <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Linked plan</h4>
                   <div className="rounded-md border border-border/40 bg-muted/20 px-3 py-3">
@@ -117,30 +169,42 @@ export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: Be
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
                             <FileText size={12} />
-                            {metadata.linkedPlan.title}
+                            {linkedPlan.title}
                           </span>
-                          {metadata.linkedPlan.archived && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                              <FolderArchive size={10} />
-                              Archived
-                            </span>
-                          )}
-                          {metadata.linkedPlan.status && (
+                          <PlanResolutionBadge resolution={linkedPlan.resolution} />
+                          {linkedPlan.status && (
                             <span className="inline-flex items-center rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                              {metadata.linkedPlan.status}
+                              {linkedPlan.status}
                             </span>
                           )}
                         </div>
-                        <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{metadata.linkedPlan.path}</div>
-                        {metadata.linkedPlan.planId && (
-                          <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">ID: {metadata.linkedPlan.planId}</div>
+
+                        {linkedPlan.path && (
+                          <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{linkedPlan.path}</div>
                         )}
-                        <div className="mt-2 text-[11px] text-muted-foreground">Updated {formatDateTime(metadata.linkedPlan.updatedAt)}</div>
+
+                        {linkedPlan.resolution === 'moved' && linkedPlan.movedFromPath && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Last known path: <span className="break-all font-mono text-[10px]">{linkedPlan.movedFromPath}</span>
+                          </div>
+                        )}
+
+                        {linkedPlan.resolution === 'missing' && linkedPlan.lastKnownPath && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Last known path: <span className="break-all font-mono text-[10px]">{linkedPlan.lastKnownPath}</span>
+                          </div>
+                        )}
+
+                        {linkedPlan.planId && (
+                          <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">ID: {linkedPlan.planId}</div>
+                        )}
+                        <div className="mt-2 text-[11px] text-muted-foreground">Updated {formatDateTime(linkedPlan.updatedAt)}</div>
                       </div>
-                      {onOpenPlan && (
+
+                      {canOpenLinkedPlan && (
                         <button
                           type="button"
-                          onClick={() => onOpenPlan(metadata.linkedPlan!.path)}
+                          onClick={() => onOpenPlan?.(linkedPlan.path!)}
                           className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
                         >
                           Open in Plans

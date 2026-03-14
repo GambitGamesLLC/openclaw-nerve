@@ -25,7 +25,7 @@ describe('Beads board normalization', () => {
 
   it('normalizes board DTO cards into read-only Beads column cards with preserved metadata', () => {
     const board: BeadsBoardDto = {
-      source: { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true },
+      source: { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
       generatedAt: '2026-03-11T22:00:00.000Z',
       totalCount: 3,
       columns: [
@@ -55,6 +55,9 @@ describe('Beads board normalization', () => {
               archived: true,
               status: 'Complete',
               updatedAt: Date.parse('2026-03-11T21:35:00.000Z'),
+              resolution: 'archived',
+              lastKnownPath: '.plans/archive/2026-03-12-active.md',
+              movedFromPath: null,
             },
           }],
         },
@@ -141,6 +144,9 @@ describe('Beads board normalization', () => {
           archived: true,
           status: 'Complete',
           updatedAt: Date.parse('2026-03-11T21:35:00.000Z'),
+          resolution: 'archived',
+          lastKnownPath: '.plans/archive/2026-03-12-active.md',
+          movedFromPath: null,
         },
       },
     });

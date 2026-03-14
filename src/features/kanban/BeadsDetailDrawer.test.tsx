@@ -34,6 +34,9 @@ const task: KanbanTask = {
       archived: true,
       status: 'In Progress',
       updatedAt: Date.parse('2026-03-12T18:10:00Z'),
+      resolution: 'archived',
+      lastKnownPath: '.plans/archive/2026-03-12-nerve-usability.md',
+      movedFromPath: null,
     },
   },
 };
@@ -53,8 +56,34 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('Use real data already present in ~/.openclaw.')).toBeInTheDocument();
     expect(screen.getByText('Nerve usability pass')).toBeInTheDocument();
     expect(screen.getByText('.plans/archive/2026-03-12-nerve-usability.md')).toBeInTheDocument();
+    expect(screen.getByText('Archived')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /open in plans/i }));
     expect(onOpenPlan).toHaveBeenCalledWith('.plans/archive/2026-03-12-nerve-usability.md');
+  });
+
+  it('surfaces missing linked-plan context without open action', () => {
+    const missingTask: KanbanTask = {
+      ...task,
+      beads: {
+        ...task.beads!,
+        linkedPlan: {
+          path: '.plans/2026-01-01-gone.md',
+          title: 'Old plan title',
+          archived: false,
+          status: null,
+          updatedAt: null,
+          resolution: 'missing',
+          lastKnownPath: '.plans/2026-01-01-gone.md',
+          movedFromPath: null,
+        },
+      },
+    };
+
+    render(<BeadsDetailDrawer task={missingTask} sourceLabel="~/.openclaw" onClose={vi.fn()} onOpenPlan={vi.fn()} />);
+
+    expect(screen.getByText('Missing')).toBeInTheDocument();
+    expect(screen.getByText(/Last known path:/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open in plans/i })).not.toBeInTheDocument();
   });
 });

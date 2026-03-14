@@ -34,13 +34,18 @@ export interface TaskRunLink {
   error?: string;
 }
 
+export type LinkedPlanResolutionState = 'active' | 'archived' | 'moved' | 'missing';
+
 export interface LinkedPlanSummary {
-  path: string;
+  path: string | null;
   title: string;
   planId?: string | null;
   archived: boolean;
   status?: string | null;
-  updatedAt: number;
+  updatedAt: number | null;
+  resolution: LinkedPlanResolutionState;
+  lastKnownPath?: string | null;
+  movedFromPath?: string | null;
 }
 
 export interface BeadsTaskMetadata {
