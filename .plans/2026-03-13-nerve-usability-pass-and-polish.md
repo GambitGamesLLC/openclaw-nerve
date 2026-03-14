@@ -1,3 +1,11 @@
+---
+plan_id: plan-2026-03-13-nerve-usability-pass-and-polish
+bead_ids:
+  - nerve-9ly
+  - nerve-ly9
+  - nerve-gic
+  - nerve-251
+---
 # Gambit OpenClaw Nerve — usability pass and polish
 
 **Date:** 2026-03-13  

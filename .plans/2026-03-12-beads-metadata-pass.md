@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-12-beads-metadata-pass
+bead_ids:
+  - nerve-hf2
+  - nerve-whn
+  - nerve-rfd
+---
 # Gambit OpenClaw Nerve — Beads metadata pass
 
 **Date:** 2026-03-12  

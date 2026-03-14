@@ -2,7 +2,16 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { extractPlanPreview, extractPlanStatus, extractPlanTitle, findRepoPlanByBeadId, listRepoPlans, parsePlanContent, readRepoPlan } from './plans.js';
+import {
+  ensurePlanLinkageFrontmatter,
+  extractPlanPreview,
+  extractPlanStatus,
+  extractPlanTitle,
+  findRepoPlanByBeadId,
+  listRepoPlans,
+  parsePlanContent,
+  readRepoPlan,
+} from './plans.js';
 
 const originalCwd = process.cwd();
 let tempDir: string;
@@ -114,6 +123,26 @@ bead_ids: [nerve-dup]
     await expect(findRepoPlanByBeadId('')).resolves.toBeNull();
   });
 
+  it('adds durable linkage frontmatter for active plans and keeps archived plans untouched', async () => {
+    await writePlan('.plans/2026-03-14-live.md', `# Live plan\n\n### Task 1\n\n**Bead ID:** \`nerve-live\`\n`);
+    await writePlan('.plans/archive/2026-03-01-old.md', `# Archived plan\n\n**Bead ID:** \`nerve-archived\`\n`);
+
+    const plans = await listRepoPlans();
+
+    expect(plans.find((plan) => plan.path === '.plans/2026-03-14-live.md')?.beadIds).toEqual(['nerve-live']);
+    await expect(findRepoPlanByBeadId('nerve-live')).resolves.toMatchObject({
+      path: '.plans/2026-03-14-live.md',
+      planId: 'plan-2026-03-14-live',
+    });
+
+    const liveContent = await fs.readFile(path.join(tempDir, '.plans/2026-03-14-live.md'), 'utf-8');
+    expect(liveContent).toContain('plan_id: plan-2026-03-14-live');
+    expect(liveContent).toContain('bead_ids:\n  - nerve-live');
+
+    const archivedContent = await fs.readFile(path.join(tempDir, '.plans/archive/2026-03-01-old.md'), 'utf-8');
+    expect(archivedContent.startsWith('---\n')).toBe(false);
+  });
+
   it('reads a single plan and rejects paths outside .plans', async () => {
     await writePlan('.plans/2026-03-12-active.md', '# Active Plan\n\nBody\n');
     await fs.writeFile(path.join(tempDir, 'README.md'), '# Nope\n', 'utf-8');
@@ -122,7 +151,16 @@ bead_ids: [nerve-dup]
     const escaped = await readRepoPlan('../README.md');
 
     expect(plan?.title).toBe('Active Plan');
+    expect(plan?.planId).toBe('plan-2026-03-12-active');
     expect(plan?.content).toContain('Body');
     expect(escaped).toBeNull();
+  });
+
+  it('keeps existing frontmatter while enriching missing linkage fields', () => {
+    const updated = ensurePlanLinkageFrontmatter('.plans/2026-03-14-test.md', `---\nstatus: in_progress\n---\n# Test\n\n**Bead ID:** \`nerve-test\`\n`);
+
+    expect(updated).toContain('status: in_progress');
+    expect(updated).toContain('plan_id: plan-2026-03-14-test');
+    expect(updated).toContain('bead_ids:\n  - nerve-test');
   });
 });

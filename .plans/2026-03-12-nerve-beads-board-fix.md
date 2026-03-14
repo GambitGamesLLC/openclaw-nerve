@@ -1,3 +1,13 @@
+---
+plan_id: plan-2026-03-12-nerve-beads-board-fix
+bead_ids:
+  - nerve-yi3
+  - nerve-ehc
+  - nerve-ovq
+  - nerve-t4p
+  - nerve-ip3
+  - nerve-aow
+---
 # Gambit OpenClaw Nerve — Beads board fix
 
 **Date:** 2026-03-12  

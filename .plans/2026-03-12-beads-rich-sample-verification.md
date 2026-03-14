@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-12-beads-rich-sample-verification
+bead_ids:
+  - nerve-e9y
+  - nerve-a4v
+  - nerve-9au
+---
 # Gambit OpenClaw Nerve — Beads rich sample verification
 
 **Date:** 2026-03-12  

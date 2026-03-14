@@ -1,3 +1,12 @@
+---
+plan_id: plan-2026-03-11-beads-board-v1
+bead_ids:
+  - nerve-10x
+  - nerve-ddk
+  - nerve-z7s
+  - nerve-19r
+  - nerve-cld
+---
 # Beads Board V1 for Nerve
 
 **Date:** 2026-03-11  

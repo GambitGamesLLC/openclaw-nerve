@@ -1,3 +1,8 @@
+---
+plan_id: plan-2026-03-11-beads-board-502-triage
+bead_ids:
+  - nerve-q0f
+---
 # Beads Board 502 Triage
 
 **Date:** 2026-03-11  

@@ -1,3 +1,13 @@
+---
+plan_id: plan-2026-03-12-nerve-workflow-surface-enhancements
+bead_ids:
+  - nerve-hf2
+  - nerve-m84
+  - nerve-lbj
+  - nerve-413
+  - nerve-ux7
+  - nerve-0lv
+---
 # Gambit OpenClaw Nerve — workflow surface enhancements
 
 **Date:** 2026-03-12  

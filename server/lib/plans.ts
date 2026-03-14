@@ -36,6 +36,12 @@ interface ParsedPlan {
   body: string;
 }
 
+interface FrontmatterSplit {
+  hasFrontmatter: boolean;
+  rawFrontmatter: string;
+  body: string;
+}
+
 const PLAN_ROOT_NAME = '.plans';
 
 export function getPlansRoot(): string {
@@ -57,6 +63,123 @@ function stripWrappingQuotes(value: string): string {
     return trimmed.slice(1, -1);
   }
   return trimmed;
+}
+
+function dedupeStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+
+  for (const value of values) {
+    const next = value.trim();
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    deduped.push(next);
+  }
+
+  return deduped;
+}
+
+function splitFrontmatter(content: string): FrontmatterSplit {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) {
+    return { hasFrontmatter: false, rawFrontmatter: '', body: content };
+  }
+
+  return {
+    hasFrontmatter: true,
+    rawFrontmatter: match[1] ?? '',
+    body: content.slice(match[0].length),
+  };
+}
+
+function removeBeadIdsBlock(rawFrontmatter: string): string {
+  const stripped = rawFrontmatter
+    .replace(/(?:^|\n)bead_ids:\s*(?:\[[^\n]*\]|[^\n]*)?(?:\n[ \t]+-[^\n]*)*/m, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+|\n+$/g, '');
+
+  return stripped;
+}
+
+function renderBeadIdsBlock(beadIds: string[]): string {
+  if (beadIds.length === 0) return '';
+  return `bead_ids:\n${beadIds.map((beadId) => `  - ${beadId}`).join('\n')}`;
+}
+
+export function extractBeadIdsFromPlanBody(content: string): string[] {
+  const { body } = parsePlanContent(content);
+  const matches = body.matchAll(/\*\*Bead ID:\*\*\s*`?([A-Za-z0-9][A-Za-z0-9_-]*)`?/gi);
+  const beadIds = Array.from(matches, (match) => match[1]?.trim() ?? '').filter(Boolean);
+  return dedupeStrings(beadIds);
+}
+
+function sanitizePlanIdPart(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\.md$/i, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function inferPlanId(relativePath: string, frontmatter: PlanFrontmatter): string {
+  const existing = frontmatter.plan_id?.trim();
+  if (existing) return existing;
+
+  const stem = sanitizePlanIdPart(path.posix.basename(relativePath));
+  return `plan-${stem || 'untitled'}`;
+}
+
+export function ensurePlanLinkageFrontmatter(relativePath: string, content: string): string {
+  const parsed = parsePlanContent(content);
+  const split = splitFrontmatter(content);
+
+  const inferredBeadIds = extractBeadIdsFromPlanBody(content);
+  const desiredPlanId = inferPlanId(relativePath, parsed.frontmatter);
+  const desiredBeadIds = dedupeStrings([...(parsed.frontmatter.bead_ids ?? []), ...inferredBeadIds]);
+
+  let rawFrontmatter = split.rawFrontmatter.trim();
+
+  if (!split.hasFrontmatter) {
+    const sections = [
+      `plan_id: ${desiredPlanId}`,
+      renderBeadIdsBlock(desiredBeadIds),
+    ].filter(Boolean);
+
+    return `---\n${sections.join('\n')}\n---\n${split.body}`;
+  }
+
+  if (!/^plan_id:\s*.+$/m.test(rawFrontmatter)) {
+    rawFrontmatter = [`plan_id: ${desiredPlanId}`, rawFrontmatter].filter(Boolean).join('\n');
+  }
+
+  const currentBeadIds = dedupeStrings(parsed.frontmatter.bead_ids ?? []);
+  const beadIdsChanged = currentBeadIds.length !== desiredBeadIds.length
+    || currentBeadIds.some((beadId, index) => beadId !== desiredBeadIds[index]);
+
+  if (beadIdsChanged) {
+    rawFrontmatter = removeBeadIdsBlock(rawFrontmatter);
+    const beadBlock = renderBeadIdsBlock(desiredBeadIds);
+    rawFrontmatter = [rawFrontmatter, beadBlock].filter(Boolean).join('\n');
+  }
+
+  const normalized = `---\n${rawFrontmatter.trim()}\n---\n${split.body}`;
+  return normalized;
+}
+
+async function readPlanContentWithLinkageMaintenance(relativePath: string, absolutePath: string): Promise<string> {
+  const content = await fs.readFile(absolutePath, 'utf-8');
+
+  if (isArchivedPlanPath(relativePath)) {
+    return content;
+  }
+
+  const updated = ensurePlanLinkageFrontmatter(relativePath, content);
+  if (updated !== content) {
+    await fs.writeFile(absolutePath, updated, 'utf-8');
+    return updated;
+  }
+
+  return content;
 }
 
 export function parsePlanContent(content: string): ParsedPlan {
@@ -215,7 +338,7 @@ export async function listRepoPlans(): Promise<PlanSummary[]> {
     if (!absolutePath) return null;
 
     const [content, stat] = await Promise.all([
-      fs.readFile(absolutePath, 'utf-8'),
+      readPlanContentWithLinkageMaintenance(relativePath, absolutePath),
       fs.stat(absolutePath),
     ]);
 
@@ -267,7 +390,7 @@ export async function readRepoPlan(relativePath: string): Promise<PlanDocument |
 
   try {
     const [content, stat] = await Promise.all([
-      fs.readFile(absolutePath, 'utf-8'),
+      readPlanContentWithLinkageMaintenance(relativePath, absolutePath),
       fs.stat(absolutePath),
     ]);
     const parsed = parsePlanContent(content);

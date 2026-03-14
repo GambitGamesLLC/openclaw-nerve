@@ -132,6 +132,9 @@ export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: Be
                           )}
                         </div>
                         <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{metadata.linkedPlan.path}</div>
+                        {metadata.linkedPlan.planId && (
+                          <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">ID: {metadata.linkedPlan.planId}</div>
+                        )}
                         <div className="mt-2 text-[11px] text-muted-foreground">Updated {formatDateTime(metadata.linkedPlan.updatedAt)}</div>
                       </div>
                       {onOpenPlan && (

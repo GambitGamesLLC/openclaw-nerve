@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-12-beads-board-live-verification
+bead_ids:
+  - nerve-hfm
+  - nerve-c0j
+  - nerve-d33
+---
 # Gambit OpenClaw Nerve — Beads board live verification
 
 **Date:** 2026-03-12  

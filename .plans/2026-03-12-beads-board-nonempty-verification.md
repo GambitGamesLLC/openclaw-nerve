@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-12-beads-board-nonempty-verification
+bead_ids:
+  - nerve-gm9
+  - nerve-0ik
+  - nerve-8qn
+---
 # Gambit OpenClaw Nerve — Beads board non-empty verification
 
 **Date:** 2026-03-12  

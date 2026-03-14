@@ -37,6 +37,7 @@ export interface TaskRunLink {
 export interface LinkedPlanSummary {
   path: string;
   title: string;
+  planId?: string | null;
   archived: boolean;
   status?: string | null;
   updatedAt: number;

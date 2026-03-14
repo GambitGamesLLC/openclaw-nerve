@@ -13,6 +13,7 @@ export interface BeadsSourceDto {
 export interface LinkedPlanSummaryDto {
   path: string;
   title: string;
+  planId: string | null;
   archived: boolean;
   status: string | null;
   updatedAt: number;

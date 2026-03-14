@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-12-beads-board-add-closed-column
+bead_ids:
+  - nerve-79c
+  - nerve-bo0
+  - nerve-j93
+---
 # Gambit OpenClaw Nerve — Beads board Closed column
 
 **Date:** 2026-03-12  

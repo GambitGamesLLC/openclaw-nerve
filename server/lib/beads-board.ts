@@ -24,6 +24,7 @@ export type BeadsSourceDto = ManagedBeadsSourceDto;
 export interface LinkedPlanSummaryDto {
   path: string;
   title: string;
+  planId: string | null;
   archived: boolean;
   status: string | null;
   updatedAt: number;
@@ -196,6 +197,7 @@ function toLinkedPlanSummaryDto(plan: PlanSummary | null): LinkedPlanSummaryDto 
   return {
     path: plan.path,
     title: plan.title,
+    planId: plan.planId,
     archived: plan.archived,
     status: plan.status,
     updatedAt: plan.updatedAt,
