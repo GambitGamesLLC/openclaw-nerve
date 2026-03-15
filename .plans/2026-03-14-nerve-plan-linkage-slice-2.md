@@ -9,7 +9,7 @@ bead_ids:
 # Gambit OpenClaw Nerve — plan linkage slice 2
 
 **Date:** 2026-03-14  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -241,6 +241,7 @@ What I would *not* put into slice 2 unless validation proves it trivial:
 
 **Commits:**
 - `732927e` — Implement metadata-first slice-2 bead-plan linkage
+- `a22aadd` — Finalize slice-2 linkage plan results and verification
 
 **Lessons Learned:** Keep the core linkage contract narrow (metadata-first resolver + explicit states + drawer surfacing) and split migration/repair helpers into a follow-up bead to preserve delivery confidence and reviewability.
 

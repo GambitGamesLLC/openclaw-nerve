@@ -1,7 +1,7 @@
 # Gambit OpenClaw Nerve — backlog closure and future review framing
 
 **Date:** 2026-03-14  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -51,7 +51,7 @@ This plan keeps the action small and clean: close the speculative deferred bead,
 **What We Built:** Closed the speculative deferred linkage umbrella and replaced it with a clearer future-work policy: next Nerve/Beads work should be driven by a fresh manual multi-rig review after Cookie/Byte run `update.sh` and `restore.sh`, and any later upstreaming effort should be organized as feature branches cut from the fork integration branch rather than by keeping speculative backlog beads open.
 
 **Commits:**
-- Pending
+- `e856cad` — `docs(plan): close speculative backlog and frame future review`
 
 **Lessons Learned:** Once a workflow wave has been manually exercised and only speculative polish remains, it is better to close the umbrella backlog and reopen fresh targeted beads from real future findings than to carry forward stale maybes.
 
