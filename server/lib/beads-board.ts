@@ -360,7 +360,7 @@ export async function projectBeadsIssuesToBoard(source: BeadsSource, rawIssues: 
     const rawStatus = normalizeString(issue.status) || 'open';
     const columnKey = projectBeadsStatusToColumn(rawStatus);
     const metadataLink = extractPlanMetadataFromIssueMetadata(issue.metadata);
-    const linkedPlanResolution = await resolveRepoPlanLinkForBead(issue.id, metadataLink);
+    const linkedPlanResolution = await resolveRepoPlanLinkForBead(issue.id, metadataLink, source.rootPath);
 
     if (linkedPlanResolution?.metadataNeedsWrite && linkedPlanResolution.metadataToWrite) {
       try {
@@ -459,7 +459,7 @@ export async function repairBeadPlanMetadata(
   const issues = await execBdJsonl<BdIssueExportItem>(source, ['export']);
   const issue = issues.find((candidate) => candidate.id === normalizedIssueId) ?? null;
   const metadataLink = issue ? extractPlanMetadataFromIssueMetadata(issue.metadata) : null;
-  const resolution = await resolveRepoPlanLinkForBead(normalizedIssueId, metadataLink);
+  const resolution = await resolveRepoPlanLinkForBead(normalizedIssueId, metadataLink, source.rootPath);
 
   if (!resolution || !resolution.plan) {
     throw new ManualPlanMetadataRepairError('no_linked_plan', 'No resolvable linked plan available for repair');
@@ -479,7 +479,7 @@ export async function repairBeadPlanMetadata(
 
   await syncBeadPlanMetadata(source, normalizedIssueId, resolution.metadataToWrite);
 
-  const refreshedResolution = await resolveRepoPlanLinkForBead(normalizedIssueId, resolution.metadataToWrite);
+  const refreshedResolution = await resolveRepoPlanLinkForBead(normalizedIssueId, resolution.metadataToWrite, source.rootPath);
   const linkedPlan = toLinkedPlanSummaryDto(refreshedResolution ?? resolution);
 
   if (!linkedPlan) {

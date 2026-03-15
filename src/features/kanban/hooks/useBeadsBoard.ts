@@ -1,48 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BeadsBoardColumnKey, BeadsBoardDto, BeadsSourceDto, BeadsSourcesResponse } from '../beads';
+import type { BeadsBoardColumnKey, BeadsBoardDto } from '../beads';
 import { normalizeBeadsBoard } from '../beads';
+import { useRepoSources } from '@/hooks/useRepoSources';
 
 export function useBeadsBoard() {
-  const [sources, setSources] = useState<BeadsSourceDto[]>([]);
-  const [selectedSourceId, setSelectedSourceId] = useState<string>('');
+  const {
+    sources,
+    selectedSourceId,
+    setSelectedSourceId,
+    loadingSources,
+    error: sourcesError,
+    fetchSources,
+    addSource,
+    removeSource,
+  } = useRepoSources();
   const [board, setBoard] = useState<BeadsBoardDto | null>(null);
-  const [loadingSources, setLoadingSources] = useState(true);
   const [loadingBoard, setLoadingBoard] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const sourcesAbortRef = useRef<AbortController | null>(null);
   const boardAbortRef = useRef<AbortController | null>(null);
   const boardRequestSourceRef = useRef<string | null>(null);
-
-  const fetchSources = useCallback(async () => {
-    sourcesAbortRef.current?.abort();
-    const controller = new AbortController();
-    sourcesAbortRef.current = controller;
-
-    setLoadingSources(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/beads/sources', { signal: controller.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: BeadsSourcesResponse = await res.json();
-      setSources(data.sources);
-
-      const nextSourceId = data.lastSourceId
-        || data.defaultSourceId
-        || data.sources.find((source) => source.isDefault)?.id
-        || data.sources[0]?.id
-        || '';
-
-      setSelectedSourceId((current) => {
-        if (current && data.sources.some((source) => source.id === current)) return current;
-        return nextSourceId;
-      });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Failed to load Beads sources');
-    } finally {
-      setLoadingSources(false);
-    }
-  }, []);
 
   const fetchBoard = useCallback(async (sourceId?: string, { silent = false }: { silent?: boolean } = {}) => {
     const resolvedSourceId = sourceId ?? selectedSourceId;
@@ -91,37 +67,6 @@ export function useBeadsBoard() {
     }
   }, [selectedSourceId]);
 
-  const addSource = useCallback(async ({ label, rootPath }: { label?: string; rootPath: string }) => {
-    const res = await fetch('/api/beads/sources', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, rootPath }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => null) as { details?: string } | null;
-      throw new Error(body?.details || `HTTP ${res.status}`);
-    }
-
-    const source = await res.json() as BeadsSourceDto;
-    await fetchSources();
-    setSelectedSourceId(source.id);
-    return source;
-  }, [fetchSources]);
-
-  const removeSource = useCallback(async (sourceId: string) => {
-    const res = await fetch(`/api/beads/sources/${encodeURIComponent(sourceId)}`, {
-      method: 'DELETE',
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => null) as { details?: string } | null;
-      throw new Error(body?.details || `HTTP ${res.status}`);
-    }
-
-    await fetchSources();
-  }, [fetchSources]);
-
   const repairLinkedPlanMetadata = useCallback(async (issueId: string) => {
     const res = await fetch(`/api/beads/issues/${encodeURIComponent(issueId)}/repair-plan-metadata`, {
       method: 'POST',
@@ -140,32 +85,15 @@ export function useBeadsBoard() {
   }, [fetchBoard, selectedSourceId]);
 
   useEffect(() => {
-    fetchSources();
     return () => {
-      sourcesAbortRef.current?.abort();
       boardAbortRef.current?.abort();
     };
-  }, [fetchSources]);
+  }, []);
 
   useEffect(() => {
     if (!selectedSourceId) return;
     fetchBoard(selectedSourceId);
   }, [selectedSourceId, fetchBoard]);
-
-  useEffect(() => {
-    if (!selectedSourceId) return;
-    const controller = new AbortController();
-    void fetch('/api/beads/selection', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceId: selectedSourceId }),
-      signal: controller.signal,
-    }).catch(() => {
-      // Selection persistence is best-effort; keep the board usable even if it fails.
-    });
-
-    return () => controller.abort();
-  }, [selectedSourceId]);
 
   useEffect(() => {
     if (!selectedSourceId) return;
@@ -206,7 +134,7 @@ export function useBeadsBoard() {
     tasksByColumn,
     columnCounts,
     loading: loadingSources || loadingBoard,
-    error,
+    error: error || sourcesError,
     hasAnyTasks: (board?.totalCount ?? 0) > 0,
     fetchSources,
     fetchBoard,

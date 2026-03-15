@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-15-mobile-plans-layout-and-search-surfaces
+bead_ids:
+  - nerve-36n
+  - nerve-fob
+  - nerve-sw6
+---
 # Nerve mobile Plans layout + searchable Beads/Plans surfaces
 
 **Date:** 2026-03-15  
@@ -110,12 +117,55 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 - `/home/derrick/.openclaw/workspace/scripts/`
 
 **Files Created/Deleted/Modified:**
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.env.example`
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-15-mobile-plans-layout-and-search-surfaces.md`
-- files to be determined by implementation
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/lib/beads-board.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/lib/config.test.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/lib/config.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/lib/plans.test.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/lib/plans.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/server/routes/plans.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/App.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/components/TopBar.test.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/components/TopBar.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/command-palette/commands.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/KanbanPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/beads.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/hooks/useBeadsBoard.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/plans/PlansPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/hooks/usePlans.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/tabs/PlansTab.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/hooks/useRepoSources.ts`
+- `/home/derrick/.openclaw/workspace/scripts/restore.sh`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:**
+- Chose the smallest durable first slice by **reusing the existing Beads tracked-source registry and persisted source selection** instead of adding a second Plans-specific registry.
+- Added an env-gated workflow flag, `NERVE_TOP_LEVEL_PLANS`, surfaced through `server/lib/config.ts`, `/api/server-info`, `.env.example`, and `restore.sh` (set to `true` there so Derrick’s Nerve config rolls forward with the Beads-first shell defaults).
+- Added a new top-level **Plans** view to the shell, rendered to the right of Beads in the top bar when the flag is enabled.
+  - `src/components/TopBar.tsx` now shows a Plans toggle only when enabled.
+  - `src/App.tsx` now supports `viewMode === 'plans'`, lazy-loads a new `PlansPanel`, and routes Beads → Plans handoff into the top-level Plans surface when enabled.
+  - Opening a plan for editing from the top-level surface now switches back to chat/editor view before opening the file so edit handoff stays usable.
+- Added `src/features/plans/PlansPanel.tsx`, a focused full-screen Plans surface that:
+  - reuses tracked repo sources,
+  - supports add/remove semantics consistent with Beads,
+  - lets the user switch repo source,
+  - and renders the existing searchable Plans browser/reader for the selected repo.
+- Added `src/hooks/useRepoSources.ts` and refactored `useBeadsBoard()` to use it so source loading/persistence behavior stays aligned across Beads and Plans.
+- Extended the plans server/helpers for **repo-scoped discovery and reads**:
+  - `server/routes/plans.ts` now accepts optional `sourceId` for list/read.
+  - `server/lib/plans.ts` now supports explicit repo roots for listing, resolving, reading, and bead-linked-plan resolution.
+  - `server/lib/beads-board.ts` now resolves linked plans against the active Beads source root instead of the Nerve repo root.
+- Extended `src/features/workspace/hooks/usePlans.ts` and `src/features/workspace/tabs/PlansTab.tsx` so the same Plans browser can operate against a selected tracked repo while preserving the old repo-local workspace behavior when no `sourceId` is passed.
+- Validation:
+  - `npm test -- --run src/components/TopBar.test.tsx src/features/workspace/tabs/PlansTab.test.tsx src/features/kanban/hooks/useBeadsBoard.test.tsx server/lib/plans.test.ts server/lib/config.test.ts`
+  - `npm run build`
+- Follow-up cuts intentionally left out of this incremental slice:
+  - no separate Plans-only persisted source selection (it deliberately reuses the Beads source registry/selection),
+  - no server-side full-text search (Plans search remains client-side within the selected repo, matching the smallest practical scope),
+  - no dedicated top-level plan editor pane (editing still hands off to the existing file editor, which keeps the implementation incremental).
+- Outcome: Nerve now has an optional top-level Plans surface with tracked-repo selection, repo-scoped `.plans` discovery, reading, search, and clean handoff into the existing editor.
 
 ---
 

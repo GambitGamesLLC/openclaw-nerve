@@ -222,6 +222,25 @@ bead_ids: [nerve-archived]
     expect(escaped).toBeNull();
   });
 
+  it('scopes plan discovery and reads to an explicit repo root', async () => {
+    const repoA = path.join(tempDir, 'repo-a');
+    const repoB = path.join(tempDir, 'repo-b');
+    await fs.mkdir(path.join(repoA, '.plans'), { recursive: true });
+    await fs.mkdir(path.join(repoB, '.plans'), { recursive: true });
+    await fs.writeFile(path.join(repoA, '.plans', '2026-03-15-a.md'), '# Repo A Plan\n', 'utf-8');
+    await fs.writeFile(path.join(repoB, '.plans', '2026-03-15-b.md'), '# Repo B Plan\n', 'utf-8');
+
+    await expect(listRepoPlans(repoA)).resolves.toMatchObject([
+      expect.objectContaining({ title: 'Repo A Plan', path: '.plans/2026-03-15-a.md' }),
+    ]);
+    await expect(listRepoPlans(repoB)).resolves.toMatchObject([
+      expect.objectContaining({ title: 'Repo B Plan', path: '.plans/2026-03-15-b.md' }),
+    ]);
+
+    await expect(readRepoPlan('.plans/2026-03-15-a.md', repoA)).resolves.toMatchObject({ title: 'Repo A Plan' });
+    await expect(readRepoPlan('.plans/2026-03-15-a.md', repoB)).resolves.toBeNull();
+  });
+
   it('keeps existing frontmatter while enriching missing linkage fields', () => {
     const updated = ensurePlanLinkageFrontmatter('.plans/2026-03-14-test.md', `---\nstatus: in_progress\n---\n# Test\n\n**Bead ID:** \`nerve-test\`\n`);
 

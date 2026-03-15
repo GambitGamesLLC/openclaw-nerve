@@ -71,6 +71,7 @@ export interface WorkflowShellConfigDto {
   primarySurface: WorkflowPrimarySurface;
   prefersBeads: boolean;
   hideNativeTasks: boolean;
+  topLevelPlansEnabled: boolean;
   navigationLabel: 'Tasks' | 'Beads';
   defaultBoardMode: BoardMode;
 }

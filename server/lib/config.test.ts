@@ -365,6 +365,7 @@ describe('config module', () => {
         primarySurface: 'native',
         prefersBeads: false,
         hideNativeTasks: false,
+        topLevelPlansEnabled: false,
         navigationLabel: 'Tasks',
         defaultBoardMode: 'kanban',
       });
@@ -381,6 +382,18 @@ describe('config module', () => {
       expect(config.workflow.hideNativeTasks).toBe(false);
       expect(config.workflow.navigationLabel).toBe('Beads');
       expect(config.workflow.defaultBoardMode).toBe('beads');
+      expect(config.workflow.topLevelPlansEnabled).toBe(false);
+    });
+
+    it('enables the optional top-level plans surface from env', async () => {
+      delete process.env.NERVE_WORKFLOW_PRIMARY;
+      delete process.env.NERVE_HIDE_NATIVE_TASKS;
+      process.env.NERVE_TOP_LEVEL_PLANS = 'true';
+
+      const { config } = await importFreshConfig();
+
+      expect(config.workflow.topLevelPlansEnabled).toBe(true);
+      expect(config.workflow.defaultBoardMode).toBe('kanban');
     });
 
     it('forces beads mode when native tasks are hidden', async () => {
@@ -392,6 +405,7 @@ describe('config module', () => {
       expect(config.workflow.primarySurface).toBe('native');
       expect(config.workflow.prefersBeads).toBe(true);
       expect(config.workflow.hideNativeTasks).toBe(true);
+      expect(config.workflow.topLevelPlansEnabled).toBe(false);
       expect(config.workflow.navigationLabel).toBe('Beads');
       expect(config.workflow.defaultBoardMode).toBe('beads');
     });

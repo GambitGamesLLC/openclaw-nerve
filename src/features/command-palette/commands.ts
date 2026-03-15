@@ -3,7 +3,7 @@ import { themes, type ThemeName } from '@/lib/themes';
 import { fonts, type FontName } from '@/lib/fonts';
 import type { TTSProvider } from '@/features/tts/useTTS';
 
-export type ViewMode = 'chat' | 'kanban';
+export type ViewMode = 'chat' | 'kanban' | 'plans';
 
 export interface CommandActions {
   onNewSession: () => void;
@@ -24,6 +24,7 @@ export interface CommandActions {
   onRefreshMemory: () => void;
   onSetViewMode?: (mode: ViewMode) => void;
   boardLabel?: 'Tasks' | 'Beads';
+  plansVisible?: boolean;
 }
 
 const THEME_LABELS: Record<ThemeName, string> = {
@@ -53,6 +54,7 @@ const FONT_LABELS: Record<FontName, string> = {
 export function createCommands(actions: CommandActions): Command[] {
   const boardLabel = actions.boardLabel || 'Tasks';
   const boardLabelLower = boardLabel.toLowerCase();
+  const plansVisible = actions.plansVisible ?? true;
   const themeCommands: Command[] = (Object.keys(themes) as ThemeName[]).map((key) => ({
     id: `theme-${key}`,
     label: `Theme: ${THEME_LABELS[key] || key}`,
@@ -201,6 +203,13 @@ export function createCommands(actions: CommandActions): Command[] {
         category: 'kanban' as const,
         keywords: ['chat', 'conversation', 'view'],
       },
+      ...(plansVisible ? [{
+        id: 'open-plans',
+        label: 'Open Plans View',
+        action: () => actions.onSetViewMode!('plans'),
+        category: 'kanban' as const,
+        keywords: ['plans', 'plan', 'workspace', 'view'],
+      }] : []),
       {
         id: 'create-kanban-task',
         label: boardLabel === 'Beads' ? 'Open Beads Board' : 'Create Task',

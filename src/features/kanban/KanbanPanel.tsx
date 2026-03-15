@@ -21,7 +21,7 @@ interface KanbanPanelProps {
   /** When true, fully hide native-task affordances and stay in Beads mode. */
   hideNativeTasks?: boolean;
   /** Open a linked repo-local plan in the shared Plans surface. */
-  onOpenPlan?: (planPath: string) => void;
+  onOpenPlan?: (planPath: string, sourceId?: string | null) => void;
 }
 
 /**
@@ -255,7 +255,7 @@ export function KanbanPanel({
           task={selectedBeadsTask}
           sourceLabel={selectedBeadsSource?.label ?? beadsBoard?.source.label}
           onClose={handleCloseBeadsDrawer}
-          onOpenPlan={onOpenPlan}
+          onOpenPlan={(planPath) => onOpenPlan?.(planPath, selectedSourceId || null)}
           onRepairLinkedPlanMetadata={repairLinkedPlanMetadata}
         />
       )}

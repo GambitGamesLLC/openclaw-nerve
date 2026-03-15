@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react';
-import { Activity, BarChart3, Settings, Radio, Users, Brain, MessageSquare, LayoutGrid } from 'lucide-react';
+import { Activity, BarChart3, Settings, Radio, Users, Brain, MessageSquare, LayoutGrid, FileText } from 'lucide-react';
 import type { ViewMode } from '@/features/command-palette/commands';
 import type { AgentLogEntry, EventEntry, TokenData } from '@/types';
 import NerveLogo from './NerveLogo';
@@ -80,6 +80,8 @@ interface TopBarProps {
   onViewModeChange?: (mode: ViewMode) => void;
   /** Server-driven label for the kanban/beads workflow surface. */
   boardLabel?: 'Tasks' | 'Beads';
+  /** Whether the optional top-level Plans view is enabled. */
+  plansVisible?: boolean;
 }
 
 /**
@@ -104,6 +106,7 @@ export function TopBar({
   viewMode = 'chat',
   onViewModeChange,
   boardLabel = 'Tasks',
+  plansVisible = false,
 }: TopBarProps) {
   const [activePanel, setActivePanel] = useState<PanelId>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -222,11 +225,27 @@ export function TopBar({
                   viewMode === 'kanban'
                     ? 'bg-primary/15 text-primary'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                } ${plansVisible ? 'border-r border-border/60' : ''}`}
               >
                 <LayoutGrid size={12} aria-hidden="true" />
                 <span className="hidden sm:inline">{boardLabel}</span>
               </button>
+              {plansVisible && (
+                <button
+                  onClick={() => onViewModeChange('plans')}
+                  title="Plans View"
+                  aria-label="Switch to plans view"
+                  aria-pressed={viewMode === 'plans'}
+                  className={`flex items-center gap-1 px-2 h-6 text-[10px] transition-colors cursor-pointer ${
+                    viewMode === 'plans'
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <FileText size={12} aria-hidden="true" />
+                  <span className="hidden sm:inline">Plans</span>
+                </button>
+              )}
             </div>
           )}
         </div>

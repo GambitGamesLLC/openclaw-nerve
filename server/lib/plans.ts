@@ -61,8 +61,12 @@ interface FrontmatterSplit {
 
 const PLAN_ROOT_NAME = '.plans';
 
-export function getPlansRoot(): string {
-  return path.resolve(process.cwd(), PLAN_ROOT_NAME);
+function normalizeRepoRoot(repoRoot?: string): string {
+  return path.resolve(repoRoot || process.cwd());
+}
+
+export function getPlansRoot(repoRoot?: string): string {
+  return path.resolve(normalizeRepoRoot(repoRoot), PLAN_ROOT_NAME);
 }
 
 function isMarkdownFile(name: string): boolean {
@@ -380,11 +384,12 @@ function isSamePlanLinkMetadata(left: PlanLinkMetadata | null, right: PlanLinkMe
 export async function resolveRepoPlanLinkForBead(
   beadId: string,
   metadata?: Partial<PlanLinkMetadata> | null,
+  repoRoot?: string,
 ): Promise<LinkedPlanResolution | null> {
   const normalizedBeadId = beadId.trim();
   if (!normalizedBeadId) return null;
 
-  const plans = await listRepoPlans();
+  const plans = await listRepoPlans(repoRoot);
   const normalizedMetadata = normalizePlanLinkMetadata(metadata);
 
   const buildResolvedResult = (
@@ -442,16 +447,16 @@ export async function resolveRepoPlanLinkForBead(
   };
 }
 
-export async function findRepoPlanByBeadId(beadId: string): Promise<PlanSummary | null> {
+export async function findRepoPlanByBeadId(beadId: string, repoRoot?: string): Promise<PlanSummary | null> {
   const normalizedBeadId = beadId.trim();
   if (!normalizedBeadId) return null;
 
-  const plans = await listRepoPlans();
+  const plans = await listRepoPlans(repoRoot);
   return findPlanByBeadIdFromPlans(plans, normalizedBeadId);
 }
 
-export async function listRepoPlans(): Promise<PlanSummary[]> {
-  const plansRoot = getPlansRoot();
+export async function listRepoPlans(repoRoot?: string): Promise<PlanSummary[]> {
+  const plansRoot = getPlansRoot(repoRoot);
 
   try {
     const stat = await fs.stat(plansRoot);
@@ -462,7 +467,7 @@ export async function listRepoPlans(): Promise<PlanSummary[]> {
 
   const relativePaths = await collectPlanFiles(plansRoot);
   const summaries = await Promise.all(relativePaths.map(async (relativePath) => {
-    const absolutePath = resolvePlanPath(relativePath);
+    const absolutePath = resolvePlanPath(relativePath, repoRoot);
     if (!absolutePath) return null;
 
     const [content, stat] = await Promise.all([
@@ -491,14 +496,14 @@ export async function listRepoPlans(): Promise<PlanSummary[]> {
     });
 }
 
-export function resolvePlanPath(relativePath: string): string | null {
+export function resolvePlanPath(relativePath: string, repoRoot?: string): string | null {
   const normalized = path.posix.normalize(relativePath.trim());
   if (!normalized || !normalized.startsWith('.plans/') || normalized.includes('..')) {
     return null;
   }
 
-  const resolved = path.resolve(process.cwd(), normalized);
-  const root = getPlansRoot();
+  const resolved = path.resolve(normalizeRepoRoot(repoRoot), normalized);
+  const root = getPlansRoot(repoRoot);
   const rootPrefix = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
 
   if (resolved !== root && !resolved.startsWith(rootPrefix)) {
@@ -512,8 +517,8 @@ export function resolvePlanPath(relativePath: string): string | null {
   return resolved;
 }
 
-export async function readRepoPlan(relativePath: string): Promise<PlanDocument | null> {
-  const absolutePath = resolvePlanPath(relativePath);
+export async function readRepoPlan(relativePath: string, repoRoot?: string): Promise<PlanDocument | null> {
+  const absolutePath = resolvePlanPath(relativePath, repoRoot);
   if (!absolutePath) return null;
 
   try {

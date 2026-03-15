@@ -7,6 +7,8 @@ interface PlansTabProps {
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
   requestedPlanPath?: string | null;
+  sourceId?: string;
+  showHeader?: boolean;
 }
 
 function formatRelativeTime(value: number): string {
@@ -145,8 +147,8 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTabProps) {
-  const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans();
+export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
+  const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
 
   const filteredPlans = useMemo(() => {
@@ -175,12 +177,15 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTab
   }, [selectedPlan]);
 
   useEffect(() => {
+    setSearch('');
+  }, [sourceId]);
+
+  useEffect(() => {
     if (!requestedPlanPath) return;
     if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
     if (selectedPath === requestedPlanPath) return;
     void loadPlan(requestedPlanPath);
   }, [requestedPlanPath, plans, selectedPath, loadPlan]);
-
 
   function handleOpenPlanReference(path: string) {
     if (plans.some((plan) => plan.path === path)) {
@@ -192,24 +197,26 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTab
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/40">
-        <div>
-          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/90">
-            <FileText size={13} />
-            Plans
+      {showHeader && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/40">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/90">
+              <FileText size={13} />
+              Plans
+            </div>
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              {counts.active} active • {counts.archived} archived
+            </div>
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground">
-            {counts.active} active • {counts.archived} archived
-          </div>
+          <button
+            onClick={() => { void refresh(); }}
+            className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
+          >
+            <RefreshCw size={11} className={isLoading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
         </div>
-        <button
-          onClick={() => { void refresh(); }}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
-        >
-          <RefreshCw size={11} className={isLoading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+      )}
 
       <div className="px-3 py-2 border-b border-border/40">
         <label className="relative block">
@@ -233,7 +240,7 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTab
 
           {!isLoading && filteredPlans.length === 0 && (
             <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-              {plans.length === 0 ? 'No repo-local plans found under .plans/' : 'No plans match this search.'}
+              {plans.length === 0 ? 'No repo-local plans found under .plans/ for this source.' : 'No plans match this search.'}
             </div>
           )}
 

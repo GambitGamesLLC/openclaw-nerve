@@ -49,6 +49,13 @@ interface ParsedBeadsSources {
 
 export type WorkflowPrimarySurface = 'native' | 'beads';
 
+function parseBooleanEnv(rawValue: string | undefined, fallback = false): boolean {
+  if (rawValue == null) return fallback;
+  const normalized = rawValue.trim().toLowerCase();
+  if (!normalized) return fallback;
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
 function parseWorkflowPrimarySurface(rawValue: string | undefined): WorkflowPrimarySurface {
   const normalized = (rawValue || 'native').trim().toLowerCase();
   if (normalized === 'beads') return 'beads';
@@ -171,7 +178,8 @@ const parsedBeadsSources = parseBeadsSources(
   process.env.NERVE_BEADS_PROJECTS_ROOT,
 );
 const workflowPrimarySurface = parseWorkflowPrimarySurface(process.env.NERVE_WORKFLOW_PRIMARY);
-const hideNativeTasks = (process.env.NERVE_HIDE_NATIVE_TASKS || 'false').toLowerCase() === 'true';
+const hideNativeTasks = parseBooleanEnv(process.env.NERVE_HIDE_NATIVE_TASKS);
+const topLevelPlansEnabled = parseBooleanEnv(process.env.NERVE_TOP_LEVEL_PLANS);
 const prefersBeadsWorkflow = workflowPrimarySurface === 'beads' || hideNativeTasks;
 
 function normalizeLanguagePreference(language: string | undefined): string {
@@ -241,6 +249,7 @@ export const config = {
     primarySurface: workflowPrimarySurface,
     prefersBeads: prefersBeadsWorkflow,
     hideNativeTasks,
+    topLevelPlansEnabled,
     navigationLabel: prefersBeadsWorkflow ? 'Beads' : 'Tasks',
     defaultBoardMode: prefersBeadsWorkflow ? 'beads' : 'kanban',
   },

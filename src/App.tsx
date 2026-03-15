@@ -41,6 +41,7 @@ const WorkspacePanel = lazy(() => import('@/features/workspace/WorkspacePanel').
 
 // Lazy-loaded view modes
 const KanbanPanel = lazy(() => import('@/features/kanban/KanbanPanel').then(m => ({ default: m.KanbanPanel })));
+const PlansPanel = lazy(() => import('@/features/plans/PlansPanel').then(m => ({ default: m.PlansPanel })));
 
 interface AppProps {
   onLogout?: () => void;
@@ -50,6 +51,7 @@ const DEFAULT_WORKFLOW_SHELL: WorkflowShellConfigDto = {
   primarySurface: 'native',
   prefersBeads: false,
   hideNativeTasks: false,
+  topLevelPlansEnabled: false,
   navigationLabel: 'Tasks',
   defaultBoardMode: 'kanban',
 };
@@ -185,13 +187,14 @@ export default function App({ onLogout }: AppProps) {
   const [viewMode, setViewModeRaw] = useState<ViewMode>(() => {
     try {
       const saved = localStorage.getItem('nerve:viewMode');
-      if (saved === 'kanban') return 'kanban';
+      if (saved === 'kanban' || saved === 'plans') return saved;
     } catch { /* ignore */ }
     return 'chat';
   });
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [requestedWorkspaceTab, setRequestedWorkspaceTab] = useState<'plans' | null>(null);
   const [requestedPlanPath, setRequestedPlanPath] = useState<string | null>(null);
+  const [requestedPlanSourceId, setRequestedPlanSourceId] = useState<string | null>(null);
   const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState(0);
   const [workflowShell, setWorkflowShell] = useState<WorkflowShellConfigDto>(DEFAULT_WORKFLOW_SHELL);
   const setViewMode = useCallback((mode: ViewMode) => {
@@ -203,12 +206,19 @@ export default function App({ onLogout }: AppProps) {
     setViewMode('kanban');
   }, [setViewMode]);
 
-  const openPlanInWorkspace = useCallback((planPath: string) => {
+  const openPlanInWorkspace = useCallback((planPath: string, sourceId?: string | null) => {
+    setRequestedPlanPath(planPath);
+    setRequestedPlanSourceId(sourceId ?? null);
+
+    if (workflowShell.topLevelPlansEnabled) {
+      setViewMode('plans');
+      return;
+    }
+
     setViewMode('chat');
     setRequestedWorkspaceTab('plans');
-    setRequestedPlanPath(planPath);
     setWorkspaceOpenRequest((current) => current + 1);
-  }, [setViewMode]);
+  }, [setViewMode, workflowShell.topLevelPlansEnabled]);
 
   const openWorkspacePath = useCallback(async (targetPath: string) => {
     const res = await fetch(`/api/files/resolve?path=${encodeURIComponent(targetPath)}`);
@@ -226,6 +236,11 @@ export default function App({ onLogout }: AppProps) {
     setFileBrowserCollapsed(false);
     setRevealRequest({ id: Date.now(), path: data.path, kind: data.type });
   }, [openFile]);
+
+  const openWorkspacePathInEditor = useCallback(async (targetPath: string) => {
+    setViewMode('chat');
+    await openWorkspacePath(targetPath);
+  }, [openWorkspacePath, setViewMode]);
 
   // Build command list with stable references
   const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -255,9 +270,10 @@ export default function App({ onLogout }: AppProps) {
     onRefreshMemory: refreshMemories,
     onSetViewMode: setViewMode,
     boardLabel: workflowShell.navigationLabel,
+    plansVisible: workflowShell.topLevelPlansEnabled,
   }), [openSpawnDialog, handleReset, toggleSound, handleAbort, openSettings, openSearch,
     setTheme, setFont, setTtsProvider, handleToggleWakeWord, toggleEvents, toggleLog, toggleTelemetry,
-    refreshSessions, refreshMemories, setViewMode, workflowShell.navigationLabel]);
+    refreshSessions, refreshMemories, setViewMode, workflowShell.navigationLabel, workflowShell.topLevelPlansEnabled]);
 
   // Keyboard shortcut handlers with useCallback
   const handleOpenPalette = useCallback(() => setPaletteOpen(true), []);
@@ -348,6 +364,12 @@ export default function App({ onLogout }: AppProps) {
     mq.addListener(onChange);
     return () => mq.removeListener(onChange);
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'plans' && !workflowShell.topLevelPlansEnabled) {
+      setViewMode('chat');
+    }
+  }, [viewMode, workflowShell.topLevelPlansEnabled, setViewMode]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -569,6 +591,7 @@ export default function App({ onLogout }: AppProps) {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         boardLabel={workflowShell.navigationLabel}
+        plansVisible={workflowShell.topLevelPlansEnabled}
       />
       
       <PanelErrorBoundary name="Settings">
@@ -607,8 +630,8 @@ export default function App({ onLogout }: AppProps) {
       </PanelErrorBoundary>
       
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* File tree — far left, collapsible; hidden (not unmounted) in kanban to preserve state */}
-        <div className={viewMode === 'kanban' ? 'hidden' : 'h-full min-h-0'}>
+        {/* File tree — far left, collapsible; hidden (not unmounted) in board/plans views to preserve state */}
+        <div className={viewMode === 'kanban' || viewMode === 'plans' ? 'hidden' : 'h-full min-h-0'}>
           <PanelErrorBoundary name="File Explorer">
             <FileTreePanel
               onOpenFile={openFile}
@@ -642,12 +665,24 @@ export default function App({ onLogout }: AppProps) {
             </Suspense>
           </div>
         )}
+        {viewMode === 'plans' && workflowShell.topLevelPlansEnabled && (
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 boot-panel">
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center text-muted-foreground text-xs bg-background">Loading…</div>}>
+              <PlansPanel
+                onOpenPath={openWorkspacePathInEditor}
+                onOpenTask={openTaskInBoard}
+                requestedPlanPath={requestedPlanPath}
+                requestedSourceId={requestedPlanSourceId}
+              />
+            </Suspense>
+          </div>
+        )}
         {isCompactLayout ? (
-          <div className={`flex-1 min-w-0 min-h-0 boot-panel${viewMode === 'kanban' ? ' hidden' : ''}`}>
+          <div className={`flex-1 min-w-0 min-h-0 boot-panel${viewMode === 'kanban' || viewMode === 'plans' ? ' hidden' : ''}`}>
             {chatContent}
           </div>
         ) : (
-          <div style={{ display: viewMode === 'kanban' ? 'none' : 'contents' }}>
+          <div style={{ display: viewMode === 'kanban' || viewMode === 'plans' ? 'none' : 'contents' }}>
             <ResizablePanels
               leftPercent={panelRatio}
               onResize={setPanelRatio}

@@ -18,6 +18,10 @@ export interface PlanDocument extends PlanSummary {
 interface PlansResponse {
   ok: boolean;
   plans?: PlanSummary[];
+  source?: {
+    id: string;
+    label: string;
+  };
   counts?: {
     total: number;
     active: number;
@@ -32,7 +36,7 @@ interface PlanReadResponse {
   error?: string;
 }
 
-export function usePlans() {
+export function usePlans(sourceId?: string) {
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [counts, setCounts] = useState({ total: 0, active: 0, archived: 0 });
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +59,9 @@ export function usePlans() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/plans/read?path=${encodeURIComponent(planPath)}`, { signal: controller.signal });
+      const qs = new URLSearchParams({ path: planPath });
+      if (sourceId?.trim()) qs.set('sourceId', sourceId);
+      const res = await fetch(`/api/plans/read?${qs.toString()}`, { signal: controller.signal });
       const data = await res.json() as PlanReadResponse;
       if (!data.ok || !data.plan) throw new Error(data.error || 'Failed to load plan');
       setSelectedPlan(data.plan);
@@ -66,7 +72,7 @@ export function usePlans() {
     } finally {
       setIsPlanLoading(false);
     }
-  }, []);
+  }, [sourceId]);
 
   const refresh = useCallback(async () => {
     listAbortRef.current?.abort();
@@ -77,7 +83,9 @@ export function usePlans() {
     setError(null);
 
     try {
-      const res = await fetch('/api/plans', { signal: controller.signal });
+      const qs = new URLSearchParams();
+      if (sourceId?.trim()) qs.set('sourceId', sourceId);
+      const res = await fetch(`/api/plans${qs.toString() ? `?${qs.toString()}` : ''}`, { signal: controller.signal });
       const data = await res.json() as PlansResponse;
       if (!data.ok || !data.plans) throw new Error(data.error || 'Failed to load plans');
 
