@@ -1,3 +1,11 @@
+---
+plan_id: plan-2026-03-14-nerve-linkage-repair-and-migration-helpers
+bead_ids:
+  - nerve-pih
+  - nerve-9tg
+  - nerve-10f
+  - nerve-595
+---
 # Gambit OpenClaw Nerve — linkage repair and migration helpers
 
 **Date:** 2026-03-14  

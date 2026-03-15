@@ -1,3 +1,11 @@
+---
+plan_id: plan-2026-03-14-nerve-linkage-migration-polish
+bead_ids:
+  - nerve-pfc
+  - nerve-fq2
+  - nerve-rc4
+  - nerve-s8k
+---
 # Gambit OpenClaw Nerve — linkage migration polish
 
 **Date:** 2026-03-14  

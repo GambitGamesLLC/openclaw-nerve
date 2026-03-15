@@ -32,12 +32,28 @@ interface LinkedBeadContext {
   snippet: string | null;
 }
 
+function normalizeContextLine(rawLine: string): string {
+  return rawLine
+    .replace(/^\s*[-*+]\s+/, '')
+    .replace(/^\s*\d+\.\s+/, '')
+    .replace(/^\s*#{1,6}\s+/, '')
+    .replace(/^\*\*[^*]+:\*\*\s*/, '')
+    .trim();
+}
+
 function buildLinkedBeadContext(content: string, beadIds: string[]): LinkedBeadContext[] {
   const lines = stripFrontmatter(content).split('\n');
 
   return beadIds.map((beadId) => {
-    const lineIndex = lines.findIndex((line) => line.includes(beadId));
-    if (lineIndex === -1) {
+    const beadIdBlockIndex = lines.findIndex((line) => {
+      if (!line.includes('**Bead ID:**')) return false;
+      return line.includes(beadId);
+    });
+
+    const fallbackIndex = lines.findIndex((line) => line.includes(beadId));
+    const anchorIndex = beadIdBlockIndex >= 0 ? beadIdBlockIndex : fallbackIndex;
+
+    if (anchorIndex === -1) {
       return {
         beadId,
         lineNumber: null,
@@ -45,18 +61,36 @@ function buildLinkedBeadContext(content: string, beadIds: string[]): LinkedBeadC
       };
     }
 
-    const rawLine = lines[lineIndex] ?? '';
-    const normalized = rawLine
-      .replace(/^\s*[-*+]\s+/, '')
-      .replace(/^\s*\d+\.\s+/, '')
-      .replace(/^\s*#{1,6}\s+/, '')
-      .trim();
+    const sectionStartIndex = (() => {
+      for (let index = anchorIndex; index >= 0; index -= 1) {
+        if (/^###\s+/.test(lines[index] ?? '')) return index;
+      }
+      return -1;
+    })();
 
+    const sectionEndIndex = (() => {
+      for (let index = anchorIndex + 1; index < lines.length; index += 1) {
+        if (/^###\s+/.test(lines[index] ?? '')) return index;
+      }
+      return lines.length;
+    })();
+
+    const snippetLineIndex = (() => {
+      if (sectionStartIndex >= 0) return sectionStartIndex;
+
+      for (let index = anchorIndex + 1; index < sectionEndIndex; index += 1) {
+        if (/^\*\*Prompt:\*\*/.test(lines[index] ?? '')) return index;
+      }
+
+      return anchorIndex;
+    })();
+
+    const normalized = normalizeContextLine(lines[snippetLineIndex] ?? '');
     const snippet = normalized.length > 120 ? `${normalized.slice(0, 117)}…` : normalized;
 
     return {
       beadId,
-      lineNumber: lineIndex + 1,
+      lineNumber: snippetLineIndex + 1,
       snippet: snippet || null,
     };
   });

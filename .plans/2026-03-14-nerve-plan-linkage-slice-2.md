@@ -1,3 +1,11 @@
+---
+plan_id: plan-2026-03-14-nerve-plan-linkage-slice-2
+bead_ids:
+  - nerve-4ah
+  - nerve-lgw
+  - nerve-z1k
+  - nerve-q8g
+---
 # Gambit OpenClaw Nerve — plan linkage slice 2
 
 **Date:** 2026-03-14  
