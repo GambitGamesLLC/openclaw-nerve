@@ -48,8 +48,9 @@ describe('BeadsDetailDrawer', () => {
   it('renders richer Beads metadata in a read-only drawer', async () => {
     const user = userEvent.setup();
     const onOpenPlan = vi.fn();
+    const onClose = vi.fn();
 
-    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={vi.fn()} onOpenPlan={onOpenPlan} />);
+    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={onClose} onOpenPlan={onOpenPlan} />);
 
     expect(screen.getByRole('dialog', { name: 'Beads issue details' })).toBeInTheDocument();
     expect(screen.getByText('nerve-rfd')).toBeInTheDocument();
@@ -62,6 +63,7 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('Archived')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /open in plans/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onOpenPlan).toHaveBeenCalledWith('.plans/archive/2026-03-12-nerve-usability.md');
   });
 

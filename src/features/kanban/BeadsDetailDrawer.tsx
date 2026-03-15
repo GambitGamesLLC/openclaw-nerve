@@ -274,7 +274,10 @@ export function BeadsDetailDrawer({
                         {canOpenLinkedPlan && (
                           <button
                             type="button"
-                            onClick={() => onOpenPlan?.(linkedPlan.path!)}
+                            onClick={() => {
+                              onClose();
+                              onOpenPlan?.(linkedPlan.path!);
+                            }}
                             className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
                           >
                             Open in Plans

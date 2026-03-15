@@ -204,10 +204,11 @@ export default function App({ onLogout }: AppProps) {
   }, [setViewMode]);
 
   const openPlanInWorkspace = useCallback((planPath: string) => {
+    setViewMode('chat');
     setRequestedWorkspaceTab('plans');
     setRequestedPlanPath(planPath);
     setWorkspaceOpenRequest((current) => current + 1);
-  }, []);
+  }, [setViewMode]);
 
   const openWorkspacePath = useCallback(async (targetPath: string) => {
     const res = await fetch(`/api/files/resolve?path=${encodeURIComponent(targetPath)}`);
