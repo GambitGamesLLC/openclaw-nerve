@@ -164,7 +164,7 @@ Verification performed:
 
 Release outcome:
 - Committed durable UI/test polish in `3e015a3` (`feat(plans): show linked task context for bead references`).
-- Final plan closeout commit recorded in this same release pass (`docs(plan): finalize linkage migration polish execution record`).
+- Final plan closeout commit recorded in `24a30cd` (`docs(plan): finalize linkage migration polish execution record`).
 - Pushed both commits to `origin/master`.
 - Deferred leftovers remain explicitly tracked in umbrella follow-up bead `nerve-1w9`.
 
@@ -191,7 +191,7 @@ Priority order after validating the shipped post-repair behavior:
 
 **Commits:**
 - `3e015a3` - feat(plans): show linked task context for bead references
-- docs(plan): finalize linkage migration polish execution record (this closeout commit)
+- `24a30cd` - docs(plan): finalize linkage migration polish execution record
 
 **Lessons Learned:**
 - Metadata-first linkage plus explicit manual repair is now sufficient for current migration reliability; additional migration-helper expansion should stay deferred until a concrete pain point appears.
