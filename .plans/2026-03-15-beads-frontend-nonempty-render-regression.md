@@ -65,7 +65,7 @@ Live verification on the running app narrowed this further: the Nerve service lo
   - `npx vitest run src/features/kanban/hooks/useBeadsBoard.test.tsx src/features/kanban/beads.test.ts` ✅
   - `npm run build` ✅
   - live browser refresh after rebuilding `dist/` showed the Beads UI rendering non-empty counts for `~/.openclaw`: `To Do 1`, `In Progress 1`, `Done 1`, `Closed 20`, with cards visible instead of the empty-state message ✅
-- Commit hash: `6006954` (`Fix Beads board poll starvation`)
+- Commit hash: `7f5004b` (`Fix Beads board poll starvation`)
 
 ---
 
@@ -76,7 +76,7 @@ Live verification on the running app narrowed this further: the Nerve service lo
 **What We Built:** Fixed the Beads frontend false-empty regression by preventing the 5-second silent board poll from aborting the current in-flight board load for the same source. Slow but valid Beads board responses now complete, populate hook state, and render real board counts/cards instead of the empty-state warning.
 
 **Commits:**
-- `6006954` - Fix Beads board poll starvation
+- `7f5004b` - Fix Beads board poll starvation
 
 **Lessons Learned:** A correct payload can still render as empty when client polling logic starves the initial load. Silent refreshers need overlap protection or they can create a perpetual abort loop that looks like a normalization/render bug.
 
