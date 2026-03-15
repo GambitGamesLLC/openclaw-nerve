@@ -61,6 +61,7 @@ export function KanbanPanel({
     selectedSourceId,
     setSelectedSourceId,
     board: beadsBoard,
+    selectedSource: selectedBeadsSource,
     tasksByColumn: beadsTasksByColumn,
     columnCounts: beadsColumnCounts,
     loading: beadsLoading,
@@ -210,7 +211,7 @@ export function KanbanPanel({
             error={beadsError}
             onRetry={() => fetchBeadsBoard(selectedSourceId)}
             hasAnyTasks={beadsHasAnyTasks}
-            sourceLabel={beadsBoard?.source.label}
+            sourceLabel={selectedBeadsSource?.label ?? beadsBoard?.source.label}
             onCardClick={handleBeadsCardClick}
           />
         ) : (
@@ -251,7 +252,7 @@ export function KanbanPanel({
       {boardMode === 'beads' && (
         <BeadsDetailDrawer
           task={selectedBeadsTask}
-          sourceLabel={beadsBoard?.source.label}
+          sourceLabel={selectedBeadsSource?.label ?? beadsBoard?.source.label}
           onClose={handleCloseBeadsDrawer}
           onOpenPlan={onOpenPlan}
           onRepairLinkedPlanMetadata={repairLinkedPlanMetadata}

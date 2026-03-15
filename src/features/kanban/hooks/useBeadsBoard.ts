@@ -175,6 +175,10 @@ export function useBeadsBoard() {
     return () => clearInterval(id);
   }, [selectedSourceId, fetchBoard]);
 
+  const selectedSource = useMemo(() => {
+    return sources.find((source) => source.id === selectedSourceId) ?? null;
+  }, [selectedSourceId, sources]);
+
   const normalized = useMemo(() => board ? normalizeBeadsBoard(board) : {
     todo: [],
     in_progress: [],
@@ -198,6 +202,7 @@ export function useBeadsBoard() {
     selectedSourceId,
     setSelectedSourceId,
     board,
+    selectedSource,
     tasksByColumn,
     columnCounts,
     loading: loadingSources || loadingBoard,

@@ -16,6 +16,81 @@ describe('useBeadsBoard', () => {
     vi.restoreAllMocks();
   });
 
+  it('updates selected source metadata immediately when switching sources during an in-flight board load', async () => {
+    let resolveBoard: ((value: { ok: boolean; json: () => Promise<unknown> }) => void) | null = null;
+
+    globalThis.fetch = vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+
+      if (url === '/api/beads/sources') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            defaultSourceId: 'openclaw',
+            lastSourceId: 'openclaw',
+            sources: [
+              { id: 'openclaw', label: '~/.openclaw', kind: 'openclaw', isDefault: true, isCustom: false },
+              { id: 'emotion-engine', label: 'peanut-gallery/emotion-engine', kind: 'project', isDefault: false, isCustom: true },
+            ],
+          }),
+        });
+      }
+
+      if (url.startsWith('/api/beads/board?')) {
+        return new Promise((resolve) => {
+          resolveBoard = resolve;
+        });
+      }
+
+      if (url === '/api/beads/selection') {
+        return Promise.resolve({ ok: true, json: async () => ({ sourceId: 'openclaw' }) });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof globalThis.fetch;
+
+    const { result } = renderHook(() => useBeadsBoard());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.selectedSourceId).toBe('openclaw');
+    expect(result.current.selectedSource?.label).toBe('~/.openclaw');
+
+    await act(async () => {
+      result.current.setSelectedSourceId('emotion-engine');
+      await Promise.resolve();
+    });
+
+    expect(result.current.selectedSourceId).toBe('emotion-engine');
+    expect(result.current.selectedSource?.label).toBe('peanut-gallery/emotion-engine');
+    expect(result.current.loading).toBe(true);
+
+    resolveBoard?.({
+      ok: true,
+      json: async () => ({
+        source: { id: 'emotion-engine', label: 'peanut-gallery/emotion-engine', kind: 'project', isDefault: false, isCustom: true },
+        generatedAt: '2026-03-15T16:00:00.000Z',
+        totalCount: 0,
+        columns: [
+          { key: 'todo', title: 'To Do', itemCount: 0, items: [] },
+          { key: 'in_progress', title: 'In Progress', itemCount: 0, items: [] },
+          { key: 'done', title: 'Done', itemCount: 0, items: [] },
+          { key: 'closed', title: 'Closed', itemCount: 0, items: [] },
+        ],
+      }),
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.board?.source.id).toBe('emotion-engine');
+  });
+
   it('does not abort an in-flight board load when the silent poll fires for the same source', async () => {
     let resolveBoard: ((value: { ok: boolean; json: () => Promise<unknown> }) => void) | null = null;
     const boardSignals: AbortSignal[] = [];
