@@ -18,8 +18,11 @@ export interface LinkedPlanSummaryDto {
   status: string | null;
   updatedAt: number | null;
   resolution: LinkedPlanResolutionState;
+  resolvedBy?: 'metadata' | 'bead_ids';
   lastKnownPath: string | null;
   movedFromPath: string | null;
+  metadataNeedsWrite?: boolean;
+  canRepairMetadata?: boolean;
 }
 
 export interface BeadsBoardCardDto {

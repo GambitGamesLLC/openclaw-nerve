@@ -106,6 +106,23 @@ export function useBeadsBoard() {
     await fetchSources();
   }, [fetchSources]);
 
+  const repairLinkedPlanMetadata = useCallback(async (issueId: string) => {
+    const res = await fetch(`/api/beads/issues/${encodeURIComponent(issueId)}/repair-plan-metadata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceId: selectedSourceId || undefined }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { details?: string } | null;
+      throw new Error(body?.details || `HTTP ${res.status}`);
+    }
+
+    const result = await res.json();
+    await fetchBoard(selectedSourceId);
+    return result;
+  }, [fetchBoard, selectedSourceId]);
+
   useEffect(() => {
     fetchSources();
     return () => {
@@ -174,5 +191,6 @@ export function useBeadsBoard() {
     fetchBoard,
     addSource,
     removeSource,
+    repairLinkedPlanMetadata,
   };
 }

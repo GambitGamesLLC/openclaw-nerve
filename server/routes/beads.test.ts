@@ -252,4 +252,117 @@ describe('Beads API routes', () => {
     expect(setManagedLastSourceId).toHaveBeenCalledWith('alpha');
     await expect(res.json()).resolves.toEqual({ sourceId: 'alpha' });
   });
+
+  it('runs manual linked-plan metadata repair via POST endpoint', async () => {
+    const repairBeadPlanMetadata = vi.fn().mockResolvedValue({
+      issueId: 'nerve-10f',
+      repaired: true,
+      linkedPlan: {
+        path: '.plans/2026-03-14-active.md',
+        title: 'Active plan',
+        planId: 'plan-active',
+        archived: false,
+        status: 'In Progress',
+        updatedAt: 123,
+        resolution: 'active',
+        resolvedBy: 'metadata',
+        lastKnownPath: '.plans/2026-03-14-active.md',
+        movedFromPath: null,
+        metadataNeedsWrite: false,
+        canRepairMetadata: false,
+      },
+    });
+
+    vi.doMock('../middleware/rate-limit.js', () => ({
+      rateLimitGeneral: async (_c: unknown, next: () => Promise<void>) => next(),
+    }));
+    vi.doMock('../lib/config.js', () => ({
+      config: { beads: { defaultSourceId: 'openclaw' } },
+    }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
+
+    class ManualPlanMetadataRepairError extends Error {
+      code: string;
+
+      constructor(code: string, message: string) {
+        super(message);
+        this.code = code;
+      }
+    }
+
+    vi.doMock('../lib/beads-board.js', () => ({
+      BeadsAdapterError: class BeadsAdapterError extends Error {},
+      InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
+      ManualPlanMetadataRepairError,
+      listBeadsSourceDtos: vi.fn(),
+      getBeadsBoard: vi.fn(),
+      repairBeadPlanMetadata,
+    }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/beads/issues/nerve-10f/repair-plan-metadata', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sourceId: 'alpha' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(repairBeadPlanMetadata).toHaveBeenCalledWith('nerve-10f', 'alpha');
+    await expect(res.json()).resolves.toMatchObject({ issueId: 'nerve-10f', repaired: true });
+  });
+
+  it('returns 409 when manual metadata repair is not eligible', async () => {
+    vi.doMock('../middleware/rate-limit.js', () => ({
+      rateLimitGeneral: async (_c: unknown, next: () => Promise<void>) => next(),
+    }));
+    vi.doMock('../lib/config.js', () => ({
+      config: { beads: { defaultSourceId: 'openclaw' } },
+    }));
+    vi.doMock('../lib/beads-sources.js', () => ({
+      getManagedLastSourceId: () => null,
+      addManagedBeadsSource: vi.fn(),
+      removeManagedBeadsSource: vi.fn(),
+      setManagedLastSourceId: vi.fn(),
+    }));
+
+    class ManualPlanMetadataRepairError extends Error {
+      code: string;
+
+      constructor(code: string, message: string) {
+        super(message);
+        this.code = code;
+      }
+    }
+
+    const repairBeadPlanMetadata = vi.fn().mockRejectedValue(
+      new ManualPlanMetadataRepairError('repair_not_allowed', 'manual repair is not allowed for this link type'),
+    );
+
+    vi.doMock('../lib/beads-board.js', () => ({
+      BeadsAdapterError: class BeadsAdapterError extends Error {},
+      InvalidBeadsSourceError: class InvalidBeadsSourceError extends Error {},
+      ManualPlanMetadataRepairError,
+      listBeadsSourceDtos: vi.fn(),
+      getBeadsBoard: vi.fn(),
+      repairBeadPlanMetadata,
+    }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/beads/issues/nerve-10f/repair-plan-metadata', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sourceId: 'alpha' }),
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'repair_not_allowed',
+      details: 'manual repair is not allowed for this link type',
+    });
+  });
 });

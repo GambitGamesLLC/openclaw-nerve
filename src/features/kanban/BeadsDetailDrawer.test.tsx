@@ -35,8 +35,11 @@ const task: KanbanTask = {
       status: 'In Progress',
       updatedAt: Date.parse('2026-03-12T18:10:00Z'),
       resolution: 'archived',
+      resolvedBy: 'metadata',
       lastKnownPath: '.plans/archive/2026-03-12-nerve-usability.md',
       movedFromPath: null,
+      metadataNeedsWrite: false,
+      canRepairMetadata: false,
     },
   },
 };
@@ -74,8 +77,11 @@ describe('BeadsDetailDrawer', () => {
           status: null,
           updatedAt: null,
           resolution: 'missing',
+          resolvedBy: 'metadata',
           lastKnownPath: '.plans/2026-01-01-gone.md',
           movedFromPath: null,
+          metadataNeedsWrite: false,
+          canRepairMetadata: false,
         },
       },
     };
@@ -85,5 +91,47 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('Missing')).toBeInTheDocument();
     expect(screen.getByText(/Last known path:/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /open in plans/i })).not.toBeInTheDocument();
+  });
+
+  it('offers manual metadata repair when linked plan metadata is stale and eligible', async () => {
+    const user = userEvent.setup();
+    const onRepairLinkedPlanMetadata = vi.fn().mockResolvedValue({ repaired: true });
+
+    const repairableTask: KanbanTask = {
+      ...task,
+      beads: {
+        ...task.beads!,
+        linkedPlan: {
+          path: '.plans/2026-03-14-active.md',
+          title: 'Moved plan',
+          archived: false,
+          status: 'In Progress',
+          updatedAt: Date.parse('2026-03-14T20:00:00Z'),
+          resolution: 'moved',
+          resolvedBy: 'metadata',
+          lastKnownPath: '.plans/2026-03-10-old.md',
+          movedFromPath: '.plans/2026-03-10-old.md',
+          metadataNeedsWrite: true,
+          canRepairMetadata: true,
+        },
+      },
+    };
+
+    render(
+      <BeadsDetailDrawer
+        task={repairableTask}
+        sourceLabel="~/.openclaw"
+        onClose={vi.fn()}
+        onOpenPlan={vi.fn()}
+        onRepairLinkedPlanMetadata={onRepairLinkedPlanMetadata}
+      />,
+    );
+
+    expect(screen.getByText(/Canonical metadata is stale/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /repair metadata/i }));
+
+    expect(onRepairLinkedPlanMetadata).toHaveBeenCalledWith('nerve-rfd');
+    expect(await screen.findByText(/Canonical metadata refreshed/i)).toBeInTheDocument();
   });
 });

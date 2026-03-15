@@ -69,6 +69,7 @@ export function KanbanPanel({
     fetchBoard: fetchBeadsBoard,
     addSource: addBeadsSource,
     removeSource: removeBeadsSource,
+    repairLinkedPlanMetadata,
   } = useBeadsBoard();
 
   const {
@@ -253,6 +254,7 @@ export function KanbanPanel({
           sourceLabel={beadsBoard?.source.label}
           onClose={handleCloseBeadsDrawer}
           onOpenPlan={onOpenPlan}
+          onRepairLinkedPlanMetadata={repairLinkedPlanMetadata}
         />
       )}
     </div>

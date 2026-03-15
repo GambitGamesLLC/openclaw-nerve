@@ -201,4 +201,195 @@ describe('beads board adapter', () => {
     await expect(mod.getBeadsBoard('missing')).rejects.toThrow('Unknown Beads source: missing');
     expect(execFileMock).not.toHaveBeenCalled();
   });
+
+  it('repairs canonical linked-plan metadata when moved or bead_ids fallback resolution is eligible', async () => {
+    const execFileMock = vi.fn().mockImplementation((_cmd, args, _options, callback) => {
+      if (Array.isArray(args) && args[0] === 'export') {
+        callback(null, {
+          stdout: [
+            JSON.stringify({
+              id: 'nerve-10f',
+              title: 'Repair me',
+              metadata: {
+                plan: {
+                  plan_id: 'plan-active',
+                  path: '.plans/2026-03-10-old.md',
+                  title: 'Old title',
+                },
+              },
+            }),
+          ].join('\n'),
+          stderr: '',
+        });
+        return;
+      }
+
+      if (Array.isArray(args) && args[0] === 'update') {
+        callback(null, { stdout: '{}', stderr: '' });
+        return;
+      }
+
+      callback(new Error(`Unexpected args: ${JSON.stringify(args)}`), { stdout: '', stderr: '' });
+    });
+
+    vi.doMock('node:child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('node:child_process')>();
+      return {
+        ...actual,
+        default: {
+          ...(actual as unknown as Record<string, unknown>),
+          execFile: execFileMock,
+        },
+        execFile: execFileMock,
+      };
+    });
+
+    vi.doMock('./beads-sources.js', () => ({
+      listManagedBeadsSourceDtos: () => ([]),
+      resolveManagedBeadsSource: () => defaultSource,
+    }));
+
+    vi.doMock('./plans.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./plans.js')>();
+      return {
+        ...actual,
+        resolveRepoPlanLinkForBead: vi
+          .fn()
+          .mockResolvedValueOnce({
+            state: 'moved',
+            resolvedBy: 'metadata',
+            plan: {
+              path: '.plans/2026-03-14-active.md',
+              title: 'Active Plan',
+              archived: false,
+              status: 'In Progress',
+              updatedAt: 123,
+              planId: 'plan-active',
+              beadIds: ['nerve-10f'],
+              preview: 'Preview',
+            },
+            lastKnown: {
+              planId: 'plan-active',
+              path: '.plans/2026-03-10-old.md',
+              title: 'Old title',
+            },
+            metadataToWrite: {
+              planId: 'plan-active',
+              path: '.plans/2026-03-14-active.md',
+              title: 'Active Plan',
+            },
+            metadataNeedsWrite: true,
+          })
+          .mockResolvedValueOnce({
+            state: 'active',
+            resolvedBy: 'metadata',
+            plan: {
+              path: '.plans/2026-03-14-active.md',
+              title: 'Active Plan',
+              archived: false,
+              status: 'In Progress',
+              updatedAt: 123,
+              planId: 'plan-active',
+              beadIds: ['nerve-10f'],
+              preview: 'Preview',
+            },
+            lastKnown: {
+              planId: 'plan-active',
+              path: '.plans/2026-03-14-active.md',
+              title: 'Active Plan',
+            },
+            metadataToWrite: {
+              planId: 'plan-active',
+              path: '.plans/2026-03-14-active.md',
+              title: 'Active Plan',
+            },
+            metadataNeedsWrite: false,
+          }),
+      };
+    });
+
+    const mod = await import('./beads-board.js');
+    const repaired = await mod.repairBeadPlanMetadata('nerve-10f', 'alpha');
+
+    expect(repaired).toMatchObject({
+      issueId: 'nerve-10f',
+      repaired: true,
+      linkedPlan: {
+        path: '.plans/2026-03-14-active.md',
+        metadataNeedsWrite: false,
+        canRepairMetadata: false,
+      },
+    });
+  });
+
+  it('rejects manual repair when resolution is not moved and not bead_ids fallback', async () => {
+    const execFileMock = vi.fn().mockImplementation((_cmd, args, _options, callback) => {
+      if (Array.isArray(args) && args[0] === 'export') {
+        callback(null, {
+          stdout: [JSON.stringify({ id: 'nerve-10f', title: 'Repair me', metadata: {} })].join('\n'),
+          stderr: '',
+        });
+        return;
+      }
+
+      callback(null, { stdout: '{}', stderr: '' });
+    });
+
+    vi.doMock('node:child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('node:child_process')>();
+      return {
+        ...actual,
+        default: {
+          ...(actual as unknown as Record<string, unknown>),
+          execFile: execFileMock,
+        },
+        execFile: execFileMock,
+      };
+    });
+
+    vi.doMock('./beads-sources.js', () => ({
+      listManagedBeadsSourceDtos: () => ([]),
+      resolveManagedBeadsSource: () => defaultSource,
+    }));
+
+    vi.doMock('./plans.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./plans.js')>();
+      return {
+        ...actual,
+        resolveRepoPlanLinkForBead: vi.fn().mockResolvedValue({
+          state: 'active',
+          resolvedBy: 'metadata',
+          plan: {
+            path: '.plans/2026-03-14-active.md',
+            title: 'Active Plan',
+            archived: false,
+            status: 'In Progress',
+            updatedAt: 123,
+            planId: 'plan-active',
+            beadIds: ['nerve-10f'],
+            preview: 'Preview',
+          },
+          lastKnown: {
+            planId: 'plan-active',
+            path: '.plans/2026-03-14-active.md',
+            title: 'Active Plan',
+          },
+          metadataToWrite: {
+            planId: 'plan-active',
+            path: '.plans/2026-03-14-active.md',
+            title: 'Active Plan',
+          },
+          metadataNeedsWrite: true,
+        }),
+      };
+    });
+
+    const mod = await import('./beads-board.js');
+    await expect(mod.repairBeadPlanMetadata('nerve-10f', 'alpha')).rejects.toMatchObject({
+      name: 'ManualPlanMetadataRepairError',
+      code: 'repair_not_allowed',
+    });
+    const calledArgv = execFileMock.mock.calls.map((call) => call[1]);
+    expect(calledArgv.some((argv) => Array.isArray(argv) && argv[0] === 'update')).toBe(false);
+  });
 });

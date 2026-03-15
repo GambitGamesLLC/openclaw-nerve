@@ -6,6 +6,7 @@
  * DELETE /api/beads/sources/:id — Remove a managed Beads source
  * POST /api/beads/selection    — Persist the last-viewed Beads source
  * GET /api/beads/board         — Return a four-column Beads-native board projection
+ * POST /api/beads/issues/:id/repair-plan-metadata — Manual canonical metadata rewrite for eligible linked plans
  * @module
  */
 
@@ -14,8 +15,10 @@ import { rateLimitGeneral } from '../middleware/rate-limit.js';
 import {
   BeadsAdapterError,
   InvalidBeadsSourceError,
+  ManualPlanMetadataRepairError,
   getBeadsBoard,
   listBeadsSourceDtos,
+  repairBeadPlanMetadata,
 } from '../lib/beads-board.js';
 import { config } from '../lib/config.js';
 import {
@@ -99,6 +102,39 @@ app.get('/api/beads/board', rateLimitGeneral, async (c) => {
     if (error instanceof BeadsAdapterError) {
       return c.json({ error: 'beads_adapter_error', details: error.message }, 502);
     }
+    throw error;
+  }
+});
+
+app.post('/api/beads/issues/:id/repair-plan-metadata', rateLimitGeneral, async (c) => {
+  const issueId = c.req.param('id')?.trim();
+  const body = await c.req.json().catch(() => null) as { sourceId?: unknown } | null;
+  const sourceId = typeof body?.sourceId === 'string' && body.sourceId.trim() ? body.sourceId.trim() : undefined;
+
+  if (!issueId) {
+    return c.json({ error: 'invalid_request', details: 'issue id is required' }, 400);
+  }
+
+  try {
+    const result = await repairBeadPlanMetadata(issueId, sourceId);
+    return c.json(result);
+  } catch (error) {
+    if (error instanceof InvalidBeadsSourceError) {
+      return c.json({ error: 'not_found', details: error.message }, 404);
+    }
+
+    if (error instanceof ManualPlanMetadataRepairError) {
+      if (error.code === 'not_found') {
+        return c.json({ error: error.code, details: error.message }, 404);
+      }
+
+      return c.json({ error: error.code, details: error.message }, 409);
+    }
+
+    if (error instanceof BeadsAdapterError) {
+      return c.json({ error: 'beads_adapter_error', details: error.message }, 502);
+    }
+
     throw error;
   }
 });

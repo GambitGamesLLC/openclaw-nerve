@@ -34,8 +34,17 @@ export interface LinkedPlanSummaryDto {
   status: string | null;
   updatedAt: number | null;
   resolution: LinkedPlanResolutionState;
+  resolvedBy: 'metadata' | 'bead_ids';
   lastKnownPath: string | null;
   movedFromPath: string | null;
+  metadataNeedsWrite: boolean;
+  canRepairMetadata: boolean;
+}
+
+export interface BeadPlanMetadataRepairResultDto {
+  issueId: string;
+  repaired: boolean;
+  linkedPlan: LinkedPlanSummaryDto;
 }
 
 export interface BeadsBoardCardDto {
@@ -112,6 +121,16 @@ export class BeadsAdapterError extends Error {
     this.name = 'BeadsAdapterError';
     this.sourceId = sourceId;
     this.stderr = stderr;
+  }
+}
+
+export class ManualPlanMetadataRepairError extends Error {
+  readonly code: 'not_found' | 'no_linked_plan' | 'repair_not_needed' | 'repair_not_allowed';
+
+  constructor(code: ManualPlanMetadataRepairError['code'], message: string) {
+    super(message);
+    this.name = 'ManualPlanMetadataRepairError';
+    this.code = code;
   }
 }
 
@@ -245,6 +264,9 @@ function extractPlanMetadataFromIssueMetadata(metadata: unknown): PlanLinkMetada
 function toLinkedPlanSummaryDto(resolution: LinkedPlanResolution | null): LinkedPlanSummaryDto | null {
   if (!resolution) return null;
 
+  const canRepairMetadata = resolution.metadataNeedsWrite
+    && (resolution.state === 'moved' || resolution.resolvedBy === 'bead_ids');
+
   if (resolution.plan) {
     return {
       path: resolution.plan.path,
@@ -254,8 +276,11 @@ function toLinkedPlanSummaryDto(resolution: LinkedPlanResolution | null): Linked
       status: resolution.plan.status,
       updatedAt: resolution.plan.updatedAt,
       resolution: resolution.state,
+      resolvedBy: resolution.resolvedBy,
       lastKnownPath: resolution.lastKnown?.path ?? null,
       movedFromPath: resolution.state === 'moved' ? resolution.lastKnown?.path ?? null : null,
+      metadataNeedsWrite: resolution.metadataNeedsWrite,
+      canRepairMetadata,
     };
   }
 
@@ -267,8 +292,11 @@ function toLinkedPlanSummaryDto(resolution: LinkedPlanResolution | null): Linked
     status: null,
     updatedAt: null,
     resolution: 'missing',
+    resolvedBy: 'metadata',
     lastKnownPath: resolution.lastKnown?.path ?? null,
     movedFromPath: null,
+    metadataNeedsWrite: false,
+    canRepairMetadata: false,
   };
 }
 
@@ -414,4 +442,53 @@ export async function getBeadsBoard(sourceId?: string | null): Promise<BeadsBoar
   }
 
   return await projectBeadsIssuesToBoard(source, issues);
+}
+
+export async function repairBeadPlanMetadata(
+  issueId: string,
+  sourceId?: string | null,
+): Promise<BeadPlanMetadataRepairResultDto> {
+  const normalizedIssueId = issueId.trim();
+  if (!normalizedIssueId) {
+    throw new ManualPlanMetadataRepairError('not_found', 'Issue id is required');
+  }
+
+  const source = resolveManagedBeadsSource(sourceId);
+  if (!source) throw new InvalidBeadsSourceError(sourceId);
+
+  const issues = await execBdJsonl<BdIssueExportItem>(source, ['export']);
+  const issue = issues.find((candidate) => candidate.id === normalizedIssueId) ?? null;
+  const metadataLink = issue ? extractPlanMetadataFromIssueMetadata(issue.metadata) : null;
+  const resolution = await resolveRepoPlanLinkForBead(normalizedIssueId, metadataLink);
+
+  if (!resolution || !resolution.plan) {
+    throw new ManualPlanMetadataRepairError('no_linked_plan', 'No resolvable linked plan available for repair');
+  }
+
+  if (!resolution.metadataNeedsWrite || !resolution.metadataToWrite) {
+    throw new ManualPlanMetadataRepairError('repair_not_needed', 'Linked plan metadata is already canonical');
+  }
+
+  const canRepair = resolution.state === 'moved' || resolution.resolvedBy === 'bead_ids';
+  if (!canRepair) {
+    throw new ManualPlanMetadataRepairError(
+      'repair_not_allowed',
+      'Manual repair is only allowed for moved links or bead_ids fallback recovery',
+    );
+  }
+
+  await syncBeadPlanMetadata(source, normalizedIssueId, resolution.metadataToWrite);
+
+  const refreshedResolution = await resolveRepoPlanLinkForBead(normalizedIssueId, resolution.metadataToWrite);
+  const linkedPlan = toLinkedPlanSummaryDto(refreshedResolution ?? resolution);
+
+  if (!linkedPlan) {
+    throw new ManualPlanMetadataRepairError('no_linked_plan', 'Unable to resolve linked plan after repair');
+  }
+
+  return {
+    issueId: normalizedIssueId,
+    repaired: true,
+    linkedPlan,
+  };
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   X,
   Clock,
@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   ArrowRightLeft,
   TriangleAlert,
+  Wrench,
 } from 'lucide-react';
 import type { KanbanTask, LinkedPlanResolutionState } from './types';
 
@@ -21,6 +22,7 @@ interface BeadsDetailDrawerProps {
   sourceLabel?: string;
   onClose: () => void;
   onOpenPlan?: (planPath: string) => void;
+  onRepairLinkedPlanMetadata?: (issueId: string) => Promise<unknown>;
 }
 
 function formatDateTime(value?: number | null): string {
@@ -84,11 +86,49 @@ function PlanResolutionBadge({ resolution }: { resolution: LinkedPlanResolutionS
   );
 }
 
-export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: BeadsDetailDrawerProps) {
+export function BeadsDetailDrawer({
+  task,
+  sourceLabel,
+  onClose,
+  onOpenPlan,
+  onRepairLinkedPlanMetadata,
+}: BeadsDetailDrawerProps) {
   const metadata = task?.beads;
   const isOpen = task !== null && metadata !== undefined;
   const linkedPlan = metadata?.linkedPlan;
   const canOpenLinkedPlan = Boolean(onOpenPlan && linkedPlan?.path && linkedPlan.resolution !== 'missing');
+  const [repairState, setRepairState] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
+  const [repairError, setRepairError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRepairState('idle');
+    setRepairError(null);
+  }, [task?.id]);
+
+  const canRepairMetadata = Boolean(
+    linkedPlan?.canRepairMetadata
+    && metadata?.issueId
+    && onRepairLinkedPlanMetadata
+    && repairState !== 'running',
+  );
+
+  const metadataNeedsWrite = Boolean(linkedPlan?.metadataNeedsWrite);
+
+  async function handleRepairMetadata() {
+    if (!metadata?.issueId || !onRepairLinkedPlanMetadata || !linkedPlan?.canRepairMetadata) return;
+
+    setRepairState('running');
+    setRepairError(null);
+
+    try {
+      await onRepairLinkedPlanMetadata(metadata.issueId);
+      setRepairState('success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to refresh linked metadata';
+      setRepairError(message);
+      setRepairState('error');
+    }
+  }
 
   return (
     <>
@@ -199,18 +239,49 @@ export function BeadsDetailDrawer({ task, sourceLabel, onClose, onOpenPlan }: Be
                           <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">ID: {linkedPlan.planId}</div>
                         )}
                         <div className="mt-2 text-[11px] text-muted-foreground">Updated {formatDateTime(linkedPlan.updatedAt)}</div>
+
+                        <div className="mt-2 space-y-1">
+                          {repairState === 'success' ? (
+                            <div className="text-[11px] text-emerald-300">Canonical metadata refreshed.</div>
+                          ) : repairState === 'error' ? (
+                            <div className="text-[11px] text-red-300">{repairError ?? 'Failed to refresh linked metadata.'}</div>
+                          ) : metadataNeedsWrite ? (
+                            <div className="text-[11px] text-amber-300">
+                              Canonical metadata is stale.
+                              {linkedPlan.canRepairMetadata
+                                ? ' Use manual repair to rewrite plan.plan_id, path, and title.'
+                                : ' Manual repair is unavailable unless link resolution came from moved recovery or bead_ids fallback.'}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-muted-foreground">Canonical metadata is up to date.</div>
+                          )}
+                        </div>
                       </div>
 
-                      {canOpenLinkedPlan && (
-                        <button
-                          type="button"
-                          onClick={() => onOpenPlan?.(linkedPlan.path!)}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
-                        >
-                          Open in Plans
-                          <ArrowUpRight size={11} />
-                        </button>
-                      )}
+                      <div className="flex shrink-0 items-start gap-2">
+                        {canRepairMetadata && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRepairMetadata()}
+                            disabled={repairState === 'running'}
+                            className="inline-flex items-center gap-1 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200 hover:bg-amber-500/15 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            <Wrench size={11} />
+                            {repairState === 'running' ? 'Repairing…' : 'Repair metadata'}
+                          </button>
+                        )}
+
+                        {canOpenLinkedPlan && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenPlan?.(linkedPlan.path!)}
+                            className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                          >
+                            Open in Plans
+                            <ArrowUpRight size={11} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
