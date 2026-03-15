@@ -192,6 +192,7 @@ export default function App({ onLogout }: AppProps) {
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [requestedWorkspaceTab, setRequestedWorkspaceTab] = useState<'plans' | null>(null);
   const [requestedPlanPath, setRequestedPlanPath] = useState<string | null>(null);
+  const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState(0);
   const [workflowShell, setWorkflowShell] = useState<WorkflowShellConfigDto>(DEFAULT_WORKFLOW_SHELL);
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeRaw(mode);
@@ -205,6 +206,7 @@ export default function App({ onLogout }: AppProps) {
   const openPlanInWorkspace = useCallback((planPath: string) => {
     setRequestedWorkspaceTab('plans');
     setRequestedPlanPath(planPath);
+    setWorkspaceOpenRequest((current) => current + 1);
   }, []);
 
   const openWorkspacePath = useCallback(async (targetPath: string) => {
@@ -562,6 +564,7 @@ export default function App({ onLogout }: AppProps) {
         mobilePanelButtonsVisible={isCompactLayout}
         sessionsPanel={compactSessionsPanel}
         workspacePanel={compactWorkspacePanel}
+        workspaceOpenRequest={workspaceOpenRequest}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         boardLabel={workflowShell.navigationLabel}

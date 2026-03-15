@@ -72,6 +72,8 @@ interface TopBarProps {
   sessionsPanel?: ReactNode;
   /** Renderable Workspace panel content (compact mode). */
   workspacePanel?: ReactNode;
+  /** Increment to force-open the Workspace panel in compact/mobile layout. */
+  workspaceOpenRequest?: number;
   /** Current view mode (chat or kanban). */
   viewMode?: ViewMode;
   /** Callback to change the view mode. */
@@ -98,6 +100,7 @@ export function TopBar({
   mobilePanelButtonsVisible = false,
   sessionsPanel,
   workspacePanel,
+  workspaceOpenRequest = 0,
   viewMode = 'chat',
   onViewModeChange,
   boardLabel = 'Tasks',
@@ -130,6 +133,11 @@ export function TopBar({
     const timer = window.setTimeout(() => setActivePanel(null), 0);
     return () => window.clearTimeout(timer);
   }, [activePanel, visiblePanel]);
+
+  useEffect(() => {
+    if (!mobilePanelButtonsVisible || !workspacePanel || workspaceOpenRequest <= 0) return;
+    setActivePanel('workspace');
+  }, [mobilePanelButtonsVisible, workspacePanel, workspaceOpenRequest]);
 
   // Click outside to close
   useEffect(() => {
