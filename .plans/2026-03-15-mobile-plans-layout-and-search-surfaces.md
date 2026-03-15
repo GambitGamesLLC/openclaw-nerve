@@ -73,11 +73,28 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 
 **Files Created/Deleted/Modified:**
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-15-mobile-plans-layout-and-search-surfaces.md`
-- files to be determined by implementation
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/BeadsBoard.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/KanbanPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/beads.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/BeadsBoard.test.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/beads.test.ts`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:**
+- Chose the smallest useful Beads-search scope: client-side filtering within the already loaded board for the currently selected source, matching across Beads issue ID, title, description, labels, and owner.
+- Implemented a mobile-friendly search row directly in `BeadsBoard` with:
+  - a full-width search field that works on compact screens,
+  - result-count feedback,
+  - a no-results empty state with one-tap clear,
+  - and filtering that updates per column without changing server APIs.
+- Kept search scoped to the selected source only and reset the query when the source changes so switching repos does not leave stale filters behind.
+- Added reusable search helpers in `src/features/kanban/beads.ts` so matching behavior is explicit and testable.
+- Validation:
+  - `npm test -- --run src/features/kanban/beads.test.ts src/features/kanban/BeadsBoard.test.tsx`
+  - `npm run build`
+- Outcome: the Beads surface now supports practical incremental search for mobile and desktop without expanding scope into the planned top-level Plans work.
+- Commit: `27b931a` — Add searchable Beads UI for selected source
 
 ---
 
@@ -106,12 +123,13 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 
 **Status:** ⚠️ Partial
 
-**What We Built:** Fixed the mobile Beads → Plans stacked-layout regression by making the handoff exit Beads view and close the Beads drawer before opening the Plans workspace surface.
+**What We Built:** Fixed the mobile Beads → Plans stacked-layout regression and added practical search for the selected Beads source, including client-side matching for issue ID/title/description/labels/owner plus a mobile-friendly search UI with result counts and a no-results clear path.
 
 **Commits:**
 - `93112ad` - Fix mobile Beads to Plans handoff layout
+- `27b931a` - Add searchable Beads UI for selected source
 
-**Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. When opening a tool surface from another tool surface, Nerve needs to switch the owning shell state explicitly instead of layering independent panels.
+**Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. For Beads search, the smallest useful scope was already-loaded board data in the selected source; that delivered a good mobile/desktop UX without new API complexity or broader Plans-surface work.
 
 ---
 

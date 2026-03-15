@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  beadsTaskMatchesQuery,
+  buildBeadsSearchText,
+  filterBeadsTasks,
   mapBeadsCardToKanbanTask,
   mapBeadsColumnToTaskStatus,
   mapBeadsPriorityToKanban,
@@ -52,6 +55,7 @@ describe('Beads board normalization', () => {
             linkedPlan: {
               path: '.plans/archive/2026-03-12-active.md',
               title: 'Workflow Plan',
+              planId: null,
               archived: true,
               status: 'Complete',
               updatedAt: Date.parse('2026-03-11T21:35:00.000Z'),
@@ -110,6 +114,7 @@ describe('Beads board normalization', () => {
             dependencyCount: 0,
             dependentCount: 3,
             commentCount: 0,
+            linkedPlan: null,
           }],
         },
       ],
@@ -157,5 +162,59 @@ describe('Beads board normalization', () => {
     expect(closed.resultAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
     expect(closed.beads?.labels).toEqual(['config']);
     expect(closed.beads?.closedAt).toBe(Date.parse('2026-03-11T21:00:00.000Z'));
+  });
+
+  it('builds a practical search haystack from loaded Beads task fields', () => {
+    const task = mapBeadsCardToKanbanTask({
+      id: 'nerve-fob',
+      title: 'Add searchable board',
+      description: 'Match labels and owner on mobile',
+      rawStatus: 'open',
+      columnKey: 'todo',
+      priority: 2,
+      issueType: 'task',
+      owner: 'derrick',
+      labels: ['frontend', 'mobile'],
+      createdAt: null,
+      updatedAt: null,
+      closedAt: null,
+      dependencyCount: 0,
+      dependentCount: 0,
+      commentCount: 0,
+      linkedPlan: null,
+    }, 0);
+
+    const haystack = buildBeadsSearchText(task);
+    expect(haystack).toContain('nerve-fob');
+    expect(haystack).toContain('add searchable board');
+    expect(haystack).toContain('match labels and owner on mobile');
+    expect(haystack).toContain('frontend');
+    expect(haystack).toContain('derrick');
+  });
+
+  it('matches multi-term queries across title, labels, and owner', () => {
+    const task = mapBeadsCardToKanbanTask({
+      id: 'nerve-fob',
+      title: 'Add searchable board',
+      description: 'Match labels and owner on mobile',
+      rawStatus: 'open',
+      columnKey: 'todo',
+      priority: 2,
+      issueType: 'task',
+      owner: 'derrick',
+      labels: ['frontend', 'mobile'],
+      createdAt: null,
+      updatedAt: null,
+      closedAt: null,
+      dependencyCount: 0,
+      dependentCount: 0,
+      commentCount: 0,
+      linkedPlan: null,
+    }, 0);
+
+    expect(beadsTaskMatchesQuery(task, 'searchable frontend derrick')).toBe(true);
+    expect(beadsTaskMatchesQuery(task, 'frontend missing')).toBe(false);
+    expect(filterBeadsTasks([task], 'mobile')).toHaveLength(1);
+    expect(filterBeadsTasks([task], 'absent')).toHaveLength(0);
   });
 });

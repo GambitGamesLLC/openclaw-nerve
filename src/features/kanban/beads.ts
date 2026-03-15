@@ -104,6 +104,38 @@ function toOptionalEpoch(value: string | null | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function normalizeSearchValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function buildBeadsSearchText(task: KanbanTask): string {
+  const metadata = task.beads;
+
+  return normalizeSearchValue([
+    metadata?.issueId,
+    task.id,
+    task.title,
+    task.description,
+    ...task.labels,
+    ...(metadata?.labels ?? []),
+    metadata?.owner,
+  ].filter((value): value is string => Boolean(value && value.trim())).join(' '));
+}
+
+export function beadsTaskMatchesQuery(task: KanbanTask, query: string): boolean {
+  const normalizedQuery = normalizeSearchValue(query);
+  if (!normalizedQuery) return true;
+
+  const haystack = buildBeadsSearchText(task);
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  return terms.every((term) => haystack.includes(term));
+}
+
+export function filterBeadsTasks(tasks: KanbanTask[], query: string): KanbanTask[] {
+  if (!normalizeSearchValue(query)) return tasks;
+  return tasks.filter((task) => beadsTaskMatchesQuery(task, query));
+}
+
 export function mapBeadsCardToKanbanTask(card: BeadsBoardCardDto, columnOrder: number): KanbanTask {
   const createdAt = toOptionalEpoch(card.createdAt) ?? Date.now();
   const updatedAt = toOptionalEpoch(card.updatedAt) ?? createdAt;

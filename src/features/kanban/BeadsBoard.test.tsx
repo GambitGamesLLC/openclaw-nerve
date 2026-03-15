@@ -6,7 +6,9 @@ import type { KanbanTask } from './types';
 
 const COLUMN_VISIBILITY_STORAGE_KEY = 'nerve:beadsBoardColumnVisibility';
 
-function makeTask(id: string, title: string): KanbanTask {
+function makeTask(id: string, title: string, overrides: Partial<KanbanTask> = {}): KanbanTask {
+  const { beads: beadsOverrides, ...restOverrides } = overrides;
+
   return {
     id,
     title,
@@ -19,6 +21,7 @@ function makeTask(id: string, title: string): KanbanTask {
     labels: [],
     columnOrder: 0,
     feedback: [],
+    ...restOverrides,
     beads: {
       issueId: id,
       rawStatus: 'open',
@@ -26,6 +29,7 @@ function makeTask(id: string, title: string): KanbanTask {
       dependencyCount: 0,
       dependentCount: 0,
       commentCount: 0,
+      ...beadsOverrides,
     },
   };
 }
@@ -164,6 +168,111 @@ describe('BeadsBoard column visibility UX', () => {
     expect(screen.queryByText('To Do task')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /show to do column/i })).toBeInTheDocument();
     expect(screen.getByText('Closed task')).toBeInTheDocument();
+  });
+
+  it('filters loaded Beads items by issue id, title, description, labels, and owner', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BeadsBoard
+        todoTasks={[
+          makeTask('nerve-fob', 'Add searchable board', {
+            description: 'Incremental mobile friendly search',
+            labels: ['frontend'],
+            beads: {
+              owner: 'derrick',
+              labels: ['frontend'],
+            },
+          }),
+        ]}
+        inProgressTasks={[
+          makeTask('nerve-live', 'Keep shipping', {
+            labels: ['ops'],
+            beads: {
+              owner: 'chip',
+              labels: ['ops'],
+            },
+          }),
+        ]}
+        doneTasks={[]}
+        closedTasks={[]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+        sourceLabel="Gambit Nerve"
+      />,
+    );
+
+    const search = screen.getByRole('searchbox', { name: /search beads items in the current source/i });
+
+    await user.type(search, 'nerve-fob frontend derrick');
+
+    expect(screen.getByText('Add searchable board')).toBeInTheDocument();
+    expect(screen.queryByText('Keep shipping')).not.toBeInTheDocument();
+    expect(screen.getByText('1 match in Gambit Nerve')).toBeInTheDocument();
+  });
+
+  it('shows a no-results state and lets the user clear the search', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <BeadsBoard
+        todoTasks={[makeTask('todo-1', 'Active task')]}
+        inProgressTasks={[]}
+        doneTasks={[]}
+        closedTasks={[]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+      />,
+    );
+
+    await user.type(screen.getByRole('searchbox', { name: /search beads items in the current source/i }), 'missing');
+
+    expect(screen.getByText('No Beads items match “missing”')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /clear search/i }));
+
+    expect(screen.getByText('Active task')).toBeInTheDocument();
+  });
+
+  it('clears the Beads search when switching sources', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <BeadsBoard
+        todoTasks={[makeTask('todo-1', 'Active task')]}
+        inProgressTasks={[]}
+        doneTasks={[]}
+        closedTasks={[]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+        sourceId="source-a"
+      />,
+    );
+
+    await user.type(screen.getByRole('searchbox', { name: /search beads items in the current source/i }), 'active');
+    expect(screen.getByDisplayValue('active')).toBeInTheDocument();
+
+    rerender(
+      <BeadsBoard
+        todoTasks={[makeTask('todo-2', 'Second source task')]}
+        inProgressTasks={[]}
+        doneTasks={[]}
+        closedTasks={[]}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks
+        sourceId="source-b"
+      />,
+    );
+
+    expect(screen.getByRole('searchbox', { name: /search beads items in the current source/i })).toHaveValue('');
+    expect(screen.getByText('Second source task')).toBeInTheDocument();
   });
 
   it('still shows Closed by default when there are no closed items', () => {

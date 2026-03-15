@@ -211,6 +211,7 @@ export function KanbanPanel({
             error={beadsError}
             onRetry={() => fetchBeadsBoard(selectedSourceId)}
             hasAnyTasks={beadsHasAnyTasks}
+            sourceId={selectedSourceId}
             sourceLabel={selectedBeadsSource?.label ?? beadsBoard?.source.label}
             onCardClick={handleBeadsCardClick}
           />

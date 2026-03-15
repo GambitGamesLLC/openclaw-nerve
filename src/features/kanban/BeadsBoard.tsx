@@ -1,6 +1,8 @@
-import { memo, useEffect, useRef, useState } from 'react';
-import { Database, Eye, EyeOff, Inbox, LoaderCircle } from 'lucide-react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Database, Eye, EyeOff, Inbox, LoaderCircle, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import type { KanbanTask } from './types';
+import { filterBeadsTasks } from './beads';
 import type { BeadsBoardColumnKey } from './beads';
 import { KanbanCard } from './KanbanCard';
 
@@ -13,6 +15,7 @@ interface BeadsBoardProps {
   error: string | null;
   onRetry: () => void;
   hasAnyTasks: boolean;
+  sourceId?: string;
   sourceLabel?: string;
   onCardClick?: (task: KanbanTask) => void;
 }
@@ -171,10 +174,12 @@ export const BeadsBoard = memo(function BeadsBoard({
   error,
   onRetry,
   hasAnyTasks,
+  sourceId,
   sourceLabel,
   onCardClick = () => {},
 }: BeadsBoardProps) {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>(DEFAULT_COLUMN_VISIBILITY);
+  const [searchQuery, setSearchQuery] = useState('');
   const initializedColumnVisibilityRef = useRef(false);
 
   useEffect(() => {
@@ -196,6 +201,22 @@ export const BeadsBoard = memo(function BeadsBoard({
       // Ignore localStorage write failures.
     }
   }, [columnVisibility]);
+
+  useEffect(() => {
+    setSearchQuery('');
+  }, [sourceId]);
+
+  const tasksByColumn = useMemo<Record<BeadsBoardColumnKey, KanbanTask[]>>(() => ({
+    todo: filterBeadsTasks(todoTasks, searchQuery),
+    in_progress: filterBeadsTasks(inProgressTasks, searchQuery),
+    done: filterBeadsTasks(doneTasks, searchQuery),
+    closed: filterBeadsTasks(closedTasks, searchQuery),
+  }), [closedTasks, doneTasks, inProgressTasks, searchQuery, todoTasks]);
+
+  const visibleColumns = COLUMN_CONFIG.filter((column) => columnVisibility[column.key]);
+  const hiddenColumns = COLUMN_CONFIG.filter((column) => !columnVisibility[column.key]);
+  const filteredTotal = tasksByColumn.todo.length + tasksByColumn.in_progress.length + tasksByColumn.done.length + tasksByColumn.closed.length;
+  const hasActiveSearch = searchQuery.trim().length > 0;
 
   if (error) {
     return (
@@ -235,59 +256,97 @@ export const BeadsBoard = memo(function BeadsBoard({
     );
   }
 
-  const tasksByColumn: Record<BeadsBoardColumnKey, KanbanTask[]> = {
-    todo: todoTasks,
-    in_progress: inProgressTasks,
-    done: doneTasks,
-    closed: closedTasks,
-  };
-
-  const visibleColumns = COLUMN_CONFIG.filter((column) => columnVisibility[column.key]);
-  const hiddenColumns = COLUMN_CONFIG.filter((column) => !columnVisibility[column.key]);
-
   return (
     <div className="h-full overflow-x-auto">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {COLUMN_CONFIG.map((column) => {
-            const visible = columnVisibility[column.key];
-            const count = tasksByColumn[column.key].length;
-
-            return (
+      <div className="mb-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-sm">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search this Beads source…"
+              aria-label="Search Beads items in the current source"
+              className="h-9 pl-8 pr-9 text-sm"
+            />
+            {searchQuery && (
               <button
-                key={column.key}
                 type="button"
-                onClick={() => setColumnVisibility((current) => ({
-                  ...current,
-                  [column.key]: !current[column.key],
-                }))}
-                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[11px] font-semibold transition-colors cursor-pointer ${
-                  visible
-                    ? 'border-border/60 bg-background/70 text-foreground hover:bg-background'
-                    : 'border-border/40 bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                aria-pressed={visible}
-                aria-label={`${visible ? 'Hide' : 'Show'} ${column.label} column (${count} items)`}
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Clear Beads search"
               >
-                {visible ? <Eye size={13} /> : <EyeOff size={13} />}
-                <span>{visible ? 'Hide' : 'Show'} {column.label}</span>
-                <span className="rounded-sm bg-muted px-1.5 py-0.5 tabular-nums text-[10px] text-foreground/80">
-                  {count}
-                </span>
+                <X size={13} />
               </button>
-            );
-          })}
+            )}
+          </div>
+
+          <p className="text-[11px] text-muted-foreground lg:text-right">
+            {hasActiveSearch
+              ? `${filteredTotal} match${filteredTotal === 1 ? '' : 'es'} in ${sourceLabel ?? 'current source'}`
+              : 'Search title, issue ID, description, labels, and owner within the selected source.'}
+          </p>
         </div>
 
-        {hiddenColumns.length > 0 && (
-          <p className="text-[11px] text-muted-foreground">
-            Hidden: {hiddenColumns.map((column) => column.label).join(', ')}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {COLUMN_CONFIG.map((column) => {
+              const visible = columnVisibility[column.key];
+              const count = tasksByColumn[column.key].length;
+
+              return (
+                <button
+                  key={column.key}
+                  type="button"
+                  onClick={() => setColumnVisibility((current) => ({
+                    ...current,
+                    [column.key]: !current[column.key],
+                  }))}
+                  className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[11px] font-semibold transition-colors cursor-pointer ${
+                    visible
+                      ? 'border-border/60 bg-background/70 text-foreground hover:bg-background'
+                      : 'border-border/40 bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  }`}
+                  aria-pressed={visible}
+                  aria-label={`${visible ? 'Hide' : 'Show'} ${column.label} column (${count} ${hasActiveSearch ? 'matching ' : ''}items)`}
+                >
+                  {visible ? <Eye size={13} /> : <EyeOff size={13} />}
+                  <span>{visible ? 'Hide' : 'Show'} {column.label}</span>
+                  <span className="rounded-sm bg-muted px-1.5 py-0.5 tabular-nums text-[10px] text-foreground/80">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {hiddenColumns.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Hidden: {hiddenColumns.map((column) => column.label).join(', ')}
+            </p>
+          )}
+        </div>
       </div>
 
-      {visibleColumns.length === 0 ? (
-        <div className="flex h-[calc(100%-2.5rem)] items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/10 px-6 text-center">
+      {hasActiveSearch && filteredTotal === 0 ? (
+        <div className="flex h-[calc(100%-5.5rem)] items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/10 px-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-foreground">No Beads items match “{searchQuery.trim()}”</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Try an issue ID, title word, label, description text, or owner.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="mt-3 inline-flex h-8 items-center justify-center rounded-md border border-border/50 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-background"
+            >
+              Clear search
+            </button>
+          </div>
+        </div>
+      ) : visibleColumns.length === 0 ? (
+        <div className="flex h-[calc(100%-5.5rem)] items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/10 px-6 text-center">
           <div>
             <p className="text-sm font-semibold text-foreground">All Beads columns are hidden</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -296,7 +355,7 @@ export const BeadsBoard = memo(function BeadsBoard({
           </div>
         </div>
       ) : (
-        <div className="flex gap-3 p-0 min-w-min h-[calc(100%-2.5rem)]">
+        <div className="flex gap-3 p-0 min-w-min h-[calc(100%-5.5rem)]">
           {visibleColumns.map((column) => (
             <BeadsColumn
               key={column.key}
