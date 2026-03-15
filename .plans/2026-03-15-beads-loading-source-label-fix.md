@@ -33,4 +33,4 @@ Make the Beads loading state show the newly selected source immediately during s
 
 ## Commits
 
-- Pending
+- `b9a5014` - Fix Beads loading source label state
