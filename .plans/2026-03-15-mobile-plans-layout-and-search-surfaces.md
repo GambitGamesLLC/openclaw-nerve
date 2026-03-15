@@ -171,15 +171,17 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** Fixed the mobile Beads → Plans stacked-layout regression and added practical search for the selected Beads source, including client-side matching for issue ID/title/description/labels/owner plus a mobile-friendly search UI with result counts and a no-results clear path.
+**What We Built:** Fixed the mobile Beads → Plans stacked-layout regression, added practical Beads search for the selected source, and shipped an env-gated top-level Plans surface that reuses tracked repo sources for repo-scoped `.plans` discovery, search, reading, and editor handoff.
 
 **Commits:**
 - `93112ad` - Fix mobile Beads to Plans handoff layout
 - `6060702` - Add searchable Beads UI for selected source
+- `fecaf7d` - Add optional top-level Plans surface
+- `ef355f2` - Enable top-level Plans in Nerve restore config (`~/.openclaw`)
 
-**Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. For Beads search, the smallest useful scope was already-loaded board data in the selected source; that delivered a good mobile/desktop UX without new API complexity or broader Plans-surface work.
+**Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. For both Beads and Plans, the smallest durable slice was to scope UX and search to the selected tracked source and to reuse the existing tracked-source registry instead of inventing parallel config/state.
 
 ---
 
