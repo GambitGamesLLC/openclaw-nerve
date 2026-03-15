@@ -1,3 +1,8 @@
+---
+plan_id: plan-2026-03-14-nerve-backlog-closure-and-future-review
+bead_ids:
+  - nerve-1w9
+---
 # Gambit OpenClaw Nerve — backlog closure and future review framing
 
 **Date:** 2026-03-14  
