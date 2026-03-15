@@ -1,7 +1,7 @@
 # Gambit OpenClaw Nerve — linkage repair and migration helpers
 
 **Date:** 2026-03-14  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -193,10 +193,12 @@ After reviewing the shipped slice-2 implementation, the next follow-up wave shou
 **What We Built:** Delivered and verified a compact manual linked-plan metadata repair flow for already-resolvable links, including a dedicated repair endpoint, linked-plan repair eligibility/status in DTOs, and drawer-level repair CTA/feedback with board refresh. Validation remained green on targeted tests and build.
 
 **Commits:**
-- Pending final commit hash recording in Task 4 handoff
+- `732927e` — Implement metadata-first slice-2 bead-plan linkage
+- `a22aadd` — Finalize slice-2 linkage plan results and verification
+- `1a4d328` — Add manual linked-plan metadata repair endpoint and drawer CTA
 
 **Lessons Learned:** Keeping the scope constrained to explicit manual repair (instead of broad migration tooling) preserved reviewability and still covered the practical stale-metadata recovery path. Deferred polish remains intentionally tracked in `nerve-1w9`.
 
 ---
 
-*Started on 2026-03-14*
+*Completed on 2026-03-14*
