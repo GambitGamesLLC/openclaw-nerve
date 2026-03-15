@@ -11,6 +11,7 @@ export function useBeadsBoard() {
   const [error, setError] = useState<string | null>(null);
   const sourcesAbortRef = useRef<AbortController | null>(null);
   const boardAbortRef = useRef<AbortController | null>(null);
+  const boardRequestSourceRef = useRef<string | null>(null);
 
   const fetchSources = useCallback(async () => {
     sourcesAbortRef.current?.abort();
@@ -46,14 +47,25 @@ export function useBeadsBoard() {
   const fetchBoard = useCallback(async (sourceId?: string, { silent = false }: { silent?: boolean } = {}) => {
     const resolvedSourceId = sourceId ?? selectedSourceId;
     if (!resolvedSourceId) {
+      boardAbortRef.current?.abort();
+      boardAbortRef.current = null;
+      boardRequestSourceRef.current = null;
       setBoard(null);
       setLoadingBoard(false);
+      return;
+    }
+
+    const hasInFlightRequest = Boolean(boardAbortRef.current && !boardAbortRef.current.signal.aborted);
+    const isSameSourceRequest = boardRequestSourceRef.current === resolvedSourceId;
+
+    if (silent && hasInFlightRequest && isSameSourceRequest) {
       return;
     }
 
     boardAbortRef.current?.abort();
     const controller = new AbortController();
     boardAbortRef.current = controller;
+    boardRequestSourceRef.current = resolvedSourceId;
 
     if (!silent) {
       setLoadingBoard(true);
@@ -71,6 +83,10 @@ export function useBeadsBoard() {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       if (!silent) setError(err instanceof Error ? err.message : 'Failed to load Beads board');
     } finally {
+      if (boardAbortRef.current === controller) {
+        boardAbortRef.current = null;
+        boardRequestSourceRef.current = null;
+      }
       if (!silent) setLoadingBoard(false);
     }
   }, [selectedSourceId]);
