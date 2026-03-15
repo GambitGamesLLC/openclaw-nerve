@@ -94,7 +94,7 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
   - `npm test -- --run src/features/kanban/beads.test.ts src/features/kanban/BeadsBoard.test.tsx`
   - `npm run build`
 - Outcome: the Beads surface now supports practical incremental search for mobile and desktop without expanding scope into the planned top-level Plans work.
-- Commit: `27b931a` — Add searchable Beads UI for selected source
+- Commit: `6060702` — Add searchable Beads UI for selected source
 
 ---
 
@@ -127,7 +127,7 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 
 **Commits:**
 - `93112ad` - Fix mobile Beads to Plans handoff layout
-- `27b931a` - Add searchable Beads UI for selected source
+- `6060702` - Add searchable Beads UI for selected source
 
 **Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. For Beads search, the smallest useful scope was already-loaded board data in the selected source; that delivered a good mobile/desktop UX without new API complexity or broader Plans-surface work.
 
