@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Database, Eye, EyeOff, Inbox } from 'lucide-react';
+import { Database, Eye, EyeOff, Inbox, LoaderCircle } from 'lucide-react';
 import type { KanbanTask } from './types';
 import type { BeadsBoardColumnKey } from './beads';
 import { KanbanCard } from './KanbanCard';
@@ -84,6 +84,33 @@ function SkeletonColumn() {
             style={{ height: `${h}px` }}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function BeadsLoadingState({ sourceLabel }: { sourceLabel?: string }) {
+  return (
+    <div className="relative h-full overflow-hidden rounded-lg border border-border/40 bg-background/30">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/20 to-background/60" />
+      <div className="absolute inset-x-0 top-0 z-10 flex justify-center p-4">
+        <div
+          className="inline-flex flex-col items-center gap-2 rounded-lg border border-border/50 bg-background/90 px-4 py-3 text-center shadow-sm backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <LoaderCircle size={20} className="animate-spin text-primary" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Loading Beads board…</p>
+            <p className="text-[11px] text-muted-foreground">Fetching the latest issues and column counts.</p>
+            {sourceLabel && (
+              <p className="mt-1 text-[11px] text-muted-foreground/80">Source: {sourceLabel}</p>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-3 p-3 min-w-min h-full opacity-90">
+        {COLUMN_CONFIG.map((column) => <SkeletonColumn key={column.key} />)}
       </div>
     </div>
   );
@@ -188,13 +215,7 @@ export const BeadsBoard = memo(function BeadsBoard({
   }
 
   if (loading) {
-    return (
-      <div className="h-full overflow-x-auto">
-        <div className="flex gap-3 p-0 min-w-min h-full">
-          {COLUMN_CONFIG.map((column) => <SkeletonColumn key={column.key} />)}
-        </div>
-      </div>
-    );
+    return <BeadsLoadingState sourceLabel={sourceLabel} />;
   }
 
   if (!hasAnyTasks) {

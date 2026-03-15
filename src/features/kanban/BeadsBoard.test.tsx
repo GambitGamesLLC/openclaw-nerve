@@ -31,6 +31,26 @@ function makeTask(id: string, title: string): KanbanTask {
 }
 
 describe('BeadsBoard column visibility UX', () => {
+  it('shows an explicit loading state instead of a blank board', () => {
+    render(
+      <BeadsBoard
+        todoTasks={[]}
+        inProgressTasks={[]}
+        doneTasks={[]}
+        closedTasks={[]}
+        loading
+        error={null}
+        onRetry={vi.fn()}
+        hasAnyTasks={false}
+        sourceLabel="~/.openclaw"
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading Beads board…');
+    expect(screen.getByText('Fetching the latest issues and column counts.')).toBeInTheDocument();
+    expect(screen.getByText('Source: ~/.openclaw')).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     const store = new Map<string, string>();
     const localStorageMock = {
