@@ -57,7 +57,7 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
   - `npm test -- --run src/features/kanban/BeadsDetailDrawer.test.tsx src/components/TopBar.test.tsx src/features/workspace/tabs/PlansTab.test.tsx`
   - `npm run build`
 - Outcome: the mobile Beads → Plans handoff now routes cleanly into the Plans workspace without keeping the Beads board/drawer visible underneath.
-- Commit: `7ae93c9` — Fix mobile Beads to Plans handoff layout.
+- Commit: `93112ad` — Fix mobile Beads to Plans handoff layout.
 
 ---
 
@@ -109,7 +109,7 @@ This plan belongs in `gambit-openclaw-nerve` because the work is squarely in the
 **What We Built:** Fixed the mobile Beads → Plans stacked-layout regression by making the handoff exit Beads view and close the Beads drawer before opening the Plans workspace surface.
 
 **Commits:**
-- `7ae93c9` - Fix mobile Beads to Plans handoff layout
+- `93112ad` - Fix mobile Beads to Plans handoff layout
 
 **Lessons Learned:** Compact/mobile bugs here were caused by shell-state handoff, not markdown rendering. When opening a tool surface from another tool surface, Nerve needs to switch the owning shell state explicitly instead of layering independent panels.
 
