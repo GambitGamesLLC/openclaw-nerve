@@ -37,4 +37,4 @@ Make the Beads board show an explicit non-blank loading state while board data i
 
 ## Commits
 
-- `3cffec1` - Add explicit Beads board loading state
+- `2000565` - Add explicit Beads board loading state
