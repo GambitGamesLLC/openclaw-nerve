@@ -83,6 +83,8 @@ describe('PlansTab', () => {
 
     const activePlanButton = await screen.findByRole('button', { name: /active plan/i });
     expect(activePlanButton).toBeInTheDocument();
+    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
+    expect(screen.getByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).toBeInTheDocument();
     expect((await screen.findAllByRole('button', { name: 'nerve-413' })).length).toBeGreaterThan(0);
 
     await user.click(screen.getAllByRole('button', { name: 'nerve-413' })[0]);

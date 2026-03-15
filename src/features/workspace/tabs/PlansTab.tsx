@@ -26,6 +26,42 @@ function stripFrontmatter(content: string): string {
   return end === -1 ? content : content.slice(end + 5);
 }
 
+interface LinkedBeadContext {
+  beadId: string;
+  lineNumber: number | null;
+  snippet: string | null;
+}
+
+function buildLinkedBeadContext(content: string, beadIds: string[]): LinkedBeadContext[] {
+  const lines = stripFrontmatter(content).split('\n');
+
+  return beadIds.map((beadId) => {
+    const lineIndex = lines.findIndex((line) => line.includes(beadId));
+    if (lineIndex === -1) {
+      return {
+        beadId,
+        lineNumber: null,
+        snippet: null,
+      };
+    }
+
+    const rawLine = lines[lineIndex] ?? '';
+    const normalized = rawLine
+      .replace(/^\s*[-*+]\s+/, '')
+      .replace(/^\s*\d+\.\s+/, '')
+      .replace(/^\s*#{1,6}\s+/, '')
+      .trim();
+
+    const snippet = normalized.length > 120 ? `${normalized.slice(0, 117)}…` : normalized;
+
+    return {
+      beadId,
+      lineNumber: lineIndex + 1,
+      snippet: snippet || null,
+    };
+  });
+}
+
 function PlanBadge({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'muted' | 'archived' }) {
   const className = tone === 'archived'
     ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
@@ -99,6 +135,10 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTab
   const activePlans = filteredPlans.filter(plan => !plan.archived);
   const archivedPlans = filteredPlans.filter(plan => plan.archived);
   const renderedContent = selectedPlan ? stripFrontmatter(selectedPlan.content) : '';
+  const linkedBeadContext = useMemo(() => {
+    if (!selectedPlan || selectedPlan.beadIds.length === 0) return [];
+    return buildLinkedBeadContext(selectedPlan.content, selectedPlan.beadIds);
+  }, [selectedPlan]);
 
   useEffect(() => {
     if (!requestedPlanPath) return;
@@ -204,22 +244,44 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath }: PlansTab
                     {selectedPlan.status && <PlanBadge>{selectedPlan.status}</PlanBadge>}
                     {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
                     {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
-                    {selectedPlan.beadIds.map((beadId) => (
-                      onOpenTask ? (
-                        <button
-                          key={beadId}
-                          type="button"
-                          className="inline-flex items-center rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground cursor-pointer"
-                          onClick={() => onOpenTask(beadId)}
-                          title={`Open ${beadId} in the board`}
-                        >
-                          {beadId}
-                        </button>
-                      ) : (
-                        <PlanBadge key={beadId} tone="muted">{beadId}</PlanBadge>
-                      )
-                    ))}
+                    {selectedPlan.beadIds.length > 0 && (
+                      <PlanBadge tone="muted">{selectedPlan.beadIds.length} linked bead{selectedPlan.beadIds.length === 1 ? '' : 's'}</PlanBadge>
+                    )}
                   </div>
+
+                  {linkedBeadContext.length > 0 && (
+                    <div className="mt-2 space-y-1.5 rounded-md border border-border/40 bg-muted/10 px-2 py-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Linked tasks</div>
+                      <div className="space-y-1.5">
+                        {linkedBeadContext.map((entry) => (
+                          <div key={entry.beadId} className="flex items-start gap-2">
+                            {onOpenTask ? (
+                              <button
+                                type="button"
+                                className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary hover:bg-primary/15 cursor-pointer"
+                                onClick={() => onOpenTask(entry.beadId)}
+                                title={`Open ${entry.beadId} in the board`}
+                              >
+                                {entry.beadId}
+                              </button>
+                            ) : (
+                              <PlanBadge tone="muted">{entry.beadId}</PlanBadge>
+                            )}
+                            <div className="min-w-0 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                              {entry.snippet ? (
+                                <span className="block truncate" title={entry.snippet}>
+                                  {entry.snippet}
+                                  {entry.lineNumber ? ` (line ${entry.lineNumber})` : ''}
+                                </span>
+                              ) : (
+                                <span className="block italic">Open task from linked bead ID</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {onOpenPath && (
                   <button
