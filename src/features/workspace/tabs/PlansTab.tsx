@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { usePlans, type PlanSummary } from '../hooks/usePlans';
 
@@ -98,6 +98,11 @@ function buildLinkedBeadContext(content: string, beadIds: string[]): LinkedBeadC
   });
 }
 
+function isCompactPlansViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth <= 768 || window.innerHeight <= 520;
+}
+
 function PlanBadge({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'muted' | 'archived' }) {
   const className = tone === 'archived'
     ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
@@ -150,6 +155,8 @@ function PlanRow({
 export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
   const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
+  const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
+  const [showCompactReader, setShowCompactReader] = useState(false);
 
   const filteredPlans = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -178,17 +185,42 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, 
 
   useEffect(() => {
     setSearch('');
+    setShowCompactReader(false);
   }, [sourceId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateViewport = () => setCompactViewport(isCompactPlansViewport());
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!compactViewport) {
+      setShowCompactReader(false);
+    }
+  }, [compactViewport]);
 
   useEffect(() => {
     if (!requestedPlanPath) return;
     if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
-    if (selectedPath === requestedPlanPath) return;
+    if (selectedPath === requestedPlanPath) {
+      setShowCompactReader(true);
+      return;
+    }
+    setShowCompactReader(true);
     void loadPlan(requestedPlanPath);
   }, [requestedPlanPath, plans, selectedPath, loadPlan]);
 
+  const compactReaderActive = compactViewport && showCompactReader;
+  const showPlanList = !compactReaderActive;
+  const showPlanReader = !compactViewport || compactReaderActive;
+
   function handleOpenPlanReference(path: string) {
     if (plans.some((plan) => plan.path === path)) {
+      setShowCompactReader(true);
       void loadPlan(path);
       return;
     }
@@ -230,127 +262,163 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, 
         </label>
       </div>
 
-      <div className="grid flex-1 min-h-0 grid-rows-[minmax(220px,38%)_minmax(0,1fr)]">
-        <div className="overflow-y-auto border-b border-border/40 px-2 py-2 space-y-3">
-          {error && !plans.length && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
-          )}
-
-          {!isLoading && filteredPlans.length === 0 && (
-            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-              {plans.length === 0 ? 'No repo-local plans found under .plans/ for this source.' : 'No plans match this search.'}
-            </div>
-          )}
-
-          {activePlans.length > 0 && (
-            <section>
-              <div className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</div>
-              <div className="space-y-2">
-                {activePlans.map((plan) => (
-                  <PlanRow key={plan.path} plan={plan} selected={plan.path === selectedPath} onSelect={() => { void loadPlan(plan.path); }} />
-                ))}
+      <div className={`flex-1 min-h-0 ${compactViewport ? 'flex flex-col' : 'grid grid-rows-[minmax(220px,38%)_minmax(0,1fr)]'}`}>
+        {showPlanList && (
+          <div className={`overflow-y-auto px-2 py-2 space-y-3 ${compactViewport ? '' : 'border-b border-border/40'}`}>
+            {error && !plans.length && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {error}
               </div>
-            </section>
-          )}
+            )}
 
-          {archivedPlans.length > 0 && (
-            <section>
-              <div className="flex items-center gap-1 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <FolderArchive size={11} />
-                Archived
+            {!isLoading && filteredPlans.length === 0 && (
+              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                {plans.length === 0 ? 'No repo-local plans found under .plans/ for this source.' : 'No plans match this search.'}
               </div>
-              <div className="space-y-2">
-                {archivedPlans.map((plan) => (
-                  <PlanRow key={plan.path} plan={plan} selected={plan.path === selectedPath} onSelect={() => { void loadPlan(plan.path); }} />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+            )}
 
-        <div className="min-h-0 overflow-y-auto">
-          {!selectedPlan && !isPlanLoading && (
-            <div className="px-4 py-6 text-xs text-muted-foreground">Select a plan to preview it.</div>
-          )}
-
-          {selectedPlan && (
-            <div className="px-4 py-3">
-              <div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground leading-tight">{selectedPlan.title}</h3>
-                  <div className="mt-1 font-mono text-[10px] text-muted-foreground break-all">{selectedPlan.path}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {selectedPlan.status && <PlanBadge>{selectedPlan.status}</PlanBadge>}
-                    {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
-                    {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
-                    {selectedPlan.beadIds.length > 0 && (
-                      <PlanBadge tone="muted">{selectedPlan.beadIds.length} linked bead{selectedPlan.beadIds.length === 1 ? '' : 's'}</PlanBadge>
-                    )}
-                  </div>
-
-                  {linkedBeadContext.length > 0 && (
-                    <div className="mt-2 space-y-1.5 rounded-md border border-border/40 bg-muted/10 px-2 py-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Linked tasks</div>
-                      <div className="space-y-1.5">
-                        {linkedBeadContext.map((entry) => (
-                          <div key={entry.beadId} className="flex items-start gap-2">
-                            {onOpenTask ? (
-                              <button
-                                type="button"
-                                className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary hover:bg-primary/15 cursor-pointer"
-                                onClick={() => onOpenTask(entry.beadId)}
-                                title={`Open ${entry.beadId} in the board`}
-                              >
-                                {entry.beadId}
-                              </button>
-                            ) : (
-                              <PlanBadge tone="muted">{entry.beadId}</PlanBadge>
-                            )}
-                            <div className="min-w-0 pt-0.5 text-[11px] leading-4 text-muted-foreground">
-                              {entry.snippet ? (
-                                <span className="block truncate" title={entry.snippet}>
-                                  {entry.snippet}
-                                  {entry.lineNumber ? ` (line ${entry.lineNumber})` : ''}
-                                </span>
-                              ) : (
-                                <span className="block italic">Open task from linked bead ID</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {activePlans.length > 0 && (
+              <section>
+                <div className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active</div>
+                <div className="space-y-2">
+                  {activePlans.map((plan) => (
+                    <PlanRow
+                      key={plan.path}
+                      plan={plan}
+                      selected={plan.path === selectedPath}
+                      onSelect={() => {
+                        setShowCompactReader(true);
+                        void loadPlan(plan.path);
+                      }}
+                    />
+                  ))}
                 </div>
-                {onOpenPath && (
+              </section>
+            )}
+
+            {archivedPlans.length > 0 && (
+              <section>
+                <div className="flex items-center gap-1 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <FolderArchive size={11} />
+                  Archived
+                </div>
+                <div className="space-y-2">
+                  {archivedPlans.map((plan) => (
+                    <PlanRow
+                      key={plan.path}
+                      plan={plan}
+                      selected={plan.path === selectedPath}
+                      onSelect={() => {
+                        setShowCompactReader(true);
+                        void loadPlan(plan.path);
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {showPlanReader && (
+          <div className="min-h-0 overflow-y-auto">
+            {!selectedPlan && !isPlanLoading && (
+              <div className="px-4 py-6 text-xs text-muted-foreground">Select a plan to preview it.</div>
+            )}
+
+            {(selectedPlan || isPlanLoading) && (
+              <div className="px-4 py-3">
+                {compactViewport && (
                   <button
-                    onClick={() => onOpenPath(selectedPlan.path)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
-                    title="Open this path inside Nerve"
+                    type="button"
+                    onClick={() => setShowCompactReader(false)}
+                    className="mb-3 inline-flex items-center gap-1 rounded-sm border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
+                    aria-label="Back to plans list"
                   >
-                    Open in Nerve
-                    <ArrowUpRight size={11} />
+                    <ArrowLeft size={11} />
+                    Back to plans
                   </button>
                 )}
-              </div>
 
-              {isPlanLoading ? (
-                <div className="py-6 text-xs text-muted-foreground">Loading plan…</div>
-              ) : (
-                <MarkdownRenderer
-                  content={renderedContent}
-                  className="pt-3 text-sm"
-                  plans={plans}
-                  onOpenPlanReference={handleOpenPlanReference}
-                  onOpenPath={onOpenPath}
-                  onOpenTask={onOpenTask}
-                />
-              )}
-            </div>
-          )}
-        </div>
+                {selectedPlan && (
+                  <>
+                    <div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold text-foreground leading-tight">{selectedPlan.title}</h3>
+                        <div className="mt-1 font-mono text-[10px] text-muted-foreground break-all">{selectedPlan.path}</div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {selectedPlan.status && <PlanBadge>{selectedPlan.status}</PlanBadge>}
+                          {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
+                          {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
+                          {selectedPlan.beadIds.length > 0 && (
+                            <PlanBadge tone="muted">{selectedPlan.beadIds.length} linked bead{selectedPlan.beadIds.length === 1 ? '' : 's'}</PlanBadge>
+                          )}
+                        </div>
+
+                        {linkedBeadContext.length > 0 && (
+                          <div className="mt-2 space-y-1.5 rounded-md border border-border/40 bg-muted/10 px-2 py-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Linked tasks</div>
+                            <div className="space-y-1.5">
+                              {linkedBeadContext.map((entry) => (
+                                <div key={entry.beadId} className="flex items-start gap-2">
+                                  {onOpenTask ? (
+                                    <button
+                                      type="button"
+                                      className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary hover:bg-primary/15 cursor-pointer"
+                                      onClick={() => onOpenTask(entry.beadId)}
+                                      title={`Open ${entry.beadId} in the board`}
+                                    >
+                                      {entry.beadId}
+                                    </button>
+                                  ) : (
+                                    <PlanBadge tone="muted">{entry.beadId}</PlanBadge>
+                                  )}
+                                  <div className="min-w-0 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                                    {entry.snippet ? (
+                                      <span className="block truncate" title={entry.snippet}>
+                                        {entry.snippet}
+                                        {entry.lineNumber ? ` (line ${entry.lineNumber})` : ''}
+                                      </span>
+                                    ) : (
+                                      <span className="block italic">Open task from linked bead ID</span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {onOpenPath && (
+                        <button
+                          onClick={() => onOpenPath(selectedPlan.path)}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                          title="Open this path inside Nerve"
+                        >
+                          Open in Nerve
+                          <ArrowUpRight size={11} />
+                        </button>
+                      )}
+                    </div>
+
+                    {isPlanLoading ? (
+                      <div className="py-6 text-xs text-muted-foreground">Loading plan…</div>
+                    ) : (
+                      <MarkdownRenderer
+                        content={renderedContent}
+                        className="pt-3 text-sm"
+                        plans={plans}
+                        onOpenPlanReference={handleOpenPlanReference}
+                        onOpenPath={onOpenPath}
+                        onOpenTask={onOpenTask}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

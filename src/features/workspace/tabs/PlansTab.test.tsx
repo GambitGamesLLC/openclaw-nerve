@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlansTab } from './PlansTab';
@@ -44,6 +44,14 @@ const listResponse = {
   },
 };
 
+function setViewport(width: number, height: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: height });
+  act(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
+}
+
 const readResponses: Record<string, object> = {
   '.plans/2026-03-12-active.md': {
     ok: true,
@@ -70,6 +78,7 @@ const readResponses: Record<string, object> = {
 
 describe('PlansTab', () => {
   beforeEach(() => {
+    setViewport(1280, 800);
     vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/plans') {
@@ -164,5 +173,39 @@ describe('PlansTab', () => {
     expect(within(nerveIp6Row as HTMLElement).getByText(/Task 3: Implement worthwhile fixes/i)).toBeInTheDocument();
 
     expect(panel).not.toHaveTextContent(/Execution is now authorized/i);
+  });
+
+  it('foregrounds the selected plan on portrait mobile and lets the user return to the list', async () => {
+    setViewport(390, 844);
+    const user = userEvent.setup();
+
+    render(<PlansTab />);
+
+    const manualPassPlan = await screen.findByRole('button', { name: /manual pass plan/i });
+    expect(screen.queryByText('Linked tasks')).not.toBeInTheDocument();
+
+    await user.click(manualPassPlan);
+
+    expect(await screen.findByRole('button', { name: /back to plans list/i })).toBeInTheDocument();
+    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /back to plans list/i }));
+
+    expect(await screen.findByRole('button', { name: /active plan/i })).toBeInTheDocument();
+    expect(screen.queryByText('Linked tasks')).not.toBeInTheDocument();
+  });
+
+  it('uses the same reader-first flow on landscape mobile viewports', async () => {
+    setViewport(844, 390);
+    const user = userEvent.setup();
+
+    render(<PlansTab />);
+
+    await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
+
+    expect(await screen.findByRole('button', { name: /back to plans list/i })).toBeInTheDocument();
+    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
   });
 });
