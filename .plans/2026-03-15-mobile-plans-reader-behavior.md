@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-15-mobile-plans-reader-behavior
+bead_ids:
+  - nerve-3bo
+  - nerve-zap
+---
 # Nerve mobile Plans reader behavior fixes
 
 **Date:** 2026-03-15  

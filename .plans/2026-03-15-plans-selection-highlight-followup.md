@@ -1,3 +1,8 @@
+---
+plan_id: plan-2026-03-15-plans-selection-highlight-followup
+bead_ids:
+  - nerve-24q
+---
 # Nerve Plans selection highlight follow-up
 
 **Date:** 2026-03-15  

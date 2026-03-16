@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-15-mobile-plans-overlay-reader-parity
+bead_ids:
+  - nerve-csb
+  - nerve-fv7
+---
 # Nerve mobile Plans overlay reader parity
 
 **Date:** 2026-03-15  
@@ -119,6 +125,8 @@ The follow-up implementation should be considered successful when all of the fol
 - `14d04bf` - `fix(plans): hide mobile reader chrome`
 
 **Lessons Learned:** The prior mobile reader-first work had already solved list hiding, so the missing parity was almost entirely about suppressing the remaining non-reader chrome at the top of `PlansTab`. Keeping the solution in the existing surface produced the intended Beads-like focus without adding another modal/drawer abstraction.
+
+**Follow-up:** Derrick still reported seeing the old mobile Plans UI after the code landed, so follow-up bead `nerve-02u` was opened to investigate why the overlay-reader fix was not visibly reflected after refresh/restart on the mobile Chip web app.
 
 ---
 

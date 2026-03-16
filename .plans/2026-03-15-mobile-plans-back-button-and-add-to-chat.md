@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-15-mobile-plans-back-button-and-add-to-chat
+bead_ids:
+  - nerve-fdp
+  - nerve-qn2
+---
 # Nerve mobile Plans navigation polish + Add to Chat concept
 
 **Date:** 2026-03-15  

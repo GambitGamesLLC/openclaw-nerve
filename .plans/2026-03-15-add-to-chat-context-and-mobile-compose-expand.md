@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-15-add-to-chat-context-and-mobile-compose-expand
+bead_ids:
+  - nerve-8hu
+  - nerve-7z4
+---
 # Nerve Add to Chat context + mobile composer expansion
 
 **Date:** 2026-03-15  
