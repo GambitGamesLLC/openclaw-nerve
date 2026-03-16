@@ -116,7 +116,7 @@ The follow-up implementation should be considered successful when all of the fol
 - `npm run build`
 
 **Commits:**
-- `2fe5706` - `fix(plans): hide mobile reader chrome`
+- `14d04bf` - `fix(plans): hide mobile reader chrome`
 
 **Lessons Learned:** The prior mobile reader-first work had already solved list hiding, so the missing parity was almost entirely about suppressing the remaining non-reader chrome at the top of `PlansTab`. Keeping the solution in the existing surface produced the intended Beads-like focus without adding another modal/drawer abstraction.
 
