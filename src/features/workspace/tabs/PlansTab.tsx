@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
+import { formatPlanAddToChat } from '@/features/chat/addToChat';
 import { usePlans, type PlanSummary } from '../hooks/usePlans';
 
 interface PlansTabProps {
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
+  onAddToChat?: (text: string) => void;
   requestedPlanPath?: string | null;
   sourceId?: string;
   showHeader?: boolean;
@@ -152,7 +154,7 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
+export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
   const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
   const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
@@ -391,13 +393,14 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, 
                           </div>
                         )}
                       </div>
-                      {onOpenPath && (
+                      {onAddToChat && (
                         <button
-                          onClick={() => onOpenPath(selectedPlan.path)}
+                          type="button"
+                          onClick={() => onAddToChat(formatPlanAddToChat({ title: selectedPlan.title, path: selectedPlan.path }))}
                           className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
-                          title="Open this path inside Nerve"
+                          title="Add this plan to the main chat composer"
                         >
-                          Open in Nerve
+                          Add to Chat
                           <ArrowUpRight size={11} />
                         </button>
                       )}

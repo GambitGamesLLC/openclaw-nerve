@@ -7,6 +7,7 @@ import { useSessionContext } from '@/contexts/SessionContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '@/lib/constants';
 import { compressImage } from './image-compress';
+import { mergeAddToChatText } from './addToChat';
 import type { ImageAttachment } from './types';
 
 interface InputBarProps {
@@ -19,6 +20,7 @@ interface InputBarProps {
 
 export interface InputBarHandle {
   focus: () => void;
+  injectText: (text: string, mode?: 'replace' | 'append') => void;
 }
 
 /** Chat input bar with file attachments, voice input, and model effort selector. */
@@ -53,17 +55,38 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
   const { handleKeyDown: handleTabKey, reset: resetTabCompletion } = useTabCompletion(getSessionLabels, inputRef);
 
+  const resizeInput = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }, []);
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+    // Add brief highlight animation
+    inputRef.current?.classList.add('ring-2', 'ring-primary', 'ring-offset-1');
+    setTimeout(() => {
+      inputRef.current?.classList.remove('ring-2', 'ring-primary', 'ring-offset-1');
+    }, 500);
+  }, []);
+
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
-    focus: () => {
-      inputRef.current?.focus();
-      // Add brief highlight animation
-      inputRef.current?.classList.add('ring-2', 'ring-primary', 'ring-offset-1');
-      setTimeout(() => {
-        inputRef.current?.classList.remove('ring-2', 'ring-primary', 'ring-offset-1');
-      }, 500);
-    }
-  }), []);
+    focus: focusInput,
+    injectText: (text: string, mode: 'replace' | 'append' = 'append') => {
+      const input = inputRef.current;
+      if (!input) return;
+
+      input.value = mode === 'append'
+        ? mergeAddToChatText(input.value, text)
+        : text;
+      resizeInput();
+      focusInput();
+      input.setSelectionRange(input.value.length, input.value.length);
+      resetTabCompletion();
+    },
+  }), [focusInput, resetTabCompletion, resizeInput]);
 
   // Fetch current language for voice phrase matching
   const [voiceLang, setVoiceLang] = useState('en');
@@ -359,8 +382,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     if (!inputRef.current) return;
     resetTabCompletion();
     clearVoiceError();
-    inputRef.current.style.height = 'auto';
-    inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 160) + 'px';
+    resizeInput();
   };
 
   return (

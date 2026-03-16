@@ -16,11 +16,12 @@ import {
 interface PlansPanelProps {
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
+  onAddToChat?: (text: string) => void;
   requestedPlanPath?: string | null;
   requestedSourceId?: string | null;
 }
 
-export function PlansPanel({ onOpenPath, onOpenTask, requestedPlanPath = null, requestedSourceId = null }: PlansPanelProps) {
+export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath = null, requestedSourceId = null }: PlansPanelProps) {
   const {
     sources,
     selectedSourceId,
@@ -138,6 +139,7 @@ export function PlansPanel({ onOpenPath, onOpenTask, requestedPlanPath = null, r
         <PlansTab
           onOpenPath={onOpenPath}
           onOpenTask={onOpenTask}
+          onAddToChat={onAddToChat}
           requestedPlanPath={requestedPlanPath}
           sourceId={selectedSourceId || undefined}
           showHeader={false}

@@ -48,9 +48,10 @@ describe('BeadsDetailDrawer', () => {
   it('renders richer Beads metadata in a read-only drawer', async () => {
     const user = userEvent.setup();
     const onOpenPlan = vi.fn();
+    const onAddToChat = vi.fn();
     const onClose = vi.fn();
 
-    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={onClose} onOpenPlan={onOpenPlan} />);
+    render(<BeadsDetailDrawer task={task} sourceLabel="~/.openclaw" onClose={onClose} onOpenPlan={onOpenPlan} onAddToChat={onAddToChat} />);
 
     expect(screen.getByRole('dialog', { name: 'Beads issue details' })).toBeInTheDocument();
     expect(screen.getByText('nerve-rfd')).toBeInTheDocument();
@@ -61,6 +62,11 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('Nerve usability pass')).toBeInTheDocument();
     expect(screen.getByText('.plans/archive/2026-03-12-nerve-usability.md')).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /add to chat/i }));
+    expect(onAddToChat).toHaveBeenCalledWith(`Bead context:
+- Title: Add richer Beads detail surface and verify live UX
+- ID: nerve-rfd`);
 
     await user.click(screen.getByRole('button', { name: /open in plans/i }));
     expect(onClose).toHaveBeenCalledTimes(1);

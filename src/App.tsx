@@ -242,6 +242,14 @@ export default function App({ onLogout }: AppProps) {
     await openWorkspacePath(targetPath);
   }, [openWorkspacePath, setViewMode]);
 
+  const addToChat = useCallback((text: string) => {
+    setViewMode('chat');
+    chatPanelRef.current?.injectText(text, 'append');
+    requestAnimationFrame(() => {
+      chatPanelRef.current?.focusInput();
+    });
+  }, [setViewMode]);
+
   // Build command list with stable references
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const openSearch = useCallback(() => setSearchOpen(true), []);
@@ -485,7 +493,7 @@ export default function App({ onLogout }: AppProps) {
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
           <PanelErrorBoundary name="Workspace">
-            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
+            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
           </PanelErrorBoundary>
         </div>
       </div>
@@ -518,7 +526,7 @@ export default function App({ onLogout }: AppProps) {
   const compactWorkspacePanel = (
     <Suspense fallback={<div className="p-4 text-muted-foreground text-xs">Loading workspace…</div>}>
       <PanelErrorBoundary name="Workspace">
-        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
+        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
       </PanelErrorBoundary>
     </Suspense>
   );
@@ -661,6 +669,7 @@ export default function App({ onLogout }: AppProps) {
                 defaultBoardMode={workflowShell.defaultBoardMode}
                 hideNativeTasks={workflowShell.hideNativeTasks}
                 onOpenPlan={openPlanInWorkspace}
+                onAddToChat={addToChat}
               />
             </Suspense>
           </div>
@@ -671,6 +680,7 @@ export default function App({ onLogout }: AppProps) {
               <PlansPanel
                 onOpenPath={openWorkspacePathInEditor}
                 onOpenTask={openTaskInBoard}
+                onAddToChat={addToChat}
                 requestedPlanPath={requestedPlanPath}
                 requestedSourceId={requestedPlanSourceId}
               />

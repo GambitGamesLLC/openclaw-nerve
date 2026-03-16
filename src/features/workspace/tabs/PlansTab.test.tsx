@@ -104,8 +104,9 @@ describe('PlansTab', () => {
     const user = userEvent.setup();
     const onOpenPath = vi.fn();
     const onOpenTask = vi.fn();
+    const onAddToChat = vi.fn();
 
-    render(<PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} />);
+    render(<PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} onAddToChat={onAddToChat} />);
 
     const activePlanButton = await screen.findByRole('button', { name: /active plan/i });
     expect(activePlanButton).toBeInTheDocument();
@@ -122,8 +123,10 @@ describe('PlansTab', () => {
     await user.click(screen.getByRole('button', { name: '.plans/archive/2026-03-01-old.md' }));
     expect(await screen.findByText('Archive body')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /open in nerve/i }));
-    expect(onOpenPath).toHaveBeenCalledWith('.plans/archive/2026-03-01-old.md');
+    await user.click(screen.getByRole('button', { name: /add to chat/i }));
+    expect(onAddToChat).toHaveBeenCalledWith(`Plan context:
+- Title: Archived Plan
+- Path: .plans/archive/2026-03-01-old.md`);
   });
 
   it('honors an externally requested plan path including archived plans', async () => {

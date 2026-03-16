@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   Wrench,
 } from 'lucide-react';
+import { formatBeadAddToChat } from '@/features/chat/addToChat';
 import type { KanbanTask, LinkedPlanResolutionState } from './types';
 
 interface BeadsDetailDrawerProps {
@@ -22,6 +23,7 @@ interface BeadsDetailDrawerProps {
   sourceLabel?: string;
   onClose: () => void;
   onOpenPlan?: (planPath: string) => void;
+  onAddToChat?: (text: string) => void;
   onRepairLinkedPlanMetadata?: (issueId: string) => Promise<unknown>;
 }
 
@@ -91,6 +93,7 @@ export function BeadsDetailDrawer({
   sourceLabel,
   onClose,
   onOpenPlan,
+  onAddToChat,
   onRepairLinkedPlanMetadata,
 }: BeadsDetailDrawerProps) {
   const metadata = task?.beads;
@@ -259,6 +262,17 @@ export function BeadsDetailDrawer({
                       </div>
 
                       <div className="flex shrink-0 items-start gap-2">
+                        {onAddToChat && (
+                          <button
+                            type="button"
+                            onClick={() => onAddToChat(formatBeadAddToChat({ title: task.title, id: metadata.issueId }))}
+                            className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                          >
+                            <MessageSquare size={11} />
+                            Add to Chat
+                          </button>
+                        )}
+
                         {canRepairMetadata && (
                           <button
                             type="button"

@@ -22,6 +22,7 @@ interface KanbanPanelProps {
   hideNativeTasks?: boolean;
   /** Open a linked repo-local plan in the shared Plans surface. */
   onOpenPlan?: (planPath: string, sourceId?: string | null) => void;
+  onAddToChat?: (text: string) => void;
 }
 
 /**
@@ -34,6 +35,7 @@ export function KanbanPanel({
   defaultBoardMode = 'kanban',
   hideNativeTasks = false,
   onOpenPlan,
+  onAddToChat,
 }: KanbanPanelProps = {}) {
   const [boardMode, setBoardMode] = useState<BoardMode>(hideNativeTasks ? 'beads' : defaultBoardMode);
 
@@ -256,6 +258,7 @@ export function KanbanPanel({
           sourceLabel={selectedBeadsSource?.label ?? beadsBoard?.source.label}
           onClose={handleCloseBeadsDrawer}
           onOpenPlan={(planPath) => onOpenPlan?.(planPath, selectedSourceId || null)}
+          onAddToChat={onAddToChat}
           onRepairLinkedPlanMetadata={repairLinkedPlanMetadata}
         />
       )}

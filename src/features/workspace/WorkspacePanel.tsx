@@ -75,6 +75,7 @@ interface WorkspacePanelProps {
   onOpenBoard?: () => void;
   /** Open a specific task in the full board view. */
   onOpenTask?: (taskId: string) => void;
+  onAddToChat?: (text: string) => void;
   /** Open or reveal a safe workspace path inside Nerve. */
   onOpenPath?: (path: string) => void;
   /** Server-driven label for the workflow surface. */
@@ -83,7 +84,7 @@ interface WorkspacePanelProps {
   requestedPlanPath?: string | null;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath, boardLabel = 'Tasks', requestedTab = null, requestedPlanPath = null }: WorkspacePanelProps) {
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath, onAddToChat, boardLabel = 'Tasks', requestedTab = null, requestedPlanPath = null }: WorkspacePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const { activeCount } = useCrons();
 
@@ -134,7 +135,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         </div>
         <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
           {visitedTabs.has('plans') && (
-            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} requestedPlanPath={requestedPlanPath} />
+            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} onAddToChat={onAddToChat} requestedPlanPath={requestedPlanPath} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">
