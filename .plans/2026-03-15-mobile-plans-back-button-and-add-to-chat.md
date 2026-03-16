@@ -71,6 +71,7 @@ A better interaction model may be an `Add to Chat` affordance for plans and bead
 
 **Commits:**
 - `263306a` - Fix mobile Plans back affordance persistence
+- `c470496` - Document mobile Plans back affordance slice
 
 **Lessons Learned:** The prior mobile reader fix solved the large layout bug, but the next real usability pain lived one level lower: the return control existed yet was not durable during long scroll sessions. The smallest good fix was to make the existing compact-reader affordance sticky rather than add another floating action or duplicate navigation control.
 
