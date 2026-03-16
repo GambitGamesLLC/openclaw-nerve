@@ -70,7 +70,7 @@ This work belongs in `gambit-openclaw-nerve` because it is a mobile layout and i
 **What We Built:** The top-level Plans surface now uses a reader-first mobile flow on phone-sized viewports. On compact portrait and landscape screens, tapping a plan hides the list and foregrounds the selected plan with a Back-to-plans affordance; on larger screens, the existing split list/reader layout remains intact.
 
 **Commits:**
-- `7392ec2` - Fix mobile plans reader flow
+- `7c14b4a` - Fix mobile plans reader flow
 
 **Lessons Learned:** Reusing the desktop split-pane layout inside the shared tab worked functionally, but it was the wrong interaction model for phone-height viewports. For surfaces that can appear both embedded and top-level, the shared component needs its own compact-selection behavior instead of assuming the surrounding shell will handle responsive foregrounding.
 
