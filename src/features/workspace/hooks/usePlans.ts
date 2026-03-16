@@ -15,13 +15,15 @@ export interface PlanDocument extends PlanSummary {
   content: string;
 }
 
+interface PlansSource {
+  id: string;
+  label: string;
+}
+
 interface PlansResponse {
   ok: boolean;
   plans?: PlanSummary[];
-  source?: {
-    id: string;
-    label: string;
-  };
+  source?: PlansSource;
   counts?: {
     total: number;
     active: number;
@@ -39,6 +41,7 @@ interface PlanReadResponse {
 export function usePlans(sourceId?: string) {
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [counts, setCounts] = useState({ total: 0, active: 0, archived: 0 });
+  const [source, setSource] = useState<PlansSource | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlanLoading, setIsPlanLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +93,7 @@ export function usePlans(sourceId?: string) {
       if (!data.ok || !data.plans) throw new Error(data.error || 'Failed to load plans');
 
       setPlans(data.plans);
+      setSource(data.source ?? null);
       setCounts(data.counts ?? { total: data.plans.length, active: data.plans.filter(plan => !plan.archived).length, archived: data.plans.filter(plan => plan.archived).length });
 
       const currentSelectedPath = selectedPathRef.current;
@@ -106,6 +110,7 @@ export function usePlans(sourceId?: string) {
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      setSource(null);
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
@@ -123,6 +128,7 @@ export function usePlans(sourceId?: string) {
   return {
     plans,
     counts,
+    source,
     selectedPath,
     selectedPlan,
     isLoading,

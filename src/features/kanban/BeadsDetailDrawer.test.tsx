@@ -65,6 +65,7 @@ describe('BeadsDetailDrawer', () => {
 
     await user.click(screen.getByRole('button', { name: /add to chat/i }));
     expect(onAddToChat).toHaveBeenCalledWith(`Bead context:
+- Source: ~/.openclaw
 - Title: Add richer Beads detail surface and verify live UX
 - ID: nerve-rfd`);
 

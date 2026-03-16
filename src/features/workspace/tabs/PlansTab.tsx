@@ -155,7 +155,7 @@ function PlanRow({
 }
 
 export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
-  const { plans, counts, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
+  const { plans, counts, source, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
   const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
   const [showCompactReader, setShowCompactReader] = useState(false);
@@ -396,7 +396,11 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
                       {onAddToChat && (
                         <button
                           type="button"
-                          onClick={() => onAddToChat(formatPlanAddToChat({ title: selectedPlan.title, path: selectedPlan.path }))}
+                          onClick={() => onAddToChat(formatPlanAddToChat({
+                            source: source?.label ?? sourceId ?? null,
+                            title: selectedPlan.title,
+                            path: selectedPlan.path,
+                          }))}
                           className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
                           title="Add this plan to the main chat composer"
                         >

@@ -5,6 +5,10 @@ import { PlansTab } from './PlansTab';
 
 const listResponse = {
   ok: true,
+  source: {
+    id: 'gambit-openclaw-nerve',
+    label: 'Gambit OpenClaw Nerve',
+  },
   plans: [
     {
       path: '.plans/2026-03-12-active.md',
@@ -125,6 +129,7 @@ describe('PlansTab', () => {
 
     await user.click(screen.getByRole('button', { name: /add to chat/i }));
     expect(onAddToChat).toHaveBeenCalledWith(`Plan context:
+- Source: Gambit OpenClaw Nerve
 - Title: Archived Plan
 - Path: .plans/archive/2026-03-01-old.md`);
   });

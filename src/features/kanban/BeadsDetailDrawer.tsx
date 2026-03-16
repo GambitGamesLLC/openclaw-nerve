@@ -265,7 +265,11 @@ export function BeadsDetailDrawer({
                         {onAddToChat && (
                           <button
                             type="button"
-                            onClick={() => onAddToChat(formatBeadAddToChat({ title: task.title, id: metadata.issueId }))}
+                            onClick={() => onAddToChat(formatBeadAddToChat({
+                              source: sourceLabel,
+                              title: task.title,
+                              id: metadata.issueId,
+                            }))}
                             className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
                           >
                             <MessageSquare size={11} />
