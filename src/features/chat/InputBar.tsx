@@ -27,6 +27,8 @@ export interface InputBarHandle {
 export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function InputBar({ onSend, isGenerating, onWakeWordState, agentName = 'Agent' }, ref) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deferredResizeFrameRef = useRef<number | null>(null);
+  const deferredResizeSettledFrameRef = useRef<number | null>(null);
   const [pendingImages, setPendingImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -71,6 +73,34 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     }, 500);
   }, []);
 
+  const scheduleDeferredResize = useCallback(() => {
+    if (deferredResizeFrameRef.current !== null) {
+      cancelAnimationFrame(deferredResizeFrameRef.current);
+    }
+    if (deferredResizeSettledFrameRef.current !== null) {
+      cancelAnimationFrame(deferredResizeSettledFrameRef.current);
+    }
+
+    deferredResizeFrameRef.current = requestAnimationFrame(() => {
+      resizeInput();
+      deferredResizeSettledFrameRef.current = requestAnimationFrame(() => {
+        resizeInput();
+        const input = inputRef.current;
+        if (!input) return;
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    });
+  }, [resizeInput]);
+
+  useEffect(() => () => {
+    if (deferredResizeFrameRef.current !== null) {
+      cancelAnimationFrame(deferredResizeFrameRef.current);
+    }
+    if (deferredResizeSettledFrameRef.current !== null) {
+      cancelAnimationFrame(deferredResizeSettledFrameRef.current);
+    }
+  }, []);
+
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
     focus: focusInput,
@@ -83,10 +113,11 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         : text;
       resizeInput();
       focusInput();
+      scheduleDeferredResize();
       input.setSelectionRange(input.value.length, input.value.length);
       resetTabCompletion();
     },
-  }), [focusInput, resetTabCompletion, resizeInput]);
+  }), [focusInput, resetTabCompletion, resizeInput, scheduleDeferredResize]);
 
   // Fetch current language for voice phrase matching
   const [voiceLang, setVoiceLang] = useState('en');
