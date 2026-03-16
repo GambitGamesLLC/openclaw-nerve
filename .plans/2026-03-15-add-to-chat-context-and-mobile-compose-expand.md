@@ -86,24 +86,35 @@ This work belongs in `gambit-openclaw-nerve` because both issues are local to th
 
 **Files Created/Deleted/Modified:**
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-15-add-to-chat-context-and-mobile-compose-expand.md`
-- files to be determined by implementation
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/InputBar.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/InputBar.test.tsx`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:**
+- Traced the current path as `PlansTab` / `BeadsDetailDrawer` → shared `format*AddToChat` helper → `App.addToChat()` → `ChatPanel.injectText()` → `InputBar.injectText()`.
+- Identified the mobile-specific failure mode: the textarea resized immediately while the chat panel was still hidden during the view switch, so the browser measured the injected draft at the old hidden width/one-line height. The composer only re-measured after manual typing.
+- Implemented the smallest durable fix in `InputBar.injectText()`: keep the existing immediate resize/focus, then schedule a double-`requestAnimationFrame` deferred resize so the textarea re-measures after the chat panel becomes visible and layout settles. The caret is restored at the end of the injected draft after the deferred pass.
+- Added a focused regression test that mocks `scrollHeight` changing between the immediate injection pass and the deferred post-layout pass, asserting the textarea height expands without manual typing.
+- Validation passed:
+  - `npm test -- --run src/features/chat/InputBar.test.tsx src/features/chat/addToChat.test.ts src/features/workspace/tabs/PlansTab.test.tsx src/features/kanban/BeadsDetailDrawer.test.tsx`
+  - `npm run build`
+- Commit:
+  - `4d76ca1` — `Expand composer after Add to Chat injection`
 
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** Completed the Add to Chat source/context payload improvement only. Plans and beads now inject concise source-aware context into chat; mobile composer expansion remains pending in Task 2.
+**What We Built:** `Add to Chat` now does both parts of the intended polish: plans and beads inject concise source-aware context into chat, and the composer visibly expands into its larger readable state immediately after injection on mobile instead of waiting for manual typing.
 
 **Commits:**
 - `2781322` - Add source context to Add to Chat payloads
+- `4d76ca1` - Expand composer after Add to Chat injection
 
-**Lessons Learned:** Keep Add to Chat payloads short, but include the repo/source on the first metadata line so copied or injected context still makes sense once it leaves its originating panel.
+**Lessons Learned:** When injected text lands while a panel is hidden, the first textarea auto-size pass can measure against the wrong layout. A targeted post-layout resize is enough to keep the uncontrolled composer behavior intact without broadening scope.
 
 ---
 
