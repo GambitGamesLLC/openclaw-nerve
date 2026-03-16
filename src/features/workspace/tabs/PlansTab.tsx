@@ -224,6 +224,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
   }, [requestedPlanPath, plans, selectedPath, loadPlan, sourceId]);
 
   const compactReaderActive = compactViewport && showCompactReader;
+  const showPlansChrome = !compactReaderActive;
   const showPlanList = !compactReaderActive;
   const showPlanReader = !compactViewport || compactReaderActive;
 
@@ -238,7 +239,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      {showHeader && (
+      {showPlansChrome && showHeader && (
         <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/40">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/90">
@@ -259,17 +260,19 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
         </div>
       )}
 
-      <div className="px-3 py-2 border-b border-border/40">
-        <label className="relative block">
-          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search plans, paths, or bead IDs"
-            className="w-full rounded-md border border-border/50 bg-background px-8 py-2 text-xs outline-none focus:border-purple/40"
-          />
-        </label>
-      </div>
+      {showPlansChrome && (
+        <div className="px-3 py-2 border-b border-border/40">
+          <label className="relative block">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search plans, paths, or bead IDs"
+              className="w-full rounded-md border border-border/50 bg-background px-8 py-2 text-xs outline-none focus:border-purple/40"
+            />
+          </label>
+        </div>
+      )}
 
       <div className={`flex-1 min-h-0 ${compactViewport ? 'flex flex-col' : 'grid grid-rows-[minmax(220px,38%)_minmax(0,1fr)]'}`}>
         {showPlanList && (

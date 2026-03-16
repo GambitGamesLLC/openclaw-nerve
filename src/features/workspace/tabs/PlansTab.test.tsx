@@ -210,6 +210,9 @@ describe('PlansTab', () => {
     const backButton = await screen.findByRole('button', { name: /back to plans list/i });
     expect(backButton).toBeInTheDocument();
     expect(backButton.parentElement).toHaveClass('sticky', 'top-0');
+    expect(screen.queryByText(/^Plans$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search plans, paths, or bead ids/i)).not.toBeInTheDocument();
     expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
 
@@ -228,7 +231,24 @@ describe('PlansTab', () => {
     await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
 
     expect(await screen.findByRole('button', { name: /back to plans list/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^Plans$/i)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search plans, paths, or bead ids/i)).not.toBeInTheDocument();
     expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the plans header and search visible on desktop while previewing', async () => {
+    const user = userEvent.setup();
+
+    render(<PlansTab />);
+
+    await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
+
+    expect(screen.getByText(/^Plans$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/search plans, paths, or bead ids/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /back to plans list/i })).not.toBeInTheDocument();
+    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /active plan/i })).toBeInTheDocument();
   });
 });
