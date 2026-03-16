@@ -128,17 +128,28 @@ Extra evidence: Bead creation in this repo is currently broken for the same sche
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Plans complete
 
-**What We Built:** Diagnosed the post-restore Beads + Plans report, repaired the broken repo-local Beads source, and confirmed the top-level Nerve Beads board for `gambit-openclaw-nerve` is healthy again. The Beads failure was a source-local Dolt schema mismatch: the DB claimed `schema_version=7` but was still missing `no_history` on `issues` and `wisps`, so `bd 0.61.0` could not read or write the source. After adding those columns directly in the repo-local Dolt DB and committing the schema change there, `bd export`, `bd ready`, bead creation/closure, and the Nerve board endpoint all worked again.
+**What We Built:** The Plans track is now complete and verified. The top-level Plans surface uses a focused-reader flow on both desktop and mobile: opening a plan promotes it to the primary reader surface, hides the list/header/search/source chrome, preserves linked tasks/editing/Add to Chat behavior inside the reader, and keeps a sticky **Back to plans** action for list recovery.
 
-The Plans work remains a separate track. Desktop split view was not a restore regression, while the mobile wrapper chrome issue was a genuine implementation gap already being addressed elsewhere in this plan.
+This was implemented as the smallest durable change in the existing Plans surface by extending the already-shipped reader-first state instead of inventing a new modal system. Desktop no longer uses the old split lower-half preview when you open a plan from top-level Plans.
+
+**Exact files changed for the Plans track:**
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/tabs/PlansTab.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/tabs/PlansTab.test.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/plans/PlansPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/plans/PlansPanel.test.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-16-post-restore-beads-and-mobile-plans-regressions.md`
+
+**Validation:**
+- `npm test -- --run src/features/plans/PlansPanel.test.tsx src/features/workspace/tabs/PlansTab.test.tsx`
+- `npm run build`
 
 **Commits:**
-- No git commit from this task run.
 - Repo-local Dolt commit (ignored runtime data): `4t2vptijt2a8sensrlvhv0f6sad3rku2` - `schema: add missing no_history columns`
+- Git commit for the Plans desktop/mobile reader fix: pending in this task run until the verified UI/test changes are staged and committed.
 
-**Lessons Learned:** A stored Beads schema version is not trustworthy by itself; the actual Dolt tables can still be stale. For this incident, Nerve was correctly surfacing a backend/source failure, and the smallest correct repair was in the source DB, while the underlying version-gating bug should be fixed upstream in Beads.
+**Lessons Learned:** The lowest-risk desktop fix was to reuse the same reader-first state machine already working on mobile, which kept source switching, plan deep links, Add to Chat, and return-to-list behavior coherent without adding another navigation system.
 
 ---
 

@@ -114,6 +114,9 @@ describe('PlansTab', () => {
 
     const activePlanButton = await screen.findByRole('button', { name: /active plan/i });
     expect(activePlanButton).toBeInTheDocument();
+
+    await user.click(activePlanButton);
+
     expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
     expect(screen.getByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).toBeInTheDocument();
     expect((await screen.findAllByRole('button', { name: 'nerve-413' })).length).toBeGreaterThan(0);
@@ -148,7 +151,8 @@ describe('PlansTab', () => {
 
     expect(await screen.findByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /manual pass plan/i }));
+    await user.click(screen.getByRole('button', { name: /back to plans list/i }));
+    await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
 
     expect(await screen.findByText(/Execution is now authorized\. Follow-up beads include nerve-010 and nerve-ip6\./i)).toBeInTheDocument();
     expect(screen.queryByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).not.toBeInTheDocument();
@@ -237,18 +241,28 @@ describe('PlansTab', () => {
     expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
   });
 
-  it('keeps the plans header and search visible on desktop while previewing', async () => {
+  it('uses the same focused reader flow on desktop while preserving return to list', async () => {
     const user = userEvent.setup();
 
     render(<PlansTab />);
 
     await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
 
+    const backButton = await screen.findByRole('button', { name: /back to plans list/i });
+    expect(backButton).toBeInTheDocument();
+    expect(backButton.parentElement).toHaveClass('sticky', 'top-0');
+    expect(screen.queryByText(/^Plans$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search plans, paths, or bead ids/i)).not.toBeInTheDocument();
+    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
+
+    await user.click(backButton);
+
+    expect(await screen.findByRole('button', { name: /active plan/i })).toBeInTheDocument();
+    expect(screen.queryByText('Linked tasks')).not.toBeInTheDocument();
     expect(screen.getByText(/^Plans$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search plans, paths, or bead ids/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /back to plans list/i })).not.toBeInTheDocument();
-    expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /active plan/i })).toBeInTheDocument();
   });
 });

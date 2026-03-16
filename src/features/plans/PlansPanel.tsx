@@ -22,6 +22,7 @@ interface PlansPanelProps {
 }
 
 export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath = null, requestedSourceId = null }: PlansPanelProps) {
+  const [compactReaderActive, setCompactReaderActive] = useState(false);
   const {
     sources,
     selectedSourceId,
@@ -81,7 +82,8 @@ export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanP
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background">
-      <div className="shrink-0 px-4 pt-3 pb-2 space-y-2 border-b border-border/40">
+      {!compactReaderActive && (
+        <div className="shrink-0 px-4 pt-3 pb-2 space-y-2 border-b border-border/40">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-sm font-bold text-foreground tracking-wide uppercase inline-flex items-center gap-2">
             <FileText size={16} />
@@ -134,6 +136,7 @@ export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanP
               : 'Select a tracked repo source to browse plans.'}
         </div>
       </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-hidden">
         <PlansTab
@@ -143,6 +146,7 @@ export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanP
           requestedPlanPath={requestedPlanPath}
           sourceId={selectedSourceId || undefined}
           showHeader={false}
+          onCompactReaderActiveChange={setCompactReaderActive}
         />
       </div>
 

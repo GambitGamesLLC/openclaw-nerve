@@ -11,6 +11,7 @@ interface PlansTabProps {
   requestedPlanPath?: string | null;
   sourceId?: string;
   showHeader?: boolean;
+  onCompactReaderActiveChange?: (active: boolean) => void;
 }
 
 function formatRelativeTime(value: number): string {
@@ -154,7 +155,7 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath, sourceId, showHeader = true }: PlansTabProps) {
+export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath, sourceId, showHeader = true, onCompactReaderActiveChange }: PlansTabProps) {
   const { plans, counts, source, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
   const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
@@ -201,12 +202,6 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
   }, []);
 
   useEffect(() => {
-    if (!compactViewport) {
-      setShowCompactReader(false);
-    }
-  }, [compactViewport]);
-
-  useEffect(() => {
     if (!requestedPlanPath) {
       handledRequestedSelectionRef.current = null;
       return;
@@ -223,10 +218,17 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
     }
   }, [requestedPlanPath, plans, selectedPath, loadPlan, sourceId]);
 
-  const compactReaderActive = compactViewport && showCompactReader;
-  const showPlansChrome = !compactReaderActive;
-  const showPlanList = !compactReaderActive;
-  const showPlanReader = !compactViewport || compactReaderActive;
+  const focusedReaderActive = showCompactReader;
+  const showPlansChrome = !focusedReaderActive;
+
+  useEffect(() => {
+    onCompactReaderActiveChange?.(focusedReaderActive);
+    return () => {
+      onCompactReaderActiveChange?.(false);
+    };
+  }, [focusedReaderActive, onCompactReaderActiveChange]);
+  const showPlanList = !focusedReaderActive;
+  const showPlanReader = focusedReaderActive;
 
   function handleOpenPlanReference(path: string) {
     if (plans.some((plan) => plan.path === path)) {
@@ -274,7 +276,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 ${compactViewport ? 'flex flex-col' : 'grid grid-rows-[minmax(220px,38%)_minmax(0,1fr)]'}`}>
+      <div className="flex-1 min-h-0 flex flex-col">
         {showPlanList && (
           <div className={`overflow-y-auto px-2 py-2 space-y-3 ${compactViewport ? '' : 'border-b border-border/40'}`}>
             {error && !plans.length && (
@@ -340,7 +342,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
 
             {(selectedPlan || isPlanLoading) && (
               <div className="px-4 py-3">
-                {compactViewport && (
+                {focusedReaderActive && (
                   <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border/30 bg-background/95 px-4 pb-2 pt-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                     <button
                       type="button"
