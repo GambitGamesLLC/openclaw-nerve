@@ -186,11 +186,13 @@ describe('PlansTab', () => {
 
     await user.click(manualPassPlan);
 
-    expect(await screen.findByRole('button', { name: /back to plans list/i })).toBeInTheDocument();
+    const backButton = await screen.findByRole('button', { name: /back to plans list/i });
+    expect(backButton).toBeInTheDocument();
+    expect(backButton.parentElement).toHaveClass('sticky', 'top-0');
     expect(await screen.findByText('Linked tasks')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /active plan/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /back to plans list/i }));
+    await user.click(backButton);
 
     expect(await screen.findByRole('button', { name: /active plan/i })).toBeInTheDocument();
     expect(screen.queryByText('Linked tasks')).not.toBeInTheDocument();

@@ -329,15 +329,17 @@ export function PlansTab({ onOpenPath, onOpenTask, requestedPlanPath, sourceId, 
             {(selectedPlan || isPlanLoading) && (
               <div className="px-4 py-3">
                 {compactViewport && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCompactReader(false)}
-                    className="mb-3 inline-flex items-center gap-1 rounded-sm border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
-                    aria-label="Back to plans list"
-                  >
-                    <ArrowLeft size={11} />
-                    Back to plans
-                  </button>
+                  <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border/30 bg-background/95 px-4 pb-2 pt-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompactReader(false)}
+                      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer"
+                      aria-label="Back to plans list"
+                    >
+                      <ArrowLeft size={11} />
+                      Back to plans
+                    </button>
+                  </div>
                 )}
 
                 {selectedPlan && (
