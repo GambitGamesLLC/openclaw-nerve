@@ -1,7 +1,7 @@
 # Nerve mobile Plans navigation polish + Add to Chat concept
 
 **Date:** 2026-03-15  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -55,25 +55,44 @@ A better interaction model may be an `Add to Chat` affordance for plans and bead
 
 **Files Created/Deleted/Modified:**
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-15-mobile-plans-back-button-and-add-to-chat.md`
-- files to be determined by implementation
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/App.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/ChatPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/InputBar.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/addToChat.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/chat/addToChat.test.ts`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/BeadsDetailDrawer.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/BeadsDetailDrawer.test.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/kanban/KanbanPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/plans/PlansPanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/WorkspacePanel.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/tabs/PlansTab.tsx`
+- `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/src/features/workspace/tabs/PlansTab.test.tsx`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Replaced the misleading plan-side `Open in Nerve` CTA with an explicit `Add to Chat` action and added a matching bead-side `Add to Chat` action in the Beads detail drawer. Both now share a tiny formatter helper in `src/features/chat/addToChat.ts` so the inserted composer payloads stay consistent: plans inject `Plan context` with title + path, while beads inject `Bead context` with title + ID. I kept existing navigation behavior intact where it was already useful (`Open in Plans`, linked bead buttons, inline path/task references) and limited this slice to contextual chat injection rather than broader workflow redesign.
+
+On the wiring side, `App` now passes a shared `addToChat` callback through the Plans and Beads surfaces into the main chat panel. `ChatPanel`/`InputBar` gained a small imperative `injectText` path so add-to-chat can append to any existing draft instead of overwriting it, resize the textarea, and focus the composer. Focused tests cover the formatter helper plus both UI entry points (`PlansTab` and `BeadsDetailDrawer`). Validation passed with `npm test -- --run src/features/chat/addToChat.test.ts src/features/workspace/tabs/PlansTab.test.tsx src/features/kanban/BeadsDetailDrawer.test.tsx` and `npm run build`. Main implementation committed as `b25203a` (`Add plan and bead context to chat composer`); this plan update documents the exact scope and validation.
 
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** Completed the scoped back-affordance slice only. The compact/mobile Plans reader now keeps a persistent `Back to plans` control pinned at the top of the scrolling reader so long plans do not strand the user far from the list. Desktop/tablet behavior remains the existing split view. The separate `Add to Chat` / `Open in Nerve` refinement remains intentionally untouched in this slice.
+**What We Built:** Finished both scoped UX slices from this plan. The compact/mobile Plans reader keeps a persistent `Back to plans` affordance pinned at the top while reading. Separately, the old plan-side `Open in Nerve` action was replaced with an explicit `Add to Chat` flow, and beads now expose the same `Add to Chat` affordance from the Beads detail drawer. Both actions inject practical artifact context into the main composer without destroying an in-progress draft: plans add title + path, beads add title + bead ID. Existing navigation affordances such as linked bead buttons and `Open in Plans` remain intact.
 
 **Commits:**
 - `263306a` - Fix mobile Plans back affordance persistence
 - `c470496` - Document mobile Plans back affordance slice
+- `b25203a` - Add plan and bead context to chat composer
 
-**Lessons Learned:** The prior mobile reader fix solved the large layout bug, but the next real usability pain lived one level lower: the return control existed yet was not durable during long scroll sessions. The smallest good fix was to make the existing compact-reader affordance sticky rather than add another floating action or duplicate navigation control.
+**Validation:**
+- `npm test -- --run src/features/workspace/tabs/PlansTab.test.tsx`
+- `npm test -- --run src/features/chat/addToChat.test.ts src/features/workspace/tabs/PlansTab.test.tsx src/features/kanban/BeadsDetailDrawer.test.tsx`
+- `npm run build`
+
+**Lessons Learned:** The right follow-up to the weak `Open in Nerve` label was not a bigger navigation system; it was a simple shared injection path into the composer. That kept the slice practical, preserved existing useful navigation, and made plans/beads feel like reusable chat context instead of dead-end links.
 
 ---
 
