@@ -141,6 +141,19 @@ describe('PlansTab', () => {
     expect(screen.getAllByText('.plans/archive/2026-03-01-old.md').length).toBeGreaterThan(0);
   });
 
+  it('lets manual selection win after an external requested plan is opened', async () => {
+    const user = userEvent.setup();
+
+    render(<PlansTab requestedPlanPath=".plans/2026-03-12-active.md" />);
+
+    expect(await screen.findByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /manual pass plan/i }));
+
+    expect(await screen.findByText(/Execution is now authorized\. Follow-up beads include nerve-010 and nerve-ip6\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/See nerve-413, \.plans\/archive\/2026-03-01-old\.md/i)).not.toBeInTheDocument();
+  });
+
   it('filters plans by bead id search', async () => {
     const user = userEvent.setup();
 

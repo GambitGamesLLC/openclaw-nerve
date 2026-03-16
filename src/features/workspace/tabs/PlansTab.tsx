@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { formatPlanAddToChat } from '@/features/chat/addToChat';
@@ -159,6 +159,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
   const [search, setSearch] = useState('');
   const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
   const [showCompactReader, setShowCompactReader] = useState(false);
+  const handledRequestedSelectionRef = useRef<string | null>(null);
 
   const filteredPlans = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -206,15 +207,21 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
   }, [compactViewport]);
 
   useEffect(() => {
-    if (!requestedPlanPath) return;
-    if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
-    if (selectedPath === requestedPlanPath) {
-      setShowCompactReader(true);
+    if (!requestedPlanPath) {
+      handledRequestedSelectionRef.current = null;
       return;
     }
+
+    const requestedSelectionKey = `${sourceId ?? ''}::${requestedPlanPath}`;
+    if (handledRequestedSelectionRef.current === requestedSelectionKey) return;
+    if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
+
+    handledRequestedSelectionRef.current = requestedSelectionKey;
     setShowCompactReader(true);
-    void loadPlan(requestedPlanPath);
-  }, [requestedPlanPath, plans, selectedPath, loadPlan]);
+    if (selectedPath !== requestedPlanPath) {
+      void loadPlan(requestedPlanPath);
+    }
+  }, [requestedPlanPath, plans, selectedPath, loadPlan, sourceId]);
 
   const compactReaderActive = compactViewport && showCompactReader;
   const showPlanList = !compactReaderActive;
