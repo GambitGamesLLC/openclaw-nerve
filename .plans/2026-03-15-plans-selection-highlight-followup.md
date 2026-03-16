@@ -58,7 +58,7 @@ The issue turned out not to be stale row styling by itself. It was a state-sync 
 **What We Built:** A durable fix for the Plans selection/highlight bug by preventing stale `requestedPlanPath` state from overriding manual plan selection after the initial external open.
 
 **Commits:**
-- `b634995` - Fix Plans selection highlight state after requested opens
+- `270b045` - Fix Plans selection highlight state after requested opens
 
 **Lessons Learned:** In mixed controlled/uncontrolled selection flows, external navigation props should usually behave like one-shot synchronization events unless the parent explicitly changes them again. Rebinding them to local selection changes causes the UI to look like styling is stale when the real bug is state being reapplied.
 
