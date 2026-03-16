@@ -70,7 +70,7 @@ A better interaction model may be an `Add to Chat` affordance for plans and bead
 **What We Built:** Completed the scoped back-affordance slice only. The compact/mobile Plans reader now keeps a persistent `Back to plans` control pinned at the top of the scrolling reader so long plans do not strand the user far from the list. Desktop/tablet behavior remains the existing split view. The separate `Add to Chat` / `Open in Nerve` refinement remains intentionally untouched in this slice.
 
 **Commits:**
-- Pending commit hash for the back-affordance change.
+- `263306a` - Fix mobile Plans back affordance persistence
 
 **Lessons Learned:** The prior mobile reader fix solved the large layout bug, but the next real usability pain lived one level lower: the return control existed yet was not durable during long scroll sessions. The smallest good fix was to make the existing compact-reader affordance sticky rather than add another floating action or duplicate navigation control.
 
