@@ -70,7 +70,7 @@ This work belongs in `gambit-openclaw-nerve` because both issues are local to th
   - `npm test -- --run src/features/chat/addToChat.test.ts src/features/workspace/tabs/PlansTab.test.tsx src/features/kanban/BeadsDetailDrawer.test.tsx`
   - `npm run build`
 - Commit:
-  - `c4d4461` — `Add source context to Add to Chat payloads`
+  - `2781322` — `Add source context to Add to Chat payloads`
 
 ---
 
@@ -101,7 +101,7 @@ This work belongs in `gambit-openclaw-nerve` because both issues are local to th
 **What We Built:** Completed the Add to Chat source/context payload improvement only. Plans and beads now inject concise source-aware context into chat; mobile composer expansion remains pending in Task 2.
 
 **Commits:**
-- `c4d4461` - Add source context to Add to Chat payloads
+- `2781322` - Add source context to Add to Chat payloads
 
 **Lessons Learned:** Keep Add to Chat payloads short, but include the repo/source on the first metadata line so copied or injected context still makes sense once it leaves its originating panel.
 
