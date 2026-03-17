@@ -359,7 +359,7 @@ Rollout intent:
   - `nerve-jk9` -> `nerve-6n2` -> `nerve-ufi`
 
 **Commits:**
-- Pending closeout commit in this repo (to be filled during finalization pass)
+- `e8369ce` - feat(chat): add env-gated two-mode upload flow
 
 **Lessons Learned / Follow-up:**
 - The code-level two-mode upload slice is complete behind env flags, but operational rollout still needs a follow-up bead in `~/.openclaw/workspace` to update `scripts/restore.sh` so restored runtime `.env` templates expose and/or preserve the new Nerve upload flags consistently.
