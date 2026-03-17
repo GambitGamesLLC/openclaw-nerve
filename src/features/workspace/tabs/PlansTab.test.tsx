@@ -213,7 +213,7 @@ describe('PlansTab', () => {
 
     const backButton = await screen.findByRole('button', { name: /back to plans list/i });
     expect(backButton).toBeInTheDocument();
-    expect(backButton.parentElement).toHaveClass('sticky', 'top-0');
+    expect(backButton.closest('.sticky')).toHaveClass('sticky', 'top-0');
     expect(screen.queryByText(/^Plans$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/search plans, paths, or bead ids/i)).not.toBeInTheDocument();
@@ -250,7 +250,7 @@ describe('PlansTab', () => {
 
     const backButton = await screen.findByRole('button', { name: /back to plans list/i });
     expect(backButton).toBeInTheDocument();
-    expect(backButton.parentElement).toHaveClass('sticky', 'top-0');
+    expect(backButton.closest('.sticky')).toHaveClass('sticky', 'top-0');
     expect(screen.queryByText(/^Plans$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/search plans, paths, or bead ids/i)).not.toBeInTheDocument();
@@ -264,5 +264,40 @@ describe('PlansTab', () => {
     expect(screen.getByText(/^Plans$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search plans, paths, or bead ids/i)).toBeInTheDocument();
+  });
+
+  it('uses a desktop drawer reader for top-level plans mode while keeping the list visible', async () => {
+    const user = userEvent.setup();
+    const onAddToChat = vi.fn();
+
+    render(<PlansTab desktopReaderMode="drawer" onAddToChat={onAddToChat} />);
+
+    await user.click(await screen.findByRole('button', { name: /manual pass plan/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /plan details/i });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveClass('fixed', 'top-0', 'right-0', 'h-full');
+    expect(screen.getByText(/^Plans$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/search plans, paths, or bead ids/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /active plan/i })).toBeInTheDocument();
+    const closeDrawerButton = within(dialog).getByRole('button', { name: /close plan drawer/i });
+    const addToChatButton = within(dialog).getByRole('button', { name: /add to chat/i });
+    expect(closeDrawerButton).toBeInTheDocument();
+    expect(addToChatButton).toBeInTheDocument();
+    expect(closeDrawerButton.closest('.sticky')).toHaveClass('sticky', 'top-0', 'bg-background');
+    expect(within(dialog).getByText('Linked tasks')).toBeInTheDocument();
+
+    await user.click(addToChatButton);
+    expect(onAddToChat).toHaveBeenCalledWith(`Plan context:
+- Source: Gambit OpenClaw Nerve
+- Title: Manual Pass Plan
+- Path: .plans/2026-03-14-manual-pass.md`);
+
+    await user.click(within(dialog).getByRole('button', { name: /close plan drawer/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /plan details/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /manual pass plan/i })).toBeInTheDocument();
   });
 });

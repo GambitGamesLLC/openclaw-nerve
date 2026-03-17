@@ -14,6 +14,7 @@ import { getSessionKey } from '@/types';
 import { useConnectionManager } from '@/hooks/useConnectionManager';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useGatewayRestart } from '@/hooks/useGatewayRestart';
+import { usePlanReferenceSummaries } from '@/features/workspace/hooks/usePlanReferenceSummaries';
 import { ConnectDialog } from '@/features/connect/ConnectDialog';
 import { TopBar } from '@/components/TopBar';
 import { StatusBar } from '@/components/StatusBar';
@@ -153,6 +154,7 @@ export default function App({ onLogout }: AppProps) {
 
   // Dashboard data (extracted hook) — single SSE connection handles all events
   const { memories, memoriesLoading, tokenData, refreshMemories } = useDashboardData({ onFileChanged });
+  const { plans: referencePlans, sourceId: referencePlanSourceId } = usePlanReferenceSummaries();
 
   // UI state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -462,6 +464,9 @@ export default function App({ onLogout }: AppProps) {
             loadMore={loadMore}
             hasMore={hasMore}
             onToggleFileBrowser={isCompactLayout && fileBrowserCollapsed ? handleToggleFileBrowser : undefined}
+            referencePlans={referencePlans}
+            onOpenTaskReference={openTaskInBoard}
+            onOpenPlanReference={(planPath) => openPlanInWorkspace(planPath, referencePlanSourceId)}
           />
         </PanelErrorBoundary>
       }
@@ -493,7 +498,7 @@ export default function App({ onLogout }: AppProps) {
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
           <PanelErrorBoundary name="Workspace">
-            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
+            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} requestedPlanSourceId={requestedPlanSourceId} />
           </PanelErrorBoundary>
         </div>
       </div>
@@ -526,7 +531,7 @@ export default function App({ onLogout }: AppProps) {
   const compactWorkspacePanel = (
     <Suspense fallback={<div className="p-4 text-muted-foreground text-xs">Loading workspace…</div>}>
       <PanelErrorBoundary name="Workspace">
-        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} />
+        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} onOpenPath={openWorkspacePath} onAddToChat={addToChat} boardLabel={workflowShell.navigationLabel} requestedTab={requestedWorkspaceTab} requestedPlanPath={requestedPlanPath} requestedPlanSourceId={requestedPlanSourceId} />
       </PanelErrorBoundary>
     </Suspense>
   );

@@ -122,21 +122,22 @@ export function renderInlineReferences(text: string, options: InlineReferenceOpt
     const { leading, core, trailing } = splitToken(token);
     if (leading) out.push(leading);
 
-    const plan = isPlanPath(core) ? plans.find((entry) => entry.path === core) : null;
+    const isPlanReference = isPlanPath(core);
+    const plan = isPlanReference ? plans.find((entry) => entry.path === core) : null;
 
-    if (plan && onOpenPlanReference) {
+    if (isPlanReference && onOpenPlanReference) {
       out.push(
         <button
           key={`plan-${index}-${core}`}
           type="button"
           className="inline rounded-sm border border-purple/20 bg-purple/10 px-1 py-0 font-mono text-[0.92em] text-purple hover:bg-purple/15 cursor-pointer"
           onClick={() => onOpenPlanReference(core)}
-          title={planHoverTitle(plan)}
+          title={plan ? planHoverTitle(plan) : `Open ${core} inside Nerve`}
         >
           {highlightText(core, searchQuery)}
         </button>,
       );
-    } else if (isPlanPath(core) && onOpenPath) {
+    } else if (isPlanReference && onOpenPath) {
       out.push(
         <button
           key={`plan-path-${index}-${core}`}

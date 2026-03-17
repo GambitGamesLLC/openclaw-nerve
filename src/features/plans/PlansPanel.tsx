@@ -147,6 +147,7 @@ export function PlansPanel({ onOpenPath, onOpenTask, onAddToChat, requestedPlanP
           sourceId={selectedSourceId || undefined}
           showHeader={false}
           onCompactReaderActiveChange={setCompactReaderActive}
+          desktopReaderMode="drawer"
         />
       </div>
 

@@ -4,6 +4,7 @@ import { ImageLightbox } from './ImageLightbox';
 import { isMessageCollapsible } from './types';
 import { decodeHtmlEntities } from '@/lib/formatting';
 import { isStructuredMarkdown } from '@/lib/text/isStructuredMarkdown';
+import type { ReferencePlanSummary } from '@/features/markdown/inlineReferences';
 import type { ChatMsg } from './types';
 
 // Lazy-load markdown renderer (includes highlight.js)
@@ -43,6 +44,9 @@ interface MessageBubbleProps {
   searchQuery?: string;
   isCurrentMatch?: boolean;
   agentName?: string;
+  referencePlans?: ReferencePlanSummary[];
+  onOpenTaskReference?: (taskId: string) => void;
+  onOpenPlanReference?: (path: string) => void;
 }
 
 const borderClass = (role: string) => {
@@ -71,7 +75,7 @@ function RoleBadge({ role, agentName = 'Agent' }: { role: string; agentName?: st
   return <span className="text-[9px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-sm bg-muted-foreground/20 text-muted-foreground">SYSTEM</span>;
 }
 
-function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memoryKey, onToggleCollapse, onToggleMemory, firstMessageTime, searchQuery, isCurrentMatch, agentName }: MessageBubbleProps) {
+function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memoryKey, onToggleCollapse, onToggleMemory, firstMessageTime, searchQuery, isCurrentMatch, agentName, referencePlans = [], onOpenTaskReference, onOpenPlanReference }: MessageBubbleProps) {
   const isUser = msg.role === 'user';
   const isAssistant = msg.role === 'assistant';
   const isSystem = msg.role === 'system' || msg.role === 'event';
@@ -188,7 +192,13 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
         {!isCollapsed && (
           <div className="text-purple-300/60 text-[12px] px-2 pb-2 pl-7 border-l border-purple-500/10 ml-2 msg-body-intermediate">
             <Suspense fallback={<span className="text-muted-foreground text-xs">…</span>}>
-              <MarkdownRenderer content={msg.rawText} searchQuery={searchQuery} />
+              <MarkdownRenderer
+                content={msg.rawText}
+                searchQuery={searchQuery}
+                plans={referencePlans}
+                onOpenTask={onOpenTaskReference}
+                onOpenPlanReference={onOpenPlanReference}
+              />
             </Suspense>
           </div>
         )}
@@ -218,7 +228,14 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
           ) : (
             <div className="text-muted-foreground/70 text-[12px] flex-1 min-w-0 msg-body-intermediate">
               <Suspense fallback={<span className="text-muted-foreground text-xs">…</span>}>
-                <MarkdownRenderer content={displayContent} searchQuery={searchQuery} suppressImages={isAssistant} />
+                <MarkdownRenderer
+                  content={displayContent}
+                  searchQuery={searchQuery}
+                  suppressImages={isAssistant}
+                  plans={referencePlans}
+                  onOpenTask={onOpenTaskReference}
+                  onOpenPlanReference={onOpenPlanReference}
+                />
               </Suspense>
             </div>
           )}
@@ -284,7 +301,14 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
             )}
             {displayContent && (
               <Suspense fallback={<div className="text-muted-foreground text-xs">Loading…</div>}>
-                <MarkdownRenderer content={displayContent} searchQuery={searchQuery} suppressImages={isAssistant} />
+                <MarkdownRenderer
+                  content={displayContent}
+                  searchQuery={searchQuery}
+                  suppressImages={isAssistant}
+                  plans={referencePlans}
+                  onOpenTask={onOpenTaskReference}
+                  onOpenPlanReference={onOpenPlanReference}
+                />
               </Suspense>
             )}
           </div>
@@ -377,6 +401,11 @@ export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
   
   // Agent name (rare change but must re-render when it does)
   if (prev.agentName !== next.agentName) return false;
+
+  // Reference navigation props
+  if (prev.onOpenTaskReference !== next.onOpenTaskReference) return false;
+  if (prev.onOpenPlanReference !== next.onOpenPlanReference) return false;
+  if (prev.referencePlans !== next.referencePlans) return false;
   
   // All relevant props are equal, skip re-render
   return true;

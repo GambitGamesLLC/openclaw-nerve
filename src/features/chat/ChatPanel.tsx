@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { ProcessingStage, ActivityLogEntry, ChatStreamState } from '@/contexts/ChatContext';
+import type { ReferencePlanSummary } from '@/features/markdown/inlineReferences';
 import { ToolCallBlock } from './ToolCallBlock';
 import { MessageBubble } from './MessageBubble';
 import { InputBar, type InputBarHandle } from './InputBar';
@@ -35,6 +36,12 @@ interface ChatPanelProps {
   hasMore?: boolean;
   /** Mobile file browser toggle handler */
   onToggleFileBrowser?: () => void;
+  /** Plan summaries used for inline bead/plan references in chat messages. */
+  referencePlans?: ReferencePlanSummary[];
+  /** Open a bead/task destination from an inline chat reference. */
+  onOpenTaskReference?: (taskId: string) => void;
+  /** Open a plan destination from an inline chat reference. */
+  onOpenPlanReference?: (planPath: string) => void;
 }
 
 export interface ChatPanelHandle {
@@ -50,6 +57,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
   lastEventTimestamp = 0, currentToolDescription = null, activityLog = [],
   onWakeWordState, onReset, searchOpen, onSearchClose, id, agentName = 'Agent',
   loadMore, hasMore = false, onToggleFileBrowser,
+  referencePlans = [], onOpenTaskReference, onOpenPlanReference,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -321,6 +329,9 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
                 searchQuery={search.query}
                 isCurrentMatch={isCurrentMatch}
                 agentName={agentName}
+                referencePlans={referencePlans}
+                onOpenTaskReference={onOpenTaskReference}
+                onOpenPlanReference={onOpenPlanReference}
               />
             </div>
           );

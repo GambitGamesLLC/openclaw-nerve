@@ -63,7 +63,11 @@ describe('BeadsDetailDrawer', () => {
     expect(screen.getByText('.plans/archive/2026-03-12-nerve-usability.md')).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /add to chat/i }));
+    const addToChatButton = screen.getByRole('button', { name: /add to chat/i });
+    const closeButton = screen.getByRole('button', { name: /close drawer/i });
+    expect(addToChatButton.parentElement).toBe(closeButton.parentElement);
+
+    await user.click(addToChatButton);
     expect(onAddToChat).toHaveBeenCalledWith(`Bead context:
 - Source: ~/.openclaw
 - Title: Add richer Beads detail surface and verify live UX

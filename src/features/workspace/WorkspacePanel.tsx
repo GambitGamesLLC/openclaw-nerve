@@ -82,9 +82,10 @@ interface WorkspacePanelProps {
   boardLabel?: 'Tasks' | 'Beads';
   requestedTab?: TabId | null;
   requestedPlanPath?: string | null;
+  requestedPlanSourceId?: string | null;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath, onAddToChat, boardLabel = 'Tasks', requestedTab = null, requestedPlanPath = null }: WorkspacePanelProps) {
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask, onOpenPath, onAddToChat, boardLabel = 'Tasks', requestedTab = null, requestedPlanPath = null, requestedPlanSourceId = null }: WorkspacePanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
   const { activeCount } = useCrons();
 
@@ -135,7 +136,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         </div>
         <div className={activeTab === 'plans' ? 'h-full' : 'hidden'} hidden={activeTab !== 'plans'} role="tabpanel" id="workspace-tabpanel-plans" aria-labelledby="workspace-tab-plans">
           {visitedTabs.has('plans') && (
-            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} onAddToChat={onAddToChat} requestedPlanPath={requestedPlanPath} />
+            <PlansTab onOpenPath={onOpenPath} onOpenTask={onOpenTask} onAddToChat={onAddToChat} requestedPlanPath={requestedPlanPath} sourceId={requestedPlanSourceId ?? undefined} />
           )}
         </div>
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">

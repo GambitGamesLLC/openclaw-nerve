@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowUpRight, FileText, FolderArchive, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, FileText, FolderArchive, RefreshCw, Search, X } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { formatPlanAddToChat } from '@/features/chat/addToChat';
 import { usePlans, type PlanSummary } from '../hooks/usePlans';
@@ -12,6 +12,7 @@ interface PlansTabProps {
   sourceId?: string;
   showHeader?: boolean;
   onCompactReaderActiveChange?: (active: boolean) => void;
+  desktopReaderMode?: 'focused' | 'drawer';
 }
 
 function formatRelativeTime(value: number): string {
@@ -155,11 +156,152 @@ function PlanRow({
   );
 }
 
-export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPath, sourceId, showHeader = true, onCompactReaderActiveChange }: PlansTabProps) {
+interface PlanReaderContentProps {
+  compactViewport: boolean;
+  selectedPlan: NonNullable<ReturnType<typeof usePlans>['selectedPlan']>;
+  sourceLabel?: string | null;
+  plans: PlanSummary[];
+  renderedContent: string;
+  linkedBeadContext: LinkedBeadContext[];
+  isPlanLoading: boolean;
+  onOpenTask?: (taskId: string) => void;
+  onAddToChat?: (text: string) => void;
+  onOpenPath?: (path: string) => void;
+  onOpenPlanReference: (path: string) => void;
+  onExitReader: () => void;
+  desktopReaderMode: 'focused' | 'drawer';
+}
+
+function PlanReaderContent({
+  compactViewport,
+  selectedPlan,
+  sourceLabel,
+  plans,
+  renderedContent,
+  linkedBeadContext,
+  isPlanLoading,
+  onOpenTask,
+  onAddToChat,
+  onOpenPath,
+  onOpenPlanReference,
+  onExitReader,
+  desktopReaderMode,
+}: PlanReaderContentProps) {
+  const isDrawerDesktop = !compactViewport && desktopReaderMode === 'drawer';
+  const exitLabel = isDrawerDesktop ? 'Close plan drawer' : 'Back to plans list';
+  const exitButtonLabel = isDrawerDesktop ? 'Close' : 'Back to plans';
+
+  return (
+    <>
+      <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border/30 bg-background px-4 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onExitReader}
+            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer"
+            aria-label={exitLabel}
+          >
+            {isDrawerDesktop ? <X size={11} /> : <ArrowLeft size={11} />}
+            {exitButtonLabel}
+          </button>
+
+          {onAddToChat && (
+            <button
+              type="button"
+              onClick={() => onAddToChat(formatPlanAddToChat({
+                source: sourceLabel ?? null,
+                title: selectedPlan.title,
+                path: selectedPlan.path,
+              }))}
+              className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+              title="Add this plan to the main chat composer"
+            >
+              Add to Chat
+              <ArrowUpRight size={11} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-foreground leading-tight">{selectedPlan.title}</h3>
+          <div className="mt-1 font-mono text-[10px] text-muted-foreground break-all">{selectedPlan.path}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {selectedPlan.status && <PlanBadge>{selectedPlan.status}</PlanBadge>}
+            {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
+            {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
+            {selectedPlan.beadIds.length > 0 && (
+              <PlanBadge tone="muted">{selectedPlan.beadIds.length} linked bead{selectedPlan.beadIds.length === 1 ? '' : 's'}</PlanBadge>
+            )}
+          </div>
+
+          {linkedBeadContext.length > 0 && (
+            <div className="mt-2 space-y-1.5 rounded-md border border-border/40 bg-muted/10 px-2 py-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Linked tasks</div>
+              <div className="space-y-1.5">
+                {linkedBeadContext.map((entry) => (
+                  <div key={entry.beadId} className="flex items-start gap-2">
+                    {onOpenTask ? (
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary hover:bg-primary/15 cursor-pointer"
+                        onClick={() => onOpenTask(entry.beadId)}
+                        title={`Open ${entry.beadId} in the board`}
+                      >
+                        {entry.beadId}
+                      </button>
+                    ) : (
+                      <PlanBadge tone="muted">{entry.beadId}</PlanBadge>
+                    )}
+                    <div className="min-w-0 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                      {entry.snippet ? (
+                        <span className="block truncate" title={entry.snippet}>
+                          {entry.snippet}
+                          {entry.lineNumber ? ` (line ${entry.lineNumber})` : ''}
+                        </span>
+                      ) : (
+                        <span className="block italic">Open task from linked bead ID</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isPlanLoading ? (
+        <div className="py-6 text-xs text-muted-foreground">Loading plan…</div>
+      ) : (
+        <MarkdownRenderer
+          content={renderedContent}
+          className="pt-3 text-sm"
+          plans={plans}
+          onOpenPlanReference={onOpenPlanReference}
+          onOpenPath={onOpenPath}
+          onOpenTask={onOpenTask}
+        />
+      )}
+    </>
+  );
+}
+
+export function PlansTab({
+  onOpenPath,
+  onOpenTask,
+  onAddToChat,
+  requestedPlanPath,
+  sourceId,
+  showHeader = true,
+  onCompactReaderActiveChange,
+  desktopReaderMode = 'focused',
+}: PlansTabProps) {
   const { plans, counts, source, selectedPath, selectedPlan, isLoading, isPlanLoading, error, refresh, loadPlan } = usePlans(sourceId);
   const [search, setSearch] = useState('');
   const [compactViewport, setCompactViewport] = useState(isCompactPlansViewport);
-  const [showCompactReader, setShowCompactReader] = useState(false);
+  const [readerVisible, setReaderVisible] = useState(false);
   const handledRequestedSelectionRef = useRef<string | null>(null);
 
   const filteredPlans = useMemo(() => {
@@ -189,7 +331,7 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
 
   useEffect(() => {
     setSearch('');
-    setShowCompactReader(false);
+    setReaderVisible(false);
   }, [sourceId]);
 
   useEffect(() => {
@@ -212,14 +354,17 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
     if (!plans.some((plan) => plan.path === requestedPlanPath)) return;
 
     handledRequestedSelectionRef.current = requestedSelectionKey;
-    setShowCompactReader(true);
+    setReaderVisible(true);
     if (selectedPath !== requestedPlanPath) {
       void loadPlan(requestedPlanPath);
     }
   }, [requestedPlanPath, plans, selectedPath, loadPlan, sourceId]);
 
-  const focusedReaderActive = showCompactReader;
+  const focusedReaderActive = readerVisible && (compactViewport || desktopReaderMode === 'focused');
+  const drawerReaderActive = readerVisible && !compactViewport && desktopReaderMode === 'drawer';
   const showPlansChrome = !focusedReaderActive;
+  const showPlanList = !focusedReaderActive;
+  const showPlanReader = focusedReaderActive;
 
   useEffect(() => {
     onCompactReaderActiveChange?.(focusedReaderActive);
@@ -227,12 +372,19 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
       onCompactReaderActiveChange?.(false);
     };
   }, [focusedReaderActive, onCompactReaderActiveChange]);
-  const showPlanList = !focusedReaderActive;
-  const showPlanReader = focusedReaderActive;
+
+  function handleSelectPlan(path: string) {
+    setReaderVisible(true);
+    void loadPlan(path);
+  }
+
+  function handleCloseReader() {
+    setReaderVisible(false);
+  }
 
   function handleOpenPlanReference(path: string) {
     if (plans.some((plan) => plan.path === path)) {
-      setShowCompactReader(true);
+      setReaderVisible(true);
       void loadPlan(path);
       return;
     }
@@ -276,9 +428,9 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 relative flex flex-col">
         {showPlanList && (
-          <div className={`overflow-y-auto px-2 py-2 space-y-3 ${compactViewport ? '' : 'border-b border-border/40'}`}>
+          <div className={`overflow-y-auto px-2 py-2 space-y-3 min-h-0 ${compactViewport ? '' : 'border-b border-border/40'}`}>
             {error && !plans.length && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                 {error}
@@ -299,11 +451,8 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
                     <PlanRow
                       key={plan.path}
                       plan={plan}
-                      selected={plan.path === selectedPath}
-                      onSelect={() => {
-                        setShowCompactReader(true);
-                        void loadPlan(plan.path);
-                      }}
+                      selected={plan.path === selectedPath && readerVisible}
+                      onSelect={() => handleSelectPlan(plan.path)}
                     />
                   ))}
                 </div>
@@ -321,11 +470,8 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
                     <PlanRow
                       key={plan.path}
                       plan={plan}
-                      selected={plan.path === selectedPath}
-                      onSelect={() => {
-                        setShowCompactReader(true);
-                        void loadPlan(plan.path);
-                      }}
+                      selected={plan.path === selectedPath && readerVisible}
+                      onSelect={() => handleSelectPlan(plan.path)}
                     />
                   ))}
                 </div>
@@ -341,104 +487,69 @@ export function PlansTab({ onOpenPath, onOpenTask, onAddToChat, requestedPlanPat
             )}
 
             {(selectedPlan || isPlanLoading) && (
-              <div className="px-4 py-3">
-                {focusedReaderActive && (
-                  <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border/30 bg-background/95 px-4 pb-2 pt-1 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-                    <button
-                      type="button"
-                      onClick={() => setShowCompactReader(false)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer"
-                      aria-label="Back to plans list"
-                    >
-                      <ArrowLeft size={11} />
-                      Back to plans
-                    </button>
-                  </div>
-                )}
-
+              <div className="px-4 pb-3 pt-0">
                 {selectedPlan && (
-                  <>
-                    <div className="flex items-start justify-between gap-3 border-b border-border/40 pb-3">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-semibold text-foreground leading-tight">{selectedPlan.title}</h3>
-                        <div className="mt-1 font-mono text-[10px] text-muted-foreground break-all">{selectedPlan.path}</div>
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {selectedPlan.status && <PlanBadge>{selectedPlan.status}</PlanBadge>}
-                          {selectedPlan.archived && <PlanBadge tone="archived">Archived</PlanBadge>}
-                          {selectedPlan.planId && <PlanBadge tone="muted">{selectedPlan.planId}</PlanBadge>}
-                          {selectedPlan.beadIds.length > 0 && (
-                            <PlanBadge tone="muted">{selectedPlan.beadIds.length} linked bead{selectedPlan.beadIds.length === 1 ? '' : 's'}</PlanBadge>
-                          )}
-                        </div>
-
-                        {linkedBeadContext.length > 0 && (
-                          <div className="mt-2 space-y-1.5 rounded-md border border-border/40 bg-muted/10 px-2 py-2">
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Linked tasks</div>
-                            <div className="space-y-1.5">
-                              {linkedBeadContext.map((entry) => (
-                                <div key={entry.beadId} className="flex items-start gap-2">
-                                  {onOpenTask ? (
-                                    <button
-                                      type="button"
-                                      className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-medium text-primary hover:bg-primary/15 cursor-pointer"
-                                      onClick={() => onOpenTask(entry.beadId)}
-                                      title={`Open ${entry.beadId} in the board`}
-                                    >
-                                      {entry.beadId}
-                                    </button>
-                                  ) : (
-                                    <PlanBadge tone="muted">{entry.beadId}</PlanBadge>
-                                  )}
-                                  <div className="min-w-0 pt-0.5 text-[11px] leading-4 text-muted-foreground">
-                                    {entry.snippet ? (
-                                      <span className="block truncate" title={entry.snippet}>
-                                        {entry.snippet}
-                                        {entry.lineNumber ? ` (line ${entry.lineNumber})` : ''}
-                                      </span>
-                                    ) : (
-                                      <span className="block italic">Open task from linked bead ID</span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      {onAddToChat && (
-                        <button
-                          type="button"
-                          onClick={() => onAddToChat(formatPlanAddToChat({
-                            source: source?.label ?? sourceId ?? null,
-                            title: selectedPlan.title,
-                            path: selectedPlan.path,
-                          }))}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
-                          title="Add this plan to the main chat composer"
-                        >
-                          Add to Chat
-                          <ArrowUpRight size={11} />
-                        </button>
-                      )}
-                    </div>
-
-                    {isPlanLoading ? (
-                      <div className="py-6 text-xs text-muted-foreground">Loading plan…</div>
-                    ) : (
-                      <MarkdownRenderer
-                        content={renderedContent}
-                        className="pt-3 text-sm"
-                        plans={plans}
-                        onOpenPlanReference={handleOpenPlanReference}
-                        onOpenPath={onOpenPath}
-                        onOpenTask={onOpenTask}
-                      />
-                    )}
-                  </>
+                  <PlanReaderContent
+                    compactViewport={compactViewport}
+                    selectedPlan={selectedPlan}
+                    sourceLabel={source?.label ?? sourceId ?? null}
+                    plans={plans}
+                    renderedContent={renderedContent}
+                    linkedBeadContext={linkedBeadContext}
+                    isPlanLoading={isPlanLoading}
+                    onOpenTask={onOpenTask}
+                    onAddToChat={onAddToChat}
+                    onOpenPath={onOpenPath}
+                    onOpenPlanReference={handleOpenPlanReference}
+                    onExitReader={handleCloseReader}
+                    desktopReaderMode={desktopReaderMode}
+                  />
                 )}
               </div>
             )}
           </div>
+        )}
+
+        {drawerReaderActive && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/30 transition-opacity duration-200"
+              onClick={handleCloseReader}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Plan details"
+              className="fixed top-0 right-0 z-50 h-full w-[min(760px,100%)] max-w-full border-l border-border bg-background shadow-2xl"
+            >
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3 pt-0">
+                  {!selectedPlan && !isPlanLoading && (
+                    <div className="py-6 text-xs text-muted-foreground">Select a plan to preview it.</div>
+                  )}
+
+                  {selectedPlan && (
+                    <PlanReaderContent
+                      compactViewport={compactViewport}
+                      selectedPlan={selectedPlan}
+                      sourceLabel={source?.label ?? sourceId ?? null}
+                      plans={plans}
+                      renderedContent={renderedContent}
+                      linkedBeadContext={linkedBeadContext}
+                      isPlanLoading={isPlanLoading}
+                      onOpenTask={onOpenTask}
+                      onAddToChat={onAddToChat}
+                      onOpenPath={onOpenPath}
+                      onOpenPlanReference={handleOpenPlanReference}
+                      onExitReader={handleCloseReader}
+                      desktopReaderMode={desktopReaderMode}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -39,6 +39,21 @@ describe('MarkdownRenderer inline references', () => {
     expect(onOpenPath).toHaveBeenCalledWith('src/features/workspace/tabs/PlansTab.tsx');
   });
 
+  it('links plan path mentions via onOpenPlanReference even when not present in plan summaries', async () => {
+    const user = userEvent.setup();
+    const onOpenPlanReference = vi.fn();
+
+    render(
+      <MarkdownRenderer
+        content={'Open .plans/2026-03-16-chat-links-for-beads-and-plans.md from chat context.'}
+        onOpenPlanReference={onOpenPlanReference}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '.plans/2026-03-16-chat-links-for-beads-and-plans.md' }));
+    expect(onOpenPlanReference).toHaveBeenCalledWith('.plans/2026-03-16-chat-links-for-beads-and-plans.md');
+  });
+
   it('does not aggressively autolink arbitrary hyphenated text', () => {
     render(
       <MarkdownRenderer
