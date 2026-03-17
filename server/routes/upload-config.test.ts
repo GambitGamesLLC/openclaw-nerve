@@ -1,0 +1,30 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Hono } from 'hono';
+
+describe('GET /api/upload-config', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns upload feature gating config for the client', async () => {
+    const app = new Hono();
+    const route = await import('./upload-config.js');
+    app.route('/', route.default);
+
+    const res = await app.request('/api/upload-config');
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json).toHaveProperty('twoModeEnabled');
+    expect(json).toHaveProperty('inlineEnabled');
+    expect(json).toHaveProperty('fileReferenceEnabled');
+    expect(json).toHaveProperty('modeChooserEnabled');
+    expect(json).toHaveProperty('inlineAttachmentMaxMb');
+    expect(json).toHaveProperty('exposeInlineBase64ToAgent');
+    expect(json).toHaveProperty('allowSubagentForwarding');
+  });
+});

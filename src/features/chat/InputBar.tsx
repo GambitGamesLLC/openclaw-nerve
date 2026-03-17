@@ -1,17 +1,27 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
-import { Mic, Paperclip, X, Loader2, ArrowUp } from 'lucide-react';
+import { Mic, Paperclip, X, Loader2, ArrowUp, FileText } from 'lucide-react';
 import { useVoiceInput } from '@/features/voice/useVoiceInput';
 import { useTabCompletion } from '@/hooks/useTabCompletion';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { useSessionContext } from '@/contexts/SessionContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '@/lib/constants';
+import { MAX_ATTACHMENTS } from '@/lib/constants';
 import { compressImage } from './image-compress';
 import { mergeAddToChatText } from './addToChat';
-import type { ImageAttachment } from './types';
+import type { FileUploadReference, ImageAttachment, OutgoingUploadPayload, UploadAttachmentDescriptor } from './types';
+import {
+  DEFAULT_UPLOAD_FEATURE_CONFIG,
+  getDefaultUploadMode,
+  getInlineAttachmentMaxBytes,
+  getInlineModeGuardrailError,
+  isUploadsEnabled,
+  shouldShowUploadChooser,
+  type UploadFeatureConfig,
+  type UploadMode,
+} from './uploadPolicy';
 
 interface InputBarProps {
-  onSend: (text: string, attachments?: ImageAttachment[]) => void;
+  onSend: (text: string, attachments?: ImageAttachment[], uploadPayload?: OutgoingUploadPayload) => void;
   isGenerating: boolean;
   onWakeWordState?: (enabled: boolean, toggle: () => void) => void;
   /** Agent name for dynamic wake phrase (e.g., "Hey Helena") */
@@ -23,17 +33,94 @@ export interface InputBarHandle {
   injectText: (text: string, mode?: 'replace' | 'append') => void;
 }
 
+interface StagedAttachment {
+  id: string;
+  file: File;
+  mode: UploadMode;
+  forwardToSubagents: boolean;
+  previewUrl?: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+}
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error(`Failed to read "${file.name}" as base64.`));
+    };
+    reader.onerror = () => reject(new Error(`Failed to read "${file.name}" as base64.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getBase64ByteLength(base64: string): number {
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+function buildFileUriFromPath(path: string): string {
+  if (path.startsWith('file://')) return path;
+
+  const normalized = path.replace(/\\/g, '/');
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    return `file:///${encodeURI(normalized)}`;
+  }
+  if (normalized.startsWith('/')) {
+    return `file://${encodeURI(normalized)}`;
+  }
+  return `file:///${encodeURI(normalized)}`;
+}
+
+function resolveFileReference(file: File): FileUploadReference {
+  const fileWithPath = file as File & { path?: string; webkitRelativePath?: string };
+  const maybePath = fileWithPath.path || fileWithPath.webkitRelativePath;
+  if (!maybePath) {
+    throw new Error(`"${file.name}" does not expose a local path for file-reference mode.`);
+  }
+
+  const path = maybePath.startsWith('file://')
+    ? decodeURI(maybePath.replace(/^file:\/\//, ''))
+    : maybePath;
+
+  return {
+    kind: 'local_path',
+    path,
+    uri: buildFileUriFromPath(path),
+  };
+}
+
+function hasResolvableLocalPath(file: File): boolean {
+  const fileWithPath = file as File & { path?: string; webkitRelativePath?: string };
+  return Boolean(fileWithPath.path || fileWithPath.webkitRelativePath);
+}
+
 /** Chat input bar with file attachments, voice input, and model effort selector. */
 export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function InputBar({ onSend, isGenerating, onWakeWordState, agentName = 'Agent' }, ref) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const deferredResizeFrameRef = useRef<number | null>(null);
   const deferredResizeSettledFrameRef = useRef<number | null>(null);
-  const [pendingImages, setPendingImages] = useState<ImageAttachment[]>([]);
+  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
+  const [uploadConfig, setUploadConfig] = useState<UploadFeatureConfig>(DEFAULT_UPLOAD_FEATURE_CONFIG);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPreparingInline, setIsPreparingInline] = useState(false);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendError, setSendError] = useState(false);
+
+  const uploadsEnabled = isUploadsEnabled(uploadConfig);
+  const showModeChooser = shouldShowUploadChooser(uploadConfig);
 
   // Persistent command history (terminal-style up/down navigation)
   const inputHistory = useInputHistory();
@@ -100,6 +187,44 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       cancelAnimationFrame(deferredResizeSettledFrameRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('/api/upload-config', { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (controller.signal.aborted || !data) return;
+        const nextConfig: UploadFeatureConfig = {
+          twoModeEnabled: Boolean(data.twoModeEnabled),
+          inlineEnabled: Boolean(data.inlineEnabled),
+          fileReferenceEnabled: Boolean(data.fileReferenceEnabled),
+          modeChooserEnabled: Boolean(data.modeChooserEnabled),
+          inlineAttachmentMaxMb:
+            typeof data.inlineAttachmentMaxMb === 'number' && data.inlineAttachmentMaxMb > 0
+              ? data.inlineAttachmentMaxMb
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineAttachmentMaxMb,
+          exposeInlineBase64ToAgent: Boolean(data.exposeInlineBase64ToAgent),
+          allowSubagentForwarding: Boolean(data.allowSubagentForwarding),
+        };
+        setUploadConfig(nextConfig);
+      })
+      .catch((err) => {
+        if ((err as DOMException)?.name === 'AbortError') return;
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (uploadsEnabled) return;
+    if (stagedAttachments.length > 0) {
+      stagedAttachments.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      setStagedAttachments([]);
+    }
+  }, [uploadsEnabled, stagedAttachments]);
 
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
@@ -207,47 +332,68 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   }, [interimTranscript, liveTranscriptionPreview, voiceState]);
 
   const processFiles = useCallback((files: FileList | File[]) => {
-    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-    if (imageFiles.length === 0) return;
+    const selected = Array.from(files);
+    if (selected.length === 0) return;
     setAttachmentError(null);
 
-    const availableSlots = MAX_ATTACHMENTS - pendingImages.length;
-    if (availableSlots <= 0) {
-      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} images per message.`);
+    if (!uploadsEnabled) {
+      setAttachmentError('Uploads are disabled by configuration.');
       return;
     }
 
-    const filesToRead = imageFiles.slice(0, availableSlots);
-    if (imageFiles.length > availableSlots) {
-      setAttachmentError(`Only ${MAX_ATTACHMENTS} images are allowed per message.`);
+    const availableSlots = MAX_ATTACHMENTS - stagedAttachments.length;
+    if (availableSlots <= 0) {
+      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+      return;
     }
 
-    // Process all files concurrently and collect errors (avoids fire-and-forget forEach)
-    void Promise.allSettled(
-      filesToRead.map(async (file) => {
-        if (file.size > MAX_ATTACHMENT_BYTES) {
-          const maxMb = Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024));
-          throw new Error(`"${file.name}" exceeds the ${maxMb}MB limit.`);
-        }
-        const { base64, mimeType, preview } = await compressImage(file);
-        setPendingImages(prev => {
-          if (prev.length >= MAX_ATTACHMENTS) return prev;
-          return [...prev, {
-            id: crypto.randomUUID ? crypto.randomUUID() : 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-            mimeType,
-            content: base64,
-            preview,
-            name: file.name,
-          }];
-        });
-      })
-    ).then(results => {
-      const errors = results
-        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-        .map(r => r.reason instanceof Error ? r.reason.message : `Failed to process file.`);
-      if (errors.length > 0) setAttachmentError(errors[0]);
-    });
-  }, [pendingImages.length]);
+    const filesToStage = selected.slice(0, availableSlots);
+    if (selected.length > availableSlots) {
+      setAttachmentError(`Only ${MAX_ATTACHMENTS} files are allowed per message.`);
+    }
+
+    const inlineCapBytes = getInlineAttachmentMaxBytes(uploadConfig);
+    const next: StagedAttachment[] = [];
+    let firstError: string | null = null;
+
+    for (const file of filesToStage) {
+      const defaultMode = getDefaultUploadMode(file, uploadConfig);
+      if (!defaultMode) {
+        firstError ||= 'Uploads are disabled by configuration.';
+        continue;
+      }
+
+      if (defaultMode === 'inline' && file.size > inlineCapBytes && !uploadConfig.fileReferenceEnabled) {
+        const maxMb = uploadConfig.inlineAttachmentMaxMb;
+        firstError ||= `File exceeds inline cap; enable file-reference mode or choose a smaller file (${maxMb}MB max).`;
+        continue;
+      }
+
+      if (defaultMode === 'file_reference' && !hasResolvableLocalPath(file) && !uploadConfig.inlineEnabled) {
+        firstError ||= `"${file.name}" does not expose a local path for file-reference mode. Enable inline mode or choose a local file.`;
+        continue;
+      }
+
+      if (!uploadConfig.inlineEnabled && uploadConfig.fileReferenceEnabled && file.type.startsWith('image/')) {
+        firstError ||= 'Inline vision disabled; image sent as file reference only.';
+      }
+
+      next.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        mode: defaultMode,
+        forwardToSubagents: false,
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+      });
+    }
+
+    if (next.length > 0) {
+      setStagedAttachments((prev) => [...prev, ...next]);
+    }
+    if (firstError) {
+      setAttachmentError(firstError);
+    }
+  }, [stagedAttachments.length, uploadConfig, uploadsEnabled]);
 
   // Drag & drop handlers (exposed via className on parent)
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -267,7 +413,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
   }, [processFiles]);
 
-  // Paste images — use ref to avoid re-registering on every pendingImages change
+  // Paste images — use ref to avoid re-registering on every stagedAttachments change
   const processFilesRef = useRef(processFiles);
   useEffect(() => {
     processFilesRef.current = processFiles;
@@ -293,9 +439,49 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     return () => document.removeEventListener('paste', handlePaste);
   }, []);
 
-  const removePendingImage = useCallback((id: string) => {
-    setPendingImages(prev => prev.filter(img => img.id !== id));
+  const updateAttachmentMode = useCallback((id: string, nextMode: UploadMode) => {
     setAttachmentError(null);
+
+    setStagedAttachments((prev) => prev.map((item) => {
+      if (item.id !== id) return item;
+      if (nextMode === 'inline') {
+        const guardrail = getInlineModeGuardrailError(item.file, uploadConfig);
+        if (guardrail) {
+          if (uploadConfig.fileReferenceEnabled) {
+            setAttachmentError(`${guardrail} Keep this file as File Reference.`);
+            return { ...item, mode: 'file_reference' };
+          }
+          setAttachmentError('File exceeds inline cap; enable file-reference mode or choose smaller file.');
+          return item;
+        }
+      }
+      return { ...item, mode: nextMode };
+    }));
+  }, [uploadConfig]);
+
+  const toggleForwarding = useCallback((id: string, enabled: boolean) => {
+    setStagedAttachments((prev) => prev.map((item) => {
+      if (item.id !== id) return item;
+      return { ...item, forwardToSubagents: enabled };
+    }));
+  }, []);
+
+  const removeStagedAttachment = useCallback((id: string) => {
+    setStagedAttachments((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((item) => item.id !== id);
+    });
+    setAttachmentError(null);
+  }, []);
+
+  const clearStagedAttachments = useCallback(() => {
+    setStagedAttachments((prev) => {
+      prev.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      return [];
+    });
   }, []);
 
   // Report wake word state to parent
@@ -303,32 +489,142 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     onWakeWordState?.(wakeWordEnabled, toggleWakeWord);
   }, [wakeWordEnabled, toggleWakeWord, onWakeWordState]);
 
-  const handleSend = () => {
+  const buildInlineAttachment = useCallback(async (item: StagedAttachment): Promise<ImageAttachment> => {
+    if (item.file.type.startsWith('image/')) {
+      const { base64, mimeType, preview } = await compressImage(item.file);
+      return {
+        id: item.id,
+        mimeType,
+        content: base64,
+        preview,
+        name: item.file.name,
+      };
+    }
+
+    const dataUrl = await readAsDataUrl(item.file);
+    const [, base64 = ''] = dataUrl.split(',', 2);
+    return {
+      id: item.id,
+      mimeType: item.file.type || 'application/octet-stream',
+      content: base64,
+      preview: dataUrl,
+      name: item.file.name,
+    };
+  }, []);
+
+  const buildInlineDescriptor = useCallback((item: StagedAttachment, attachment: ImageAttachment): UploadAttachmentDescriptor => ({
+    id: item.id,
+    mode: 'inline',
+    name: item.file.name,
+    mimeType: attachment.mimeType,
+    sizeBytes: item.file.size,
+    inline: {
+      encoding: 'base64',
+      base64: attachment.content,
+      base64Bytes: getBase64ByteLength(attachment.content),
+      previewUrl: attachment.preview,
+      compressed: item.file.type.startsWith('image/'),
+    },
+    policy: {
+      forwardToSubagents: false,
+    },
+  }), []);
+
+  const buildFileReferenceDescriptor = useCallback((item: StagedAttachment): UploadAttachmentDescriptor => ({
+    id: item.id,
+    mode: 'file_reference',
+    name: item.file.name,
+    mimeType: item.file.type || 'application/octet-stream',
+    sizeBytes: item.file.size,
+    reference: resolveFileReference(item.file),
+    policy: {
+      forwardToSubagents: item.forwardToSubagents,
+    },
+  }), []);
+
+  const handleSend = useCallback(async () => {
     const text = inputRef.current?.value.trim();
-    if (!text && pendingImages.length === 0) {
+    if (!text && stagedAttachments.length === 0) {
       // Shake on empty send attempt
       setSendError(true);
       setTimeout(() => setSendError(false), 400);
       return;
     }
 
+    const inlineGuardrailViolation = stagedAttachments
+      .filter((item) => item.mode === 'inline')
+      .map((item) => getInlineModeGuardrailError(item.file, uploadConfig))
+      .find(Boolean);
+    if (inlineGuardrailViolation) {
+      setAttachmentError(inlineGuardrailViolation);
+      return;
+    }
+
     // Add to persistent command history (deduplication handled by hook)
     if (text) inputHistory.addToHistory(text);
-    
-    // Trigger pulse animation on successful send
-    setSendPulse(true);
-    setTimeout(() => setSendPulse(false), 400);
-    
-    const input = inputRef.current;
-    if (input) {
-      input.value = '';
-      input.style.height = 'auto';
+
+    setIsPreparingInline(true);
+    try {
+      const inlineAttachments: ImageAttachment[] = [];
+      const descriptors: UploadAttachmentDescriptor[] = [];
+
+      for (const item of stagedAttachments) {
+        if (item.mode === 'inline') {
+          const inlineAttachment = await buildInlineAttachment(item);
+          inlineAttachments.push(inlineAttachment);
+          descriptors.push(buildInlineDescriptor(item, inlineAttachment));
+          continue;
+        }
+
+        descriptors.push(buildFileReferenceDescriptor(item));
+      }
+
+      const uploadPayload: OutgoingUploadPayload | undefined = descriptors.length > 0
+        ? {
+          descriptors,
+          manifest: {
+            enabled: uploadConfig.twoModeEnabled,
+            exposeInlineBase64ToAgent: uploadConfig.exposeInlineBase64ToAgent,
+            allowSubagentForwarding: uploadConfig.allowSubagentForwarding,
+          },
+        }
+        : undefined;
+
+      // Trigger pulse animation on successful send
+      setSendPulse(true);
+      setTimeout(() => setSendPulse(false), 400);
+
+      const input = inputRef.current;
+      if (input) {
+        input.value = '';
+        input.style.height = 'auto';
+      }
+
+      onSend(text || '', inlineAttachments.length > 0 ? inlineAttachments : undefined, uploadPayload);
+      clearStagedAttachments();
+      setAttachmentError(null);
+      clearVoiceError();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to prepare attachment payload.';
+      if (message.includes('does not expose a local path')) {
+        setAttachmentError(`${message} Choose inline mode when available or attach from a local workspace path.`);
+      } else {
+        setAttachmentError(message);
+      }
+    } finally {
+      setIsPreparingInline(false);
     }
-    onSend(text || '', pendingImages.length > 0 ? [...pendingImages] : undefined);
-    setPendingImages([]);
-    setAttachmentError(null);
-    clearVoiceError();
-  };
+  }, [
+    stagedAttachments,
+    uploadConfig,
+    inputHistory,
+    buildInlineAttachment,
+    buildInlineDescriptor,
+    buildFileReferenceDescriptor,
+    onSend,
+    clearStagedAttachments,
+    clearVoiceError,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // IME composition guard: during active CJK composition the browser may
@@ -357,16 +653,16 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     // Cmd+Enter or Ctrl+Enter to send (works even with Shift held)
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
       return;
     }
     // Plain Enter sends (Shift+Enter for newline)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
       return;
     }
-    
+
     // Up arrow — navigate to older history (only when cursor at start or input is empty)
     if (e.key === 'ArrowUp' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       const input = inputRef.current;
@@ -416,30 +712,80 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     resizeInput();
   };
 
+  const fileAccept = uploadConfig.fileReferenceEnabled || uploadConfig.twoModeEnabled ? '*/*' : 'image/*';
+
   return (
     <>
       {/* Drag overlay — rendered by parent via dragHandlers */}
       {isDragging && (
         <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
-          <span className="text-primary font-bold text-lg">Drop image here</span>
+          <span className="text-primary font-bold text-lg">Drop files here</span>
         </div>
       )}
 
-      {/* Pending images preview */}
-      {pendingImages.length > 0 && (
-        <div className="flex gap-2 px-4 py-2 bg-card border-t border-border flex-wrap">
-          {pendingImages.map(img => (
-            <div key={img.id} className="relative group">
-              <img src={img.preview} alt={img.name} className="w-16 h-16 object-cover rounded border border-border" />
-              <button
-                onClick={() => removePendingImage(img.id)}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-80 hover:opacity-100 cursor-pointer"
-              >
-                <X size={10} />
-              </button>
-              <span className="text-[9px] text-muted-foreground block text-center truncate max-w-[64px]">{img.name}</span>
-            </div>
-          ))}
+      {/* Staged attachments preview */}
+      {stagedAttachments.length > 0 && (
+        <div className="flex flex-col gap-2 px-4 py-2 bg-card border-t border-border">
+          {showModeChooser && (
+            <div className="text-[10px] text-muted-foreground">Upload mode chooser: INLINE for small images, FILE_REF for larger files.</div>
+          )}
+          <div className="flex gap-2 flex-wrap">
+            {stagedAttachments.map((item) => (
+              <div key={item.id} className="relative group border border-border rounded px-2 py-1.5 bg-background min-w-[190px] max-w-[260px]">
+                <button
+                  onClick={() => removeStagedAttachment(item.id)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] opacity-80 hover:opacity-100 cursor-pointer"
+                >
+                  <X size={10} />
+                </button>
+
+                <div className="flex items-center gap-2 pr-3">
+                  {item.previewUrl ? (
+                    <img src={item.previewUrl} alt={item.file.name} className="w-10 h-10 object-cover rounded border border-border" />
+                  ) : (
+                    <div className="w-10 h-10 rounded border border-border flex items-center justify-center bg-muted">
+                      <FileText size={14} className="text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] truncate">{item.file.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{formatFileSize(item.file.size)}</div>
+                    {!showModeChooser && (
+                      <div className="text-[9px] mt-0.5 text-primary/90 uppercase">{item.mode === 'inline' ? 'Inline' : 'File Ref'}</div>
+                    )}
+                  </div>
+                </div>
+
+                {showModeChooser && (
+                  <div className="mt-1">
+                    <label className="text-[9px] text-muted-foreground uppercase tracking-wide">Mode</label>
+                    <select
+                      aria-label={`Upload mode for ${item.file.name}`}
+                      value={item.mode}
+                      onChange={(e) => updateAttachmentMode(item.id, e.target.value as UploadMode)}
+                      className="w-full mt-0.5 text-[10px] bg-card border border-border rounded px-1.5 py-1"
+                    >
+                      <option value="inline">Inline</option>
+                      <option value="file_reference">File Reference</option>
+                    </select>
+                  </div>
+                )}
+
+                {uploadConfig.allowSubagentForwarding && item.mode === 'file_reference' && (
+                  <label className="mt-1 inline-flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      aria-label={`Allow forwarding ${item.file.name} to subagents`}
+                      checked={item.forwardToSubagents}
+                      onChange={(e) => toggleForwarding(item.id, e.target.checked)}
+                      className="h-3 w-3 rounded border-border"
+                    />
+                    Forward to subagents
+                  </label>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
       {attachmentError && (
@@ -448,7 +794,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={fileAccept}
         multiple
         className="hidden"
         onChange={e => { if (e.target.files) { processFiles(e.target.files); e.target.value = ''; } }}
@@ -489,20 +835,21 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch flex items-center"
-          title="Attach image"
-          aria-label="Attach image"
+          disabled={!uploadsEnabled}
+          className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          title={uploadsEnabled ? 'Attach file' : 'Uploads disabled by configuration'}
+          aria-label={uploadsEnabled ? 'Attach file' : 'Uploads disabled by configuration'}
         >
           <Paperclip size={16} />
         </button>
         <button
-          onClick={handleSend}
-          disabled={isGenerating}
-          aria-label={isGenerating ? "Generating response..." : "Send message"}
-          aria-busy={isGenerating}
-          className={`send-btn font-mono bg-primary text-primary-foreground border-none px-4.5 text-sm cursor-pointer font-bold self-stretch flex items-center justify-center transition-transform ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:scale-95'} ${sendPulse ? 'animate-send-pulse' : ''} ${sendError ? 'animate-shake' : ''}`}
+          onClick={() => { void handleSend(); }}
+          disabled={isGenerating || isPreparingInline}
+          aria-label={isGenerating ? 'Generating response...' : (isPreparingInline ? 'Preparing attachments...' : 'Send message')}
+          aria-busy={isGenerating || isPreparingInline}
+          className={`send-btn font-mono bg-primary text-primary-foreground border-none px-4.5 text-sm cursor-pointer font-bold self-stretch flex items-center justify-center transition-transform ${isGenerating || isPreparingInline ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:scale-95'} ${sendPulse ? 'animate-send-pulse' : ''} ${sendError ? 'animate-shake' : ''}`}
         >
-          {isGenerating ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
+          {isGenerating || isPreparingInline ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
         </button>
       </div>
       <div className="text-[10px] text-muted-foreground px-4 pb-1.5 pl-10 bg-card">

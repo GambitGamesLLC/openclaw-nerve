@@ -5,7 +5,7 @@ import { isMessageCollapsible } from './types';
 import { decodeHtmlEntities } from '@/lib/formatting';
 import { isStructuredMarkdown } from '@/lib/text/isStructuredMarkdown';
 import type { ReferencePlanSummary } from '@/features/markdown/inlineReferences';
-import type { ChatMsg } from './types';
+import type { ChatMsg, UploadAttachmentDescriptor } from './types';
 
 // Lazy-load markdown renderer (includes highlight.js)
 const MarkdownRenderer = lazy(() => import('@/features/markdown/MarkdownRenderer').then(m => ({ default: m.MarkdownRenderer })));
@@ -30,6 +30,26 @@ function formatMissionTime(msgTime: Date, firstTime: Date | null): string {
   const m = Math.floor((totalSec % 3600) / 60).toString().padStart(2, '0');
   const s = (totalSec % 60).toString().padStart(2, '0');
   return `T+${h}:${m}:${s}`;
+}
+
+function formatAttachmentSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+}
+
+function getReferenceTail(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  const segments = normalized.split('/').filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : path;
+}
+
+function buildAttachmentSummary(attachments: UploadAttachmentDescriptor[]): string {
+  const inline = attachments.filter((item) => item.mode === 'inline').length;
+  const fileReference = attachments.length - inline;
+  return `Attachments: ${attachments.length} (${inline} inline, ${fileReference} file_ref)`;
 }
 
 interface MessageBubbleProps {
@@ -312,6 +332,32 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
               </Suspense>
             )}
           </div>
+          {msg.uploadAttachments && msg.uploadAttachments.length > 0 && (
+            <div className={`mt-2 ${isUser ? 'flex flex-col items-end' : ''}`}>
+              <div className="text-[10px] text-muted-foreground mb-1">{buildAttachmentSummary(msg.uploadAttachments)}</div>
+              <div className={`flex gap-1.5 flex-wrap ${isUser ? 'justify-end' : ''}`}>
+                {msg.uploadAttachments.map((attachment) => (
+                  <div key={attachment.id} className="rounded border border-border/60 bg-background/60 px-2 py-1 text-[10px] max-w-[320px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded border border-primary/30 bg-primary/10 px-1 py-0.5 font-mono uppercase text-[9px] text-primary">
+                        {attachment.mode === 'inline' ? 'INLINE' : 'FILE_REF'}
+                      </span>
+                      <span className="truncate max-w-[140px]" title={attachment.name}>{attachment.name}</span>
+                      <span className="text-muted-foreground">{formatAttachmentSize(attachment.sizeBytes)}</span>
+                    </div>
+                    {attachment.mode === 'file_reference' && attachment.reference?.path && (
+                      <div className="mt-0.5 text-muted-foreground" title={attachment.reference.path}>
+                        path: {getReferenceTail(attachment.reference.path)}
+                      </div>
+                    )}
+                    {attachment.mode === 'file_reference' && attachment.policy.forwardToSubagents && (
+                      <div className="mt-0.5 text-orange">forwarded to subagents</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {msg.charts && msg.charts.length > 0 && (
             <div className="w-full max-w-[1120px]">
               <Suspense fallback={<div className="text-muted-foreground text-xs">Loading chart…</div>}>
@@ -398,6 +444,10 @@ export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
   // Images
   if (prev.msg.images?.length !== next.msg.images?.length) return false;
   if (prev.msg.extractedImages?.length !== next.msg.extractedImages?.length) return false;
+
+  // Upload attachment summaries
+  if (prev.msg.uploadAttachments?.length !== next.msg.uploadAttachments?.length) return false;
+  if (JSON.stringify(prev.msg.uploadAttachments) !== JSON.stringify(next.msg.uploadAttachments)) return false;
   
   // Agent name (rare change but must re-render when it does)
   if (prev.agentName !== next.agentName) return false;

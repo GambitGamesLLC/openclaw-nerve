@@ -411,6 +411,54 @@ describe('config module', () => {
     });
   });
 
+  describe('upload feature flags', () => {
+    it('uses inline-only defaults for upload config', async () => {
+      delete process.env.NERVE_UPLOAD_TWO_MODE_ENABLED;
+      delete process.env.NERVE_UPLOAD_INLINE_ENABLED;
+      delete process.env.NERVE_UPLOAD_FILE_REFERENCE_ENABLED;
+      delete process.env.NERVE_UPLOAD_MODE_CHOOSER_ENABLED;
+      delete process.env.NERVE_INLINE_ATTACHMENT_MAX_MB;
+
+      const { config } = await importFreshConfig();
+
+      expect(config.upload).toEqual({
+        twoModeEnabled: false,
+        inlineEnabled: true,
+        fileReferenceEnabled: false,
+        modeChooserEnabled: false,
+        inlineAttachmentMaxMb: 4,
+        exposeInlineBase64ToAgent: false,
+        allowSubagentForwarding: false,
+      });
+    });
+
+    it('reads upload flags from env', async () => {
+      process.env.NERVE_UPLOAD_TWO_MODE_ENABLED = 'true';
+      process.env.NERVE_UPLOAD_INLINE_ENABLED = 'true';
+      process.env.NERVE_UPLOAD_FILE_REFERENCE_ENABLED = 'true';
+      process.env.NERVE_UPLOAD_MODE_CHOOSER_ENABLED = 'true';
+      process.env.NERVE_INLINE_ATTACHMENT_MAX_MB = '6';
+      process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT = 'true';
+      process.env.NERVE_UPLOAD_ALLOW_SUBAGENT_FORWARDING = 'true';
+
+      const { config } = await importFreshConfig();
+
+      expect(config.upload.twoModeEnabled).toBe(true);
+      expect(config.upload.inlineEnabled).toBe(true);
+      expect(config.upload.fileReferenceEnabled).toBe(true);
+      expect(config.upload.modeChooserEnabled).toBe(true);
+      expect(config.upload.inlineAttachmentMaxMb).toBe(6);
+      expect(config.upload.exposeInlineBase64ToAgent).toBe(true);
+      expect(config.upload.allowSubagentForwarding).toBe(true);
+    });
+
+    it('falls back to default inline cap when env is invalid', async () => {
+      process.env.NERVE_INLINE_ATTACHMENT_MAX_MB = '0';
+      const { config } = await importFreshConfig();
+      expect(config.upload.inlineAttachmentMaxMb).toBe(4);
+    });
+  });
+
   describe('beads source registry', () => {
     it('defaults to the built-in ~/.openclaw source', async () => {
       const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nerve-config-home-'));
