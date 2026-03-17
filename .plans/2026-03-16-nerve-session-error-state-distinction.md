@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-03-16-nerve-session-error-state-distinction
+bead_ids:
+  - nerve-3mx
+  - nerve-7v8
+  - nerve-zus
+---
 # Nerve Session Error State Distinction
 
 **Date:** 2026-03-16  
