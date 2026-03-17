@@ -19,6 +19,8 @@ export function getStatusBadgeClasses(state: GranularAgentState): string {
       return 'bg-green/20 text-green animate-pulse';
     case 'DONE':
       return 'bg-green/20 text-green';
+    case 'FAILED':
+      return 'bg-orange/20 text-orange';
     case 'ERROR':
       return 'bg-red/20 text-red';
     case 'IDLE':

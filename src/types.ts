@@ -1,5 +1,5 @@
 /** Possible high-level states an agent session can be in. */
-export type AgentStatusKind = 'IDLE' | 'THINKING' | 'STREAMING' | 'DONE' | 'ERROR';
+export type AgentStatusKind = 'IDLE' | 'THINKING' | 'STREAMING' | 'DONE' | 'FAILED' | 'ERROR';
 
 /** Fine-grained agent state including current tool activity. */
 export interface GranularAgentState {

@@ -4,9 +4,7 @@ import { useGateway } from './GatewayContext';
 import { getSessionKey, type Session, type AgentLogEntry, type EventEntry, type GatewayEvent, type EventPayload, type AgentEventPayload, type ChatEventPayload, type ContentBlock, type SessionsListResponse, type ChatHistoryResponse, type ChatMessage, type GranularAgentState } from '@/types';
 import { describeToolUse } from '@/utils/helpers';
 import { mergeSessionsByKey } from '@/features/sessions/mergeSessions';
-
-const BUSY_STATES = new Set(['running', 'thinking', 'tool_use', 'delta', 'started']);
-const IDLE_STATES = new Set(['idle', 'done', 'error', 'final', 'aborted', 'completed']);
+import { isStatusRunning, mapAgentLifecyclePhaseToStatus, mapChatStateToStatus, mapLegacyAgentStateToStatus } from '@/features/sessions/granularStatus';
 
 // sessions.list query defaults.
 // Wider window + higher cap avoids dropping subagents from the sidebar in busy workspaces.
@@ -67,7 +65,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const busyState = useMemo(() => {
     const result: Record<string, boolean> = {};
     for (const [key, state] of Object.entries(agentStatus)) {
-      result[key] = state.status !== 'IDLE' && state.status !== 'DONE';
+      result[key] = isStatusRunning(state.status);
     }
     return result;
   }, [agentStatus]);
@@ -474,15 +472,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           const ap = typedPayload as AgentEventPayload;
 
           if (ap.stream === 'lifecycle') {
-            const phase = (ap.data as Record<string, unknown> | undefined)?.phase;
-            if (phase === 'start') {
-              setGranularStatus(sk, { status: 'THINKING', since: Date.now() });
-            } else if (phase === 'end') {
-              setGranularStatus(sk, { status: 'DONE', since: Date.now() });
+            const phase = String((ap.data as Record<string, unknown> | undefined)?.phase || '');
+            const mappedStatus = mapAgentLifecyclePhaseToStatus(phase);
+            if (mappedStatus) {
+              setGranularStatus(sk, { status: mappedStatus, since: Date.now() });
+            }
+            if (phase === 'end') {
               refreshSessions();
               scheduleDelayedRefresh();
             } else if (phase === 'error') {
-              setGranularStatus(sk, { status: 'ERROR', since: Date.now() });
               refreshSessions();
             }
           } else if (ap.stream === 'tool' && ap.data) {
@@ -507,19 +505,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           const cp = typedPayload as ChatEventPayload;
           const state = cp.state || '';
 
-          if (state === 'started') {
-            setGranularStatus(sk, { status: 'THINKING', since: Date.now() });
-          } else if (state === 'delta') {
-            setGranularStatus(sk, { status: 'STREAMING', since: Date.now() });
-          } else if (state === 'final') {
-            setGranularStatus(sk, { status: 'DONE', since: Date.now() });
+          const mappedStatus = mapChatStateToStatus(state);
+          if (mappedStatus) {
+            setGranularStatus(sk, { status: mappedStatus, since: Date.now() });
+          }
+          if (state === 'final') {
             refreshSessions();
             // Delayed refresh to catch token counts that may not be available immediately.
             scheduleDelayedRefresh();
-          } else if (state === 'error') {
-            setGranularStatus(sk, { status: 'ERROR', since: Date.now() });
-          } else if (state === 'aborted') {
-            setGranularStatus(sk, { status: 'IDLE', since: Date.now() });
           }
         }
 
@@ -530,19 +523,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         // Map legacy state strings to granular status (only if not already handled above)
         if (evt === 'agent' && !(typedPayload as AgentEventPayload).stream) {
-          if (BUSY_STATES.has(state)) {
-            setGranularStatus(sk, { status: 'THINKING', since: Date.now() });
-          } else if (IDLE_STATES.has(state)) {
-            if (state === 'error') {
-              setGranularStatus(sk, { status: 'ERROR', since: Date.now() });
-            } else if (state === 'aborted') {
-              setGranularStatus(sk, { status: 'IDLE', since: Date.now() });
-            } else {
-              setGranularStatus(sk, { status: 'DONE', since: Date.now() });
-            }
-            if (state === 'final' || state === 'done' || state === 'completed') {
-              refreshSessions();
-            }
+          const mappedStatus = mapLegacyAgentStateToStatus(state);
+          if (mappedStatus) {
+            setGranularStatus(sk, { status: mappedStatus, since: Date.now() });
+          }
+          if (state === 'final' || state === 'done' || state === 'completed') {
+            refreshSessions();
           }
         }
 
