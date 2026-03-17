@@ -137,7 +137,7 @@ Caveats/remaining risk:
 
 **Status:** ✅ Complete
 
-**What We Built:** Nerve now cleanly distinguishes transient run/request failures from true dead-session failures in session state rendering and running-state semantics, and that behavior is validated with focused tests plus successful project build.
+**What We Built:** Nerve now cleanly distinguishes transient run/request failures from true dead-session failures in session state rendering and running-state semantics, and that behavior is validated with focused tests plus successful project build. Derrick also captured a live repro after rollout showing `FAILED` (not hard `ERROR`) on Chip, and the session recovered after a simple follow-up bump message, which supports the new classification even though the underlying transient terminal/runtime failure path still needs future root-cause work.
 
 **Commits:**
 - None in this validation task (verification + plan update only).

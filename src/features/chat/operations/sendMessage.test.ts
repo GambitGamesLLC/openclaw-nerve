@@ -1,6 +1,52 @@
 /** Tests for sendMessage — message building and RPC sending. */
 import { describe, it, expect, vi } from 'vitest';
-import { applyVoiceTTSHint, buildUserMessage, sendChatMessage } from './sendMessage';
+import { appendUploadManifest, applyVoiceTTSHint, buildUserMessage, sendChatMessage } from './sendMessage';
+import type { OutgoingUploadPayload } from '../types';
+
+function makeUploadPayload(overrides: Partial<OutgoingUploadPayload> = {}): OutgoingUploadPayload {
+  return {
+    descriptors: [
+      {
+        id: 'att-inline',
+        mode: 'inline',
+        name: 'small.png',
+        mimeType: 'image/png',
+        sizeBytes: 120_000,
+        inline: {
+          encoding: 'base64',
+          base64: 'YmFzZTY0LWJ5dGVz',
+          base64Bytes: 12,
+          previewUrl: 'data:image/png;base64,abc',
+          compressed: true,
+        },
+        policy: {
+          forwardToSubagents: false,
+        },
+      },
+      {
+        id: 'att-ref',
+        mode: 'file_reference',
+        name: 'capture.mov',
+        mimeType: 'video/quicktime',
+        sizeBytes: 8_000_000,
+        reference: {
+          kind: 'local_path',
+          path: '/workspace/capture.mov',
+          uri: 'file:///workspace/capture.mov',
+        },
+        policy: {
+          forwardToSubagents: false,
+        },
+      },
+    ],
+    manifest: {
+      enabled: true,
+      exposeInlineBase64ToAgent: false,
+      allowSubagentForwarding: false,
+    },
+    ...overrides,
+  };
+}
 
 describe('applyVoiceTTSHint', () => {
   it('appends TTS hint to voice messages', () => {
@@ -19,6 +65,44 @@ describe('applyVoiceTTSHint', () => {
     expect(applyVoiceTTSHint('voice hello')).toBe('voice hello');
     expect(applyVoiceTTSHint('[VOICE] hello')).toBe('[VOICE] hello');
     expect(applyVoiceTTSHint(' [voice] hello')).toBe(' [voice] hello');
+  });
+});
+
+describe('appendUploadManifest', () => {
+  it('injects the manifest wrapper when enabled', () => {
+    const message = appendUploadManifest('hello', makeUploadPayload());
+    expect(message).toContain('<nerve-upload-manifest>');
+    expect(message).toContain('</nerve-upload-manifest>');
+    expect(message).toContain('capture.mov');
+  });
+
+  it('hides inline base64 in manifest by default', () => {
+    const message = appendUploadManifest('hello', makeUploadPayload());
+    expect(message).toContain('"base64":""');
+  });
+
+  it('includes inline base64 when policy flag is enabled', () => {
+    const message = appendUploadManifest('hello', makeUploadPayload({
+      manifest: {
+        enabled: true,
+        exposeInlineBase64ToAgent: true,
+        allowSubagentForwarding: false,
+      },
+    }));
+
+    expect(message).toContain('"base64":"YmFzZTY0LWJ5dGVz"');
+  });
+
+  it('keeps message unchanged when manifest is disabled', () => {
+    const message = appendUploadManifest('hello', makeUploadPayload({
+      manifest: {
+        enabled: false,
+        exposeInlineBase64ToAgent: false,
+        allowSubagentForwarding: false,
+      },
+    }));
+
+    expect(message).toBe('hello');
   });
 });
 
@@ -57,6 +141,13 @@ describe('buildUserMessage', () => {
     expect(msg.images).toHaveLength(1);
     expect(msg.images![0].mimeType).toBe('image/png');
     expect(msg.images![0].name).toBe('test.png');
+  });
+
+  it('stores upload descriptors for local rendering', () => {
+    const uploadPayload = makeUploadPayload();
+    const { msg } = buildUserMessage({ text: 'with upload', uploadPayload });
+    expect(msg.uploadAttachments).toHaveLength(2);
+    expect(msg.uploadAttachments?.[1].mode).toBe('file_reference');
   });
 
   it('omits images field when none provided', () => {
@@ -109,6 +200,23 @@ describe('sendChatMessage', () => {
     expect(callParams.attachments).toHaveLength(1);
     expect(callParams.attachments[0].mimeType).toBe('image/jpeg');
     expect(callParams.attachments[0].content).toBe('b64');
+  });
+
+  it('injects upload manifest data into outgoing message body', async () => {
+    const rpc = vi.fn().mockResolvedValue({});
+
+    await sendChatMessage({
+      rpc,
+      sessionKey: 's1',
+      text: 'with attachment metadata',
+      uploadPayload: makeUploadPayload(),
+      idempotencyKey: 'k1',
+    });
+
+    const sentMessage = rpc.mock.calls[0][1].message as string;
+    expect(sentMessage).toContain('<nerve-upload-manifest>');
+    expect(sentMessage).toContain('capture.mov');
+    expect(sentMessage).toContain('"base64":""');
   });
 
   it('applies voice TTS hint to voice messages', async () => {

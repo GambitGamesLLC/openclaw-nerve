@@ -39,7 +39,7 @@ import {
   updateHighestSeq,
 } from '@/features/chat/operations';
 import { generateMsgId } from '@/features/chat/types';
-import type { ImageAttachment, ChatMsg } from '@/features/chat/types';
+import type { ImageAttachment, ChatMsg, OutgoingUploadPayload } from '@/features/chat/types';
 import type { RecoveryReason, RunState } from '@/features/chat/operations';
 
 import { useChatMessages, mergeFinalMessages, patchThinkingDuration } from '@/hooks/useChatMessages';
@@ -77,7 +77,7 @@ interface ChatContextValue {
   lastEventTimestamp: number;
   activityLog: ActivityLogEntry[];
   currentToolDescription: string | null;
-  handleSend: (text: string, images?: ImageAttachment[]) => Promise<void>;
+  handleSend: (text: string, images?: ImageAttachment[], uploadPayload?: OutgoingUploadPayload) => Promise<void>;
   handleAbort: () => Promise<void>;
   handleReset: () => void;
   loadHistory: (session?: string) => Promise<void>;
@@ -545,10 +545,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   ]);
 
   // ─── Send message ─────────────────────────────────────────────────────────
-  const handleSend = useCallback(async (text: string, images?: ImageAttachment[]) => {
+  const handleSend = useCallback(async (text: string, images?: ImageAttachment[], uploadPayload?: OutgoingUploadPayload) => {
     ttsHook.trackVoiceMessage(text);
 
-    const { msg: userMsg, tempId } = buildUserMessage({ text, images });
+    const { msg: userMsg, tempId } = buildUserMessage({ text, images, uploadPayload });
 
     recoveryHook.incrementGeneration();
 
@@ -566,6 +566,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         sessionKey: currentSessionRef.current,
         text,
         images,
+        uploadPayload,
         idempotencyKey,
       });
 

@@ -152,7 +152,7 @@ export function BeadsDetailDrawer({
       >
         {task && metadata && (
           <>
-            <div className="flex items-center justify-between h-[52px] px-3.5 border-b border-border shrink-0">
+            <div className="flex items-center justify-between gap-3 min-h-[52px] px-3.5 border-b border-border shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="inline-flex items-center rounded-sm border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-primary">
                   {metadata.issueId}
@@ -163,13 +163,30 @@ export function BeadsDetailDrawer({
                   </span>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close drawer"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {onAddToChat && (
+                  <button
+                    type="button"
+                    onClick={() => onAddToChat(formatBeadAddToChat({
+                      source: sourceLabel,
+                      title: task.title,
+                      id: metadata.issueId,
+                    }))}
+                    className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
+                    title="Add this bead to the main chat composer"
+                  >
+                    <MessageSquare size={11} />
+                    Add to Chat
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Close drawer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-4">
@@ -262,21 +279,6 @@ export function BeadsDetailDrawer({
                       </div>
 
                       <div className="flex shrink-0 items-start gap-2">
-                        {onAddToChat && (
-                          <button
-                            type="button"
-                            onClick={() => onAddToChat(formatBeadAddToChat({
-                              source: sourceLabel,
-                              title: task.title,
-                              id: metadata.issueId,
-                            }))}
-                            className="inline-flex items-center gap-1 rounded-sm border border-purple/30 bg-purple/10 px-2 py-1 text-[11px] text-purple hover:bg-purple/15 transition-colors cursor-pointer"
-                          >
-                            <MessageSquare size={11} />
-                            Add to Chat
-                          </button>
-                        )}
-
                         {canRepairMetadata && (
                           <button
                             type="button"

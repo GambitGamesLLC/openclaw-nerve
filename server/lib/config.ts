@@ -56,6 +56,13 @@ function parseBooleanEnv(rawValue: string | undefined, fallback = false): boolea
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 }
 
+function parsePositiveNumberEnv(rawValue: string | undefined, fallback: number): number {
+  if (rawValue == null) return fallback;
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
 function parseWorkflowPrimarySurface(rawValue: string | undefined): WorkflowPrimarySurface {
   const normalized = (rawValue || 'native').trim().toLowerCase();
   if (normalized === 'beads') return 'beads';
@@ -182,6 +189,14 @@ const hideNativeTasks = parseBooleanEnv(process.env.NERVE_HIDE_NATIVE_TASKS);
 const topLevelPlansEnabled = parseBooleanEnv(process.env.NERVE_TOP_LEVEL_PLANS);
 const prefersBeadsWorkflow = workflowPrimarySurface === 'beads' || hideNativeTasks;
 
+const uploadTwoModeEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_TWO_MODE_ENABLED, false);
+const uploadInlineEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_INLINE_ENABLED, true);
+const uploadFileReferenceEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_FILE_REFERENCE_ENABLED, false);
+const uploadModeChooserEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_MODE_CHOOSER_ENABLED, false);
+const inlineAttachmentMaxMb = parsePositiveNumberEnv(process.env.NERVE_INLINE_ATTACHMENT_MAX_MB, 4);
+const uploadExposeInlineBase64ToAgent = parseBooleanEnv(process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT, false);
+const uploadAllowSubagentForwarding = parseBooleanEnv(process.env.NERVE_UPLOAD_ALLOW_SUBAGENT_FORWARDING, false);
+
 function normalizeLanguagePreference(language: string | undefined): string {
   const normalized = (language || DEFAULT_LANGUAGE).trim().toLowerCase();
   if (!normalized || normalized === 'auto') return DEFAULT_LANGUAGE;
@@ -252,6 +267,17 @@ export const config = {
     topLevelPlansEnabled,
     navigationLabel: prefersBeadsWorkflow ? 'Beads' : 'Tasks',
     defaultBoardMode: prefersBeadsWorkflow ? 'beads' : 'kanban',
+  },
+
+  // Upload behavior / feature gating
+  upload: {
+    twoModeEnabled: uploadTwoModeEnabled,
+    inlineEnabled: uploadInlineEnabled,
+    fileReferenceEnabled: uploadFileReferenceEnabled,
+    modeChooserEnabled: uploadModeChooserEnabled,
+    inlineAttachmentMaxMb,
+    exposeInlineBase64ToAgent: uploadExposeInlineBase64ToAgent,
+    allowSubagentForwarding: uploadAllowSubagentForwarding,
   },
 
   // Limits

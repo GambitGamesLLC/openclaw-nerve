@@ -9,6 +9,48 @@ export interface ImageAttachment {
 /** Image data as stored on messages (no id needed — not user-removable) */
 export type MessageImage = Omit<ImageAttachment, 'id'>;
 
+export type UploadMode = 'inline' | 'file_reference';
+
+export interface UploadAttachmentPolicy {
+  forwardToSubagents: boolean;
+}
+
+export interface InlineUploadReference {
+  encoding: 'base64';
+  base64: string;
+  base64Bytes: number;
+  previewUrl?: string;
+  compressed: boolean;
+}
+
+export interface FileUploadReference {
+  kind: 'local_path';
+  path: string;
+  uri: string;
+}
+
+export interface UploadAttachmentDescriptor {
+  id: string;
+  mode: UploadMode;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  inline?: InlineUploadReference;
+  reference?: FileUploadReference;
+  policy: UploadAttachmentPolicy;
+}
+
+export interface UploadManifestOptions {
+  enabled: boolean;
+  exposeInlineBase64ToAgent: boolean;
+  allowSubagentForwarding: boolean;
+}
+
+export interface OutgoingUploadPayload {
+  descriptors: UploadAttachmentDescriptor[];
+  manifest: UploadManifestOptions;
+}
+
 export type ChatMsgRole = 'user' | 'assistant' | 'tool' | 'toolResult' | 'system' | 'event';
 
 /** Whether a message should default to collapsed state */
@@ -44,6 +86,8 @@ export interface ChatMsg {
   streaming?: boolean;
   collapsed?: boolean;
   images?: MessageImage[];
+  /** Local attachment metadata for upload mode summaries/debug rendering. */
+  uploadAttachments?: UploadAttachmentDescriptor[];
   /** Optimistic: message is being sent, not yet confirmed */
   pending?: boolean;
   /** Optimistic: message send failed */
