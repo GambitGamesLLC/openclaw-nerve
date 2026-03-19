@@ -108,6 +108,20 @@ describe('splitToolCallMessage', () => {
     expect(result[0].isVoice).toBe(true);
   });
 
+  it('extracts upload manifest attachments from user transcript messages', () => {
+    const msg: ChatMessage = {
+      role: 'user',
+      content: 'Please use these files.\n\n<nerve-upload-manifest>{"version":1,"attachments":[{"id":"att-upload","origin":"upload","mode":"inline","name":"small.png","mimeType":"image/png","sizeBytes":120000,"inline":{"encoding":"base64","base64":"","base64Bytes":98000,"compressed":true},"preparation":{"sourceMode":"inline","finalMode":"inline","outcome":"optimized_inline","reason":"Inline image stayed within context-safe budget.","originalMimeType":"image/png","originalSizeBytes":120000},"policy":{"forwardToSubagents":false}},{"id":"att-path","origin":"server_path","mode":"file_reference","name":"capture.mov","mimeType":"video/quicktime","sizeBytes":8000000,"reference":{"kind":"local_path","path":"/workspace/capture.mov","uri":"file:///workspace/capture.mov"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready","reason":"Sent as a validated workspace path.","originalMimeType":"video/quicktime","originalSizeBytes":8000000},"policy":{"forwardToSubagents":true}}]}</nerve-upload-manifest>',
+    };
+    const result = splitToolCallMessage(msg);
+    expect(result).toHaveLength(1);
+    expect(result[0].rawText).toBe('Please use these files.');
+    expect(result[0].uploadAttachments).toHaveLength(2);
+    expect(result[0].uploadAttachments?.[0].origin).toBe('upload');
+    expect(result[0].uploadAttachments?.[1].origin).toBe('server_path');
+    expect(result[0].uploadAttachments?.[1].reference?.path).toBe('/workspace/capture.mov');
+  });
+
   it('returns empty array for voice-only messages with no text', () => {
     const msg: ChatMessage = { role: 'user', content: '[voice] ' };
     const result = splitToolCallMessage(msg);

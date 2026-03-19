@@ -206,6 +206,85 @@ describe('gateway routes', () => {
     });
   });
 
+  describe('POST /api/gateway/session-spawn', () => {
+    it('invokes sessions_spawn with forwarded attachments', async () => {
+      setDefaults();
+      const invokedCalls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+      invokeGatewayImpl = (tool: string, args: Record<string, unknown>) => {
+        invokedCalls.push({ tool, args });
+        return { status: 'accepted', childSessionKey: 'agent:main:subagent:test123' };
+      };
+
+      const app = buildApp();
+      const res = await app.request('/api/gateway/session-spawn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task: 'Inspect this upload',
+          label: 'triage-upload',
+          model: 'anthropic/claude-sonnet-4-5',
+          thinking: 'high',
+          uploadPayload: {
+            manifest: { allowSubagentForwarding: true },
+            descriptors: [
+              {
+                mode: 'inline',
+                name: 'proof.png',
+                mimeType: 'image/png',
+                inline: { encoding: 'base64', base64: 'cHJvb2Y=' },
+                policy: { forwardToSubagents: true },
+              },
+              {
+                mode: 'inline',
+                name: 'skip.png',
+                mimeType: 'image/png',
+                inline: { encoding: 'base64', base64: 'c2tpcA==' },
+                policy: { forwardToSubagents: false },
+              },
+            ],
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, childSessionKey: 'agent:main:subagent:test123' });
+      expect(invokedCalls).toEqual([
+        {
+          tool: 'sessions_spawn',
+          args: {
+            task: 'Inspect this upload',
+            runtime: 'subagent',
+            label: 'triage-upload',
+            model: 'anthropic/claude-sonnet-4-5',
+            thinking: 'high',
+            attachments: [
+              {
+                name: 'proof.png',
+                mimeType: 'image/png',
+                encoding: 'base64',
+                content: 'cHJvb2Y=',
+              },
+            ],
+          },
+        },
+      ]);
+    });
+
+    it('returns 502 when sessions_spawn reports an error', async () => {
+      setDefaults();
+      invokeGatewayImpl = () => ({ status: 'error', error: 'policy denied' });
+      const app = buildApp();
+      const res = await app.request('/api/gateway/session-spawn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: 'Inspect this upload' }),
+      });
+
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ ok: false, error: 'policy denied' });
+    });
+  });
+
   describe('POST /api/gateway/session-patch', () => {
     it('returns 400 for invalid JSON', async () => {
       setDefaults();

@@ -37,6 +37,7 @@ import versionCheckRoutes from './routes/version-check.js';
 import gatewayRoutes from './routes/gateway.js';
 import connectDefaultsRoutes from './routes/connect-defaults.js';
 import uploadConfigRoutes from './routes/upload-config.js';
+import uploadOptimizerRoutes from './routes/upload-optimizer.js';
 import workspaceRoutes from './routes/workspace.js';
 import cronsRoutes from './routes/crons.js';
 import sessionsRoutes from './routes/sessions.js';
@@ -120,7 +121,7 @@ const routes = [
   healthRoutes, authRoutes, ttsRoutes, transcribeRoutes, agentLogRoutes,
   tokensRoutes, memoriesRoutes, eventsRoutes, serverInfoRoutes,
   codexLimitsRoutes, claudeCodeLimitsRoutes, versionRoutes, versionCheckRoutes,
-  gatewayRoutes, connectDefaultsRoutes, uploadConfigRoutes,
+  gatewayRoutes, connectDefaultsRoutes, uploadConfigRoutes, uploadOptimizerRoutes,
   workspaceRoutes, cronsRoutes, sessionsRoutes, skillsRoutes, filesRoutes, apiKeysRoutes,
   voicePhrasesRoutes, fileBrowserRoutes, channelsRoutes, kanbanRoutes, beadsRoutes, plansRoutes,
 ];

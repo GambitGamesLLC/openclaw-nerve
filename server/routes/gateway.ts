@@ -6,12 +6,14 @@
  * GET  /api/gateway/session-info — Returns the current session's runtime info (model, thinking level).
  * GET  /api/gateway/config       — Returns the server's gateway connection config (URL only, never token).
  * POST /api/gateway/session-patch — Change model/effort for a session via HTTP (reliable fallback).
+ * POST /api/gateway/session-spawn — Spawn a subagent via sessions_spawn with optional attachment forwarding.
  * POST /api/gateway/restart      — Restart the OpenClaw gateway service via `openclaw gateway restart`.
  *
  * Response (models):       { models: Array<{ id: string; label: string; provider: string }> }
  * Response (session-info): { model?: string; thinking?: string }
  * Response (config):       { wsUrl: string }  (token never exposed)
  * Response (session-patch): { ok: boolean; model?: string; thinking?: string; error?: string }
+ * Response (session-spawn): { ok: boolean; childSessionKey?: string; error?: string }
  * Response (restart):      { ok: boolean; output: string }
  */
 
@@ -21,6 +23,7 @@ import { homedir } from 'node:os';
 import { Socket } from 'node:net';
 import { z } from 'zod';
 import { invokeGatewayTool } from '../lib/gateway-client.js';
+import { buildSessionsSpawnArgs } from '../lib/subagent-spawn.js';
 import { rateLimitGeneral, rateLimitRestart } from '../middleware/rate-limit.js';
 import { resolveOpenclawBin } from '../lib/openclaw-bin.js';
 import { config } from '../lib/config.js';
@@ -373,6 +376,75 @@ app.post('/api/gateway/session-patch', rateLimitGeneral, async (c) => {
   }
 
   return c.json(result);
+});
+
+const uploadInlineSchema = z.object({
+  encoding: z.string().optional(),
+  base64: z.string().optional(),
+}).strict();
+
+const uploadReferenceSchema = z.object({
+  kind: z.string().optional(),
+  path: z.string().optional(),
+}).strict();
+
+const uploadDescriptorSchema = z.object({
+  id: z.string().optional(),
+  mode: z.string().optional(),
+  name: z.string().optional(),
+  mimeType: z.string().optional(),
+  inline: uploadInlineSchema.optional(),
+  reference: uploadReferenceSchema.optional(),
+  policy: z.object({
+    forwardToSubagents: z.boolean().optional(),
+  }).strict().optional(),
+}).strict();
+
+const sessionSpawnSchema = z.object({
+  task: z.string().min(1).max(200_000),
+  label: z.string().max(200).optional(),
+  model: z.string().max(200).optional(),
+  thinking: z.string().max(50).optional(),
+  uploadPayload: z.object({
+    descriptors: z.array(uploadDescriptorSchema).max(50).optional(),
+    manifest: z.object({
+      allowSubagentForwarding: z.boolean().optional(),
+    }).strict().optional(),
+  }).strict().optional(),
+});
+
+app.post('/api/gateway/session-spawn', rateLimitGeneral, async (c) => {
+  let body: z.infer<typeof sessionSpawnSchema>;
+  try {
+    const raw = await c.req.json();
+    const parsed = sessionSpawnSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json({ ok: false, error: parsed.error.issues[0]?.message || 'Invalid body' }, 400);
+    }
+    body = parsed.data;
+  } catch {
+    return c.json({ ok: false, error: 'Invalid JSON body' }, 400);
+  }
+
+  try {
+    const spawnArgs = await buildSessionsSpawnArgs(body);
+    const result = await invokeGatewayTool('sessions_spawn', spawnArgs, GATEWAY_TIMEOUT_MS) as {
+      status?: string;
+      childSessionKey?: string;
+      error?: string;
+    };
+
+    if (result?.status === 'error' || result?.status === 'forbidden') {
+      return c.json({ ok: false, error: result.error || 'Spawn failed' }, 502);
+    }
+
+    return c.json({
+      ok: true,
+      childSessionKey: typeof result?.childSessionKey === 'string' ? result.childSessionKey : undefined,
+    });
+  } catch (err) {
+    return c.json({ ok: false, error: err instanceof Error ? err.message : 'Spawn failed' }, 502);
+  }
 });
 
 // ── POST /api/gateway/restart ───────────────────────────────────────

@@ -5,7 +5,7 @@
  * All functions here are pure (no React hooks, setState, or refs).
  */
 import { generateMsgId } from '@/features/chat/types';
-import type { ChatMsg, ChatMsgRole, ToolGroupEntry } from '@/features/chat/types';
+import type { ChatMsg, ChatMsgRole, ToolGroupEntry, UploadAttachmentDescriptor } from '@/features/chat/types';
 import type { ChatMessage, ContentBlock, ChatHistoryResponse } from '@/types';
 import { extractText, describeToolUse, renderMarkdown, renderToolResults } from '@/utils/helpers';
 import { decodeHtmlEntities } from '@/lib/formatting';
@@ -129,6 +129,31 @@ const WEBCHAT_ENVELOPE_RE = /Conversation info \(untrusted metadata\):[\s\S]*?"s
 /** Strip ANSI escape sequences (e.g. \x1b[33m) from terminal output. */
 // eslint-disable-next-line no-control-regex
 const stripAnsi = (s: string) => s.replace(/\x1b\[\d*(?:;\d+)*m/g, '');
+
+const UPLOAD_MANIFEST_RE = /\s*<nerve-upload-manifest>([\s\S]*?)<\/nerve-upload-manifest>\s*$/;
+
+function extractUploadAttachments(rawText: string): {
+  cleanedText: string;
+  uploadAttachments?: UploadAttachmentDescriptor[];
+} {
+  const match = rawText.match(UPLOAD_MANIFEST_RE);
+  if (!match) return { cleanedText: rawText };
+
+  const cleanedText = rawText.replace(UPLOAD_MANIFEST_RE, '').trimEnd();
+
+  try {
+    const parsed = JSON.parse(match[1]) as { attachments?: UploadAttachmentDescriptor[] };
+    if (!Array.isArray(parsed.attachments) || parsed.attachments.length === 0) {
+      return { cleanedText };
+    }
+    return {
+      cleanedText,
+      uploadAttachments: parsed.attachments,
+    };
+  } catch {
+    return { cleanedText: rawText };
+  }
+}
 
 /**
  * Split system event lines out of a user message text.
@@ -264,6 +289,12 @@ export function splitToolCallMessage(m: ChatMessage): ChatMsg[] {
     if (!rawText.trim()) return [];
   }
 
+  const { cleanedText: uploadManifestStripped, uploadAttachments } = m.role === 'user'
+    ? extractUploadAttachments(rawText)
+    : { cleanedText: rawText, uploadAttachments: undefined };
+
+  rawText = uploadManifestStripped;
+
   // Split system events out of user messages into separate event bubbles
   if (m.role === 'user' && SYSTEM_EVENT_LINE.test(rawText)) {
     const segments = splitSystemEvents(rawText);
@@ -279,6 +310,7 @@ export function splitToolCallMessage(m: ChatMessage): ChatMsg[] {
           streaming: false,
           ...(charts.length > 0 ? { charts } : {}),
           ...(isVoice && seg.role === 'user' ? { isVoice: true } : {}),
+          ...(uploadAttachments && seg.role === 'user' ? { uploadAttachments } : {}),
         };
       });
     }
@@ -306,6 +338,7 @@ export function splitToolCallMessage(m: ChatMessage): ChatMsg[] {
     ...(charts.length > 0 ? { charts } : {}),
     ...(extractedImages.length > 0 ? { extractedImages } : {}),
     ...(contentImages.length > 0 ? { images: contentImages } : {}),
+    ...(uploadAttachments ? { uploadAttachments } : {}),
     ...(isVoice ? { isVoice: true } : {}),
     ...(sysNotif.match ? { isSystemNotification: true, systemLabel: sysNotif.label } : {}),
   }];

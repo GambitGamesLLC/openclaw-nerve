@@ -11,8 +11,14 @@ app.get('/api/upload-config', rateLimitGeneral, (c) => {
     fileReferenceEnabled: config.upload.fileReferenceEnabled,
     modeChooserEnabled: config.upload.modeChooserEnabled,
     inlineAttachmentMaxMb: config.upload.inlineAttachmentMaxMb,
+    inlineImageContextMaxBytes: config.upload.inlineImageContextMaxBytes,
+    inlineImageAutoDowngradeToFileReference: config.upload.inlineImageAutoDowngradeToFileReference,
+    inlineImageShrinkMinDimension: config.upload.inlineImageShrinkMinDimension,
     exposeInlineBase64ToAgent: config.upload.exposeInlineBase64ToAgent,
     allowSubagentForwarding: config.upload.allowSubagentForwarding,
+    imageOptimizationEnabled: config.upload.optimization.enabled,
+    imageOptimizationMaxDimension: config.upload.optimization.maxDimension,
+    imageOptimizationWebpQuality: config.upload.optimization.webpQuality,
   });
 });
 

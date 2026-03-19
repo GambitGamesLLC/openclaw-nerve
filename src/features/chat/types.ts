@@ -10,6 +10,7 @@ export interface ImageAttachment {
 export type MessageImage = Omit<ImageAttachment, 'id'>;
 
 export type UploadMode = 'inline' | 'file_reference';
+export type UploadAttachmentOrigin = 'upload' | 'server_path';
 
 export interface UploadAttachmentPolicy {
   forwardToSubagents: boolean;
@@ -23,20 +24,66 @@ export interface InlineUploadReference {
   compressed: boolean;
 }
 
+export type UploadPreparationOutcome =
+  | 'inline_ready'
+  | 'optimized_inline'
+  | 'file_reference_ready'
+  | 'downgraded_to_file_reference'
+  | 'blocked_inline';
+
+export interface UploadPreparationMetadata {
+  sourceMode: UploadMode;
+  finalMode: UploadMode;
+  outcome: UploadPreparationOutcome;
+  reason?: string;
+  originalMimeType: string;
+  originalSizeBytes: number;
+  inlineBase64Bytes?: number;
+  contextSafetyMaxBytes?: number;
+  inlineTargetBytes?: number;
+  inlineChosenWidth?: number;
+  inlineChosenHeight?: number;
+  inlineIterations?: number;
+  inlineMinDimension?: number;
+  inlineFallbackReason?: string;
+  localPathAvailable?: boolean;
+  optimizerAttempted?: boolean;
+}
+
 export interface FileUploadReference {
   kind: 'local_path';
   path: string;
   uri: string;
 }
 
+export interface UploadArtifactMetadata {
+  path: string;
+  uri: string;
+  mimeType: string;
+  sizeBytes: number;
+  width: number | null;
+  height: number | null;
+}
+
+export interface UploadOptimizationMetadata {
+  applied: boolean;
+  tempDerivative: boolean;
+  cleanupAfterSend: boolean;
+  original: UploadArtifactMetadata;
+  optimized: UploadArtifactMetadata;
+}
+
 export interface UploadAttachmentDescriptor {
   id: string;
+  origin: UploadAttachmentOrigin;
   mode: UploadMode;
   name: string;
   mimeType: string;
   sizeBytes: number;
   inline?: InlineUploadReference;
   reference?: FileUploadReference;
+  optimization?: UploadOptimizationMetadata;
+  preparation?: UploadPreparationMetadata;
   policy: UploadAttachmentPolicy;
 }
 

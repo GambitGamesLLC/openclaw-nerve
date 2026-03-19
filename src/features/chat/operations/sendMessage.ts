@@ -27,12 +27,11 @@ function sanitizeUploadDescriptor(
     return descriptor;
   }
 
-  const inline = exposeInlineBase64ToAgent
-    ? descriptor.inline
-    : {
-      ...descriptor.inline,
-      base64: '',
-    };
+  const inline = {
+    ...descriptor.inline,
+    previewUrl: undefined,
+    base64: exposeInlineBase64ToAgent ? descriptor.inline.base64 : '',
+  };
 
   return {
     ...descriptor,

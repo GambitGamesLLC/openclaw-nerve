@@ -46,10 +46,49 @@ function getReferenceTail(path: string): string {
   return segments.length > 0 ? segments[segments.length - 1] : path;
 }
 
+function formatInlineDimensions(width?: number, height?: number): string | null {
+  if (!width || !height) return null;
+  return `${width}×${height}`;
+}
+
 function buildAttachmentSummary(attachments: UploadAttachmentDescriptor[]): string {
   const inline = attachments.filter((item) => item.mode === 'inline').length;
   const fileReference = attachments.length - inline;
-  return `Attachments: ${attachments.length} (${inline} inline, ${fileReference} file_ref)`;
+  const uploadOrigin = attachments.filter((item) => item.origin === 'upload').length;
+  const serverPathOrigin = attachments.length - uploadOrigin;
+  const downgraded = attachments.filter((item) => item.preparation?.outcome === 'downgraded_to_file_reference').length;
+  const optimizedInline = attachments.filter((item) => item.preparation?.outcome === 'optimized_inline').length;
+
+  const originSummary = [
+    uploadOrigin > 0 ? `${uploadOrigin} via Upload` : null,
+    serverPathOrigin > 0 ? `${serverPathOrigin} via Attach by Path` : null,
+  ].filter(Boolean).join(', ');
+
+  const extras = [
+    optimizedInline > 0 ? `${optimizedInline} inline optimized` : null,
+    downgraded > 0 ? `${downgraded} downgraded` : null,
+  ].filter(Boolean).join(', ');
+
+  return `Attachments: ${attachments.length} (${originSummary}; ${inline} inline, ${fileReference} file_ref${extras ? `; ${extras}` : ''})`;
+}
+
+function buildOriginBadge(attachment: UploadAttachmentDescriptor): string {
+  return attachment.origin === 'server_path' ? 'ATTACH BY PATH' : 'UPLOAD';
+}
+
+function buildPreparationBadge(attachment: UploadAttachmentDescriptor): string | null {
+  switch (attachment.preparation?.outcome) {
+    case 'optimized_inline':
+      return 'INLINE OPT';
+    case 'downgraded_to_file_reference':
+      return 'AUTO FILE_REF';
+    case 'file_reference_ready':
+      return attachment.optimization?.applied ? 'REF OPT' : 'FILE REF';
+    case 'inline_ready':
+      return 'INLINE';
+    default:
+      return attachment.optimization?.applied ? 'REF OPT' : null;
+  }
 }
 
 interface MessageBubbleProps {
@@ -336,25 +375,66 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
             <div className={`mt-2 ${isUser ? 'flex flex-col items-end' : ''}`}>
               <div className="text-[10px] text-muted-foreground mb-1">{buildAttachmentSummary(msg.uploadAttachments)}</div>
               <div className={`flex gap-1.5 flex-wrap ${isUser ? 'justify-end' : ''}`}>
-                {msg.uploadAttachments.map((attachment) => (
-                  <div key={attachment.id} className="rounded border border-border/60 bg-background/60 px-2 py-1 text-[10px] max-w-[320px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="rounded border border-primary/30 bg-primary/10 px-1 py-0.5 font-mono uppercase text-[9px] text-primary">
-                        {attachment.mode === 'inline' ? 'INLINE' : 'FILE_REF'}
-                      </span>
-                      <span className="truncate max-w-[140px]" title={attachment.name}>{attachment.name}</span>
-                      <span className="text-muted-foreground">{formatAttachmentSize(attachment.sizeBytes)}</span>
-                    </div>
-                    {attachment.mode === 'file_reference' && attachment.reference?.path && (
-                      <div className="mt-0.5 text-muted-foreground" title={attachment.reference.path}>
-                        path: {getReferenceTail(attachment.reference.path)}
+                {msg.uploadAttachments.map((attachment) => {
+                  const preparationBadge = buildPreparationBadge(attachment);
+                  const originBadge = buildOriginBadge(attachment);
+                  return (
+                    <div key={attachment.id} className="rounded border border-border/60 bg-background/60 px-2 py-1 text-[10px] max-w-[320px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="rounded border border-cyan-400/30 bg-cyan-400/10 px-1 py-0.5 font-mono uppercase text-[9px] text-cyan-300">
+                          {originBadge}
+                        </span>
+                        <span className="rounded border border-primary/30 bg-primary/10 px-1 py-0.5 font-mono uppercase text-[9px] text-primary">
+                          {attachment.mode === 'inline' ? 'INLINE' : 'FILE_REF'}
+                        </span>
+                        {preparationBadge && (
+                          <span className="rounded border border-orange/30 bg-orange/10 px-1 py-0.5 font-mono uppercase text-[9px] text-orange">
+                            {preparationBadge}
+                          </span>
+                        )}
+                        <span className="truncate max-w-[140px]" title={attachment.name}>{attachment.name}</span>
+                        <span className="text-muted-foreground">{formatAttachmentSize(attachment.sizeBytes)}</span>
                       </div>
-                    )}
-                    {attachment.mode === 'file_reference' && attachment.policy.forwardToSubagents && (
-                      <div className="mt-0.5 text-orange">forwarded to subagents</div>
-                    )}
-                  </div>
-                ))}
+                      {attachment.preparation?.reason && (
+                        <div className="mt-0.5 text-muted-foreground">{attachment.preparation.reason}</div>
+                      )}
+                      {attachment.preparation?.inlineBase64Bytes != null && (
+                        <div className="mt-0.5 text-muted-foreground">
+                          inline payload: {formatAttachmentSize(attachment.preparation.inlineBase64Bytes)}
+                          {attachment.preparation.contextSafetyMaxBytes != null
+                            ? ` / cap ${formatAttachmentSize(attachment.preparation.contextSafetyMaxBytes)}`
+                            : ''}
+                          {attachment.preparation.inlineTargetBytes != null
+                            ? ` / target ${formatAttachmentSize(attachment.preparation.inlineTargetBytes)}`
+                            : ''}
+                        </div>
+                      )}
+                      {(attachment.preparation?.inlineChosenWidth != null || attachment.preparation?.inlineIterations != null || attachment.preparation?.inlineFallbackReason) && (
+                        <div className="mt-0.5 text-muted-foreground">
+                          {[
+                            formatInlineDimensions(attachment.preparation?.inlineChosenWidth, attachment.preparation?.inlineChosenHeight),
+                            attachment.preparation?.inlineIterations != null ? `${attachment.preparation.inlineIterations} steps` : null,
+                            attachment.preparation?.inlineMinDimension != null ? `min ${attachment.preparation.inlineMinDimension}px` : null,
+                            attachment.preparation?.inlineFallbackReason ? `reason: ${attachment.preparation.inlineFallbackReason}` : null,
+                          ].filter(Boolean).join(' • ')}
+                        </div>
+                      )}
+                      {attachment.mode === 'file_reference' && attachment.reference?.path && (
+                        <div className="mt-0.5 text-muted-foreground" title={attachment.reference.path}>
+                          path: {getReferenceTail(attachment.reference.path)}
+                        </div>
+                      )}
+                      {attachment.optimization?.applied && (
+                        <div className="mt-0.5 text-muted-foreground">
+                          optimized: {formatAttachmentSize(attachment.optimization.original.sizeBytes)} → {formatAttachmentSize(attachment.optimization.optimized.sizeBytes)}
+                        </div>
+                      )}
+                      {attachment.policy.forwardToSubagents && (
+                        <div className="mt-0.5 text-orange">forwarded to subagents</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

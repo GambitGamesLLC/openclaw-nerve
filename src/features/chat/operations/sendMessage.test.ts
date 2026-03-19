@@ -1,13 +1,14 @@
 /** Tests for sendMessage — message building and RPC sending. */
 import { describe, it, expect, vi } from 'vitest';
 import { appendUploadManifest, applyVoiceTTSHint, buildUserMessage, sendChatMessage } from './sendMessage';
-import type { OutgoingUploadPayload } from '../types';
+import type { OutgoingUploadPayload, UploadAttachmentDescriptor } from '../types';
 
 function makeUploadPayload(overrides: Partial<OutgoingUploadPayload> = {}): OutgoingUploadPayload {
   return {
     descriptors: [
       {
         id: 'att-inline',
+        origin: 'upload',
         mode: 'inline',
         name: 'small.png',
         mimeType: 'image/png',
@@ -19,12 +20,24 @@ function makeUploadPayload(overrides: Partial<OutgoingUploadPayload> = {}): Outg
           previewUrl: 'data:image/png;base64,abc',
           compressed: true,
         },
+        preparation: {
+          sourceMode: 'inline',
+          finalMode: 'inline',
+          outcome: 'optimized_inline',
+          originalMimeType: 'image/png',
+          originalSizeBytes: 120_000,
+          inlineBase64Bytes: 12,
+          inlineChosenWidth: 1024,
+          inlineChosenHeight: 768,
+          optimizerAttempted: true,
+        },
         policy: {
           forwardToSubagents: false,
         },
       },
       {
         id: 'att-ref',
+        origin: 'server_path',
         mode: 'file_reference',
         name: 'capture.mov',
         mimeType: 'video/quicktime',
@@ -46,6 +59,13 @@ function makeUploadPayload(overrides: Partial<OutgoingUploadPayload> = {}): Outg
     },
     ...overrides,
   };
+}
+
+function extractManifestAttachments(message: string): UploadAttachmentDescriptor[] {
+  const manifestMatch = message.match(/<nerve-upload-manifest>(.*?)<\/nerve-upload-manifest>/);
+  expect(manifestMatch?.[1]).toBeTruthy();
+  const manifest = JSON.parse(manifestMatch![1]) as { attachments: UploadAttachmentDescriptor[] };
+  return manifest.attachments;
 }
 
 describe('applyVoiceTTSHint', () => {
@@ -76,12 +96,23 @@ describe('appendUploadManifest', () => {
     expect(message).toContain('capture.mov');
   });
 
-  it('hides inline base64 in manifest by default', () => {
+  it('hides inline base64 and strips preview data URLs by default while preserving metadata', () => {
     const message = appendUploadManifest('hello', makeUploadPayload());
-    expect(message).toContain('"base64":""');
+    const attachments = extractManifestAttachments(message);
+    const inlineAttachment = attachments[0];
+
+    expect(message).not.toContain('data:image/');
+    expect(inlineAttachment.inline?.base64).toBe('');
+    expect(inlineAttachment.inline?.previewUrl).toBeUndefined();
+    expect(inlineAttachment.inline?.base64Bytes).toBe(12);
+    expect(inlineAttachment.inline?.compressed).toBe(true);
+    expect(inlineAttachment.origin).toBe('upload');
+    expect(inlineAttachment.preparation?.outcome).toBe('optimized_inline');
+    expect(inlineAttachment.preparation?.inlineChosenWidth).toBe(1024);
+    expect(inlineAttachment.preparation?.inlineChosenHeight).toBe(768);
   });
 
-  it('includes inline base64 when policy flag is enabled', () => {
+  it('includes inline base64 in explicit debug mode but still strips preview URLs', () => {
     const message = appendUploadManifest('hello', makeUploadPayload({
       manifest: {
         enabled: true,
@@ -89,8 +120,12 @@ describe('appendUploadManifest', () => {
         allowSubagentForwarding: false,
       },
     }));
+    const attachments = extractManifestAttachments(message);
+    const inlineAttachment = attachments[0];
 
-    expect(message).toContain('"base64":"YmFzZTY0LWJ5dGVz"');
+    expect(inlineAttachment.inline?.base64).toBe('YmFzZTY0LWJ5dGVz');
+    expect(inlineAttachment.inline?.previewUrl).toBeUndefined();
+    expect(message).not.toContain('data:image/');
   });
 
   it('keeps message unchanged when manifest is disabled', () => {
@@ -148,6 +183,7 @@ describe('buildUserMessage', () => {
     const { msg } = buildUserMessage({ text: 'with upload', uploadPayload });
     expect(msg.uploadAttachments).toHaveLength(2);
     expect(msg.uploadAttachments?.[1].mode).toBe('file_reference');
+    expect(msg.uploadAttachments?.[1].origin).toBe('server_path');
   });
 
   it('omits images field when none provided', () => {
@@ -202,7 +238,7 @@ describe('sendChatMessage', () => {
     expect(callParams.attachments[0].content).toBe('b64');
   });
 
-  it('injects upload manifest data into outgoing message body', async () => {
+  it('injects sanitized upload manifest data into outgoing message body', async () => {
     const rpc = vi.fn().mockResolvedValue({});
 
     await sendChatMessage({
@@ -214,9 +250,13 @@ describe('sendChatMessage', () => {
     });
 
     const sentMessage = rpc.mock.calls[0][1].message as string;
+    const attachments = extractManifestAttachments(sentMessage);
     expect(sentMessage).toContain('<nerve-upload-manifest>');
     expect(sentMessage).toContain('capture.mov');
-    expect(sentMessage).toContain('"base64":""');
+    expect(attachments[0].inline?.base64).toBe('');
+    expect(attachments[0].inline?.previewUrl).toBeUndefined();
+    expect(attachments[0].inline?.base64Bytes).toBe(12);
+    expect(attachments[1].origin).toBe('server_path');
   });
 
   it('applies voice TTS hint to voice messages', async () => {

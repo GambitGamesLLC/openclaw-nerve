@@ -2,6 +2,7 @@
 import { createContext, useContext, useCallback, useRef, useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useGateway } from './GatewayContext';
 import { getSessionKey, type Session, type AgentLogEntry, type EventEntry, type GatewayEvent, type EventPayload, type AgentEventPayload, type ChatEventPayload, type ContentBlock, type SessionsListResponse, type ChatHistoryResponse, type ChatMessage, type GranularAgentState } from '@/types';
+import type { OutgoingUploadPayload } from '@/features/chat/types';
 import { describeToolUse } from '@/utils/helpers';
 import { mergeSessionsByKey } from '@/features/sessions/mergeSessions';
 import { isStatusRunning, mapAgentLifecyclePhaseToStatus, mapChatStateToStatus, mapLegacyAgentStateToStatus } from '@/features/sessions/granularStatus';
@@ -22,6 +23,7 @@ interface SpawnAgentOpts {
   label?: string;
   model?: string;
   thinking?: string;
+  uploadPayload?: OutgoingUploadPayload;
 }
 
 interface SessionContextValue {
@@ -587,30 +589,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [rpc]);
 
   const spawnAgent = useCallback(async (opts: SpawnAgentOpts) => {
-    // sessions_spawn is an agent tool, not a client RPC method.
-    // Send a structured chat message to the main session so the agent spawns it.
-    // Then poll sessions.list until the new subagent appears.
-    // Read from ref to avoid depending on `sessions` state (prevents recreation on every update)
+    // sessions_spawn is an agent tool, so use the server's HTTP bridge to invoke it
+    // directly. We still poll sessions.list afterward because newly spawned rows can
+    // briefly lag behind the accepted tool response.
     const before = new Set(sessionsRef.current.map(s => s.sessionKey || s.key || s.id));
-    const lines = ['[spawn-subagent]'];
-    lines.push(`task: ${opts.task}`);
-    if (opts.label) lines.push(`label: ${opts.label}`);
-    if (opts.model) lines.push(`model: ${opts.model}`);
-    if (opts.thinking && opts.thinking !== 'off') lines.push(`thinking: ${opts.thinking}`);
-    const idempotencyKey = `spawn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await rpc('chat.send', { sessionKey: 'agent:main:main', message: lines.join('\n'), idempotencyKey });
 
-    // Poll until a new subagent session appears (max 30s)
+    const res = await fetch('/api/gateway/session-spawn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        task: opts.task,
+        ...(opts.label ? { label: opts.label } : {}),
+        ...(opts.model ? { model: opts.model } : {}),
+        ...(opts.thinking && opts.thinking !== 'off' ? { thinking: opts.thinking } : {}),
+        ...(opts.uploadPayload ? { uploadPayload: opts.uploadPayload } : {}),
+      }),
+    });
+
+    const payload = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; childSessionKey?: string };
+    if (!res.ok || payload.ok === false) {
+      throw new Error(payload.error || `Failed to spawn subagent (${res.status})`);
+    }
+
+    const expectedSessionKey = payload.childSessionKey;
+
+    // Poll until the new subagent session appears (max 30s)
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 2000));
       try {
         // Prefer spawnedBy listing: avoids missing newly-spawned subagents when updatedAt is unset.
-        const res = await rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as { sessions?: Array<{ sessionKey?: string; key?: string; id?: string }> };
-        const fresh = res?.sessions ?? [];
+        const list = await rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as { sessions?: Array<{ sessionKey?: string; key?: string; id?: string }> };
+        const fresh = list?.sessions ?? [];
         const newSession = fresh.find(s => {
           const sk = s.sessionKey || s.key || s.id || '';
-          return sk.includes('subagent') && !before.has(sk);
+          if (!sk.includes('subagent')) return false;
+          if (expectedSessionKey) return sk === expectedSessionKey;
+          return !before.has(sk);
         });
         if (newSession) {
           refreshSessions();

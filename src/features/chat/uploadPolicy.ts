@@ -6,8 +6,14 @@ export interface UploadFeatureConfig {
   fileReferenceEnabled: boolean;
   modeChooserEnabled: boolean;
   inlineAttachmentMaxMb: number;
+  inlineImageContextMaxBytes: number;
+  inlineImageAutoDowngradeToFileReference: boolean;
+  inlineImageShrinkMinDimension: number;
   exposeInlineBase64ToAgent: boolean;
   allowSubagentForwarding: boolean;
+  imageOptimizationEnabled: boolean;
+  imageOptimizationMaxDimension: number;
+  imageOptimizationWebpQuality: number;
 }
 
 export const DEFAULT_UPLOAD_FEATURE_CONFIG: UploadFeatureConfig = {
@@ -16,8 +22,14 @@ export const DEFAULT_UPLOAD_FEATURE_CONFIG: UploadFeatureConfig = {
   fileReferenceEnabled: false,
   modeChooserEnabled: false,
   inlineAttachmentMaxMb: 4,
+  inlineImageContextMaxBytes: 32_768,
+  inlineImageAutoDowngradeToFileReference: true,
+  inlineImageShrinkMinDimension: 512,
   exposeInlineBase64ToAgent: false,
   allowSubagentForwarding: false,
+  imageOptimizationEnabled: true,
+  imageOptimizationMaxDimension: 2048,
+  imageOptimizationWebpQuality: 82,
 };
 
 export function getInlineAttachmentMaxBytes(config: UploadFeatureConfig): number {
@@ -44,9 +56,8 @@ export function getDefaultUploadMode(file: File, config: UploadFeatureConfig): U
   if (!isUploadsEnabled(config)) return null;
 
   if (config.inlineEnabled && config.fileReferenceEnabled) {
-    const inlineCap = getInlineAttachmentMaxBytes(config);
-    const isSmallImage = file.type.startsWith('image/') && file.size <= inlineCap;
-    return isSmallImage ? 'inline' : 'file_reference';
+    if (file.type.startsWith('image/')) return 'inline';
+    return 'file_reference';
   }
 
   if (config.inlineEnabled) return 'inline';
@@ -54,6 +65,8 @@ export function getDefaultUploadMode(file: File, config: UploadFeatureConfig): U
 }
 
 export function getInlineModeGuardrailError(file: File, config: UploadFeatureConfig): string | null {
+  if (file.type.startsWith('image/')) return null;
+
   const maxBytes = getInlineAttachmentMaxBytes(config);
   if (file.size <= maxBytes) return null;
 

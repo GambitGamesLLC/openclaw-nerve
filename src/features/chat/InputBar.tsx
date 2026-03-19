@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
-import { Mic, Paperclip, X, Loader2, ArrowUp, FileText } from 'lucide-react';
+import { Mic, Paperclip, X, Loader2, ArrowUp, FileText, Upload, FolderOpen } from 'lucide-react';
+import type { TreeEntry } from '@/features/file-browser';
 import { useVoiceInput } from '@/features/voice/useVoiceInput';
 import { useTabCompletion } from '@/hooks/useTabCompletion';
 import { useInputHistory } from '@/hooks/useInputHistory';
@@ -8,20 +9,33 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { MAX_ATTACHMENTS } from '@/lib/constants';
 import { compressImage } from './image-compress';
 import { mergeAddToChatText } from './addToChat';
-import type { FileUploadReference, ImageAttachment, OutgoingUploadPayload, UploadAttachmentDescriptor } from './types';
+import type {
+  FileUploadReference,
+  ImageAttachment,
+  OutgoingUploadPayload,
+  UploadArtifactMetadata,
+  UploadAttachmentDescriptor,
+  UploadPreparationMetadata,
+} from './types';
 import {
   DEFAULT_UPLOAD_FEATURE_CONFIG,
   getDefaultUploadMode,
   getInlineAttachmentMaxBytes,
   getInlineModeGuardrailError,
   isUploadsEnabled,
-  shouldShowUploadChooser,
   type UploadFeatureConfig,
-  type UploadMode,
 } from './uploadPolicy';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface InputBarProps {
-  onSend: (text: string, attachments?: ImageAttachment[], uploadPayload?: OutgoingUploadPayload) => void;
+  onSend: (text: string, attachments?: ImageAttachment[], uploadPayload?: OutgoingUploadPayload) => void | Promise<void>;
   isGenerating: boolean;
   onWakeWordState?: (enabled: boolean, toggle: () => void) => void;
   /** Agent name for dynamic wake phrase (e.g., "Hey Helena") */
@@ -36,9 +50,30 @@ export interface InputBarHandle {
 interface StagedAttachment {
   id: string;
   file: File;
+  origin: 'upload' | 'server_path';
   mode: UploadMode;
   forwardToSubagents: boolean;
   previewUrl?: string;
+  relativePath?: string;
+}
+
+interface FileTreeResponse {
+  ok: boolean;
+  root?: string;
+  entries?: TreeEntry[];
+  workspaceInfo?: {
+    isCustomWorkspace: boolean;
+    rootPath: string;
+  };
+  error?: string;
+}
+
+interface ResolvePathResponse {
+  ok: boolean;
+  path?: string;
+  type?: 'file' | 'directory';
+  binary?: boolean;
+  error?: string;
 }
 
 function formatFileSize(bytes: number): string {
@@ -82,6 +117,59 @@ function buildFileUriFromPath(path: string): string {
   return `file:///${encodeURI(normalized)}`;
 }
 
+function buildAbsoluteWorkspacePath(rootPath: string, relativePath: string): string {
+  if (!relativePath || relativePath === '.') return rootPath;
+
+  const rootHasBackslashes = rootPath.includes('\\');
+  const separator = rootHasBackslashes ? '\\' : '/';
+  const normalizedRoot = rootPath.replace(/[\\/]+$/, '');
+  const normalizedRelative = relativePath.replace(/^\.[\\/]/, '').replace(/^[/\\]+/, '').replace(/[\\/]+/g, separator);
+  return `${normalizedRoot}${separator}${normalizedRelative}`;
+}
+
+function inferMimeTypeFromName(name: string): string {
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
+  switch (ext) {
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.gif': return 'image/gif';
+    case '.webp': return 'image/webp';
+    case '.avif': return 'image/avif';
+    case '.svg': return 'image/svg+xml';
+    case '.ico': return 'image/x-icon';
+    case '.txt': return 'text/plain';
+    case '.md': return 'text/markdown';
+    case '.json': return 'application/json';
+    case '.pdf': return 'application/pdf';
+    default: return 'application/octet-stream';
+  }
+}
+
+function createServerPathBackedFile(params: { name: string; absolutePath: string; sizeBytes?: number; mimeType?: string }): File {
+  const file = new File([''], params.name, { type: params.mimeType || inferMimeTypeFromName(params.name) });
+
+  Object.defineProperty(file, 'path', {
+    configurable: true,
+    value: params.absolutePath,
+  });
+
+  if (typeof params.sizeBytes === 'number') {
+    Object.defineProperty(file, 'size', {
+      configurable: true,
+      value: params.sizeBytes,
+    });
+  }
+
+  return file;
+}
+
+function revokeAttachmentPreview(previewUrl?: string) {
+  if (previewUrl?.startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl);
+  }
+}
+
 function resolveFileReference(file: File): FileUploadReference {
   const fileWithPath = file as File & { path?: string; webkitRelativePath?: string };
   const maybePath = fileWithPath.path || fileWithPath.webkitRelativePath;
@@ -105,10 +193,39 @@ function hasResolvableLocalPath(file: File): boolean {
   return Boolean(fileWithPath.path || fileWithPath.webkitRelativePath);
 }
 
+function getFileNameFromPath(pathOrUri: string): string {
+  const normalized = pathOrUri.replace(/^file:\/\//, '').replace(/\\/g, '/');
+  return normalized.split('/').filter(Boolean).pop() || pathOrUri;
+}
+
+interface UploadOptimizerResponse {
+  ok: boolean;
+  optimized: boolean;
+  original: UploadArtifactMetadata;
+  optimizedArtifact: UploadArtifactMetadata;
+}
+
+async function optimizeFileReference(reference: FileUploadReference, mimeType: string): Promise<UploadOptimizerResponse> {
+  const response = await fetch('/api/upload-optimizer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: reference.path, mimeType }),
+  });
+
+  const payload = await response.json() as UploadOptimizerResponse | { ok: false; error?: string };
+  if (!response.ok || !payload || payload.ok !== true) {
+    const errorMessage = (payload as { error?: string }).error || 'Failed to optimize image upload.';
+    throw new Error(errorMessage);
+  }
+
+  return payload;
+}
+
 /** Chat input bar with file attachments, voice input, and model effort selector. */
 export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function InputBar({ onSend, isGenerating, onWakeWordState, agentName = 'Agent' }, ref) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentMenuRef = useRef<HTMLDivElement>(null);
   const deferredResizeFrameRef = useRef<number | null>(null);
   const deferredResizeSettledFrameRef = useRef<number | null>(null);
   const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
@@ -116,11 +233,20 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isPreparingInline, setIsPreparingInline] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [showAttachByPathDialog, setShowAttachByPathDialog] = useState(false);
+  const [pathPickerCurrentDir, setPathPickerCurrentDir] = useState('');
+  const [pathPickerEntries, setPathPickerEntries] = useState<TreeEntry[]>([]);
+  const [pathPickerSelected, setPathPickerSelected] = useState<TreeEntry | null>(null);
+  const [pathPickerLoading, setPathPickerLoading] = useState(false);
+  const [pathPickerError, setPathPickerError] = useState<string | null>(null);
+  const [pathPickerWorkspaceRoot, setPathPickerWorkspaceRoot] = useState('');
+  const [pathPickerCustomRoot, setPathPickerCustomRoot] = useState(false);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendError, setSendError] = useState(false);
 
   const uploadsEnabled = isUploadsEnabled(uploadConfig);
-  const showModeChooser = shouldShowUploadChooser(uploadConfig);
+  const attachByPathEnabled = uploadConfig.fileReferenceEnabled;
 
   // Persistent command history (terminal-style up/down navigation)
   const inputHistory = useInputHistory();
@@ -204,8 +330,26 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
             typeof data.inlineAttachmentMaxMb === 'number' && data.inlineAttachmentMaxMb > 0
               ? data.inlineAttachmentMaxMb
               : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineAttachmentMaxMb,
+          inlineImageContextMaxBytes:
+            typeof data.inlineImageContextMaxBytes === 'number' && data.inlineImageContextMaxBytes > 0
+              ? data.inlineImageContextMaxBytes
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageContextMaxBytes,
+          inlineImageAutoDowngradeToFileReference: data.inlineImageAutoDowngradeToFileReference !== false,
+          inlineImageShrinkMinDimension:
+            typeof data.inlineImageShrinkMinDimension === 'number' && data.inlineImageShrinkMinDimension > 0
+              ? data.inlineImageShrinkMinDimension
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageShrinkMinDimension,
           exposeInlineBase64ToAgent: Boolean(data.exposeInlineBase64ToAgent),
           allowSubagentForwarding: Boolean(data.allowSubagentForwarding),
+          imageOptimizationEnabled: data.imageOptimizationEnabled !== false,
+          imageOptimizationMaxDimension:
+            typeof data.imageOptimizationMaxDimension === 'number' && data.imageOptimizationMaxDimension > 0
+              ? data.imageOptimizationMaxDimension
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationMaxDimension,
+          imageOptimizationWebpQuality:
+            typeof data.imageOptimizationWebpQuality === 'number' && data.imageOptimizationWebpQuality > 0
+              ? data.imageOptimizationWebpQuality
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationWebpQuality,
         };
         setUploadConfig(nextConfig);
       })
@@ -225,6 +369,28 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       setStagedAttachments([]);
     }
   }, [uploadsEnabled, stagedAttachments]);
+
+  useEffect(() => {
+    if (!isAttachmentMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (attachmentMenuRef.current?.contains(event.target as Node)) return;
+      setIsAttachmentMenuOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAttachmentMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isAttachmentMenuOpen]);
 
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
@@ -363,25 +529,24 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         continue;
       }
 
-      if (defaultMode === 'inline' && file.size > inlineCapBytes && !uploadConfig.fileReferenceEnabled) {
-        const maxMb = uploadConfig.inlineAttachmentMaxMb;
-        firstError ||= `File exceeds inline cap; enable file-reference mode or choose a smaller file (${maxMb}MB max).`;
+      if (!uploadConfig.inlineEnabled) {
+        firstError ||= 'Browser uploads send uploaded bytes, not durable path references. Enable inline uploads or use Attach by Path.';
         continue;
       }
 
-      if (defaultMode === 'file_reference' && !hasResolvableLocalPath(file) && !uploadConfig.inlineEnabled) {
-        firstError ||= `"${file.name}" does not expose a local path for file-reference mode. Enable inline mode or choose a local file.`;
+      if (!file.type.startsWith('image/') && file.size > inlineCapBytes) {
+        const maxMb = Number.isInteger(uploadConfig.inlineAttachmentMaxMb)
+          ? String(uploadConfig.inlineAttachmentMaxMb)
+          : uploadConfig.inlineAttachmentMaxMb.toFixed(1);
+        firstError ||= `"${file.name}" is too large to send as a browser upload (${maxMb}MB max inline). Choose a smaller file or use Attach by Path.`;
         continue;
-      }
-
-      if (!uploadConfig.inlineEnabled && uploadConfig.fileReferenceEnabled && file.type.startsWith('image/')) {
-        firstError ||= 'Inline vision disabled; image sent as file reference only.';
       }
 
       next.push({
         id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         file,
-        mode: defaultMode,
+        origin: 'upload',
+        mode: 'inline',
         forwardToSubagents: false,
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
       });
@@ -439,26 +604,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     return () => document.removeEventListener('paste', handlePaste);
   }, []);
 
-  const updateAttachmentMode = useCallback((id: string, nextMode: UploadMode) => {
-    setAttachmentError(null);
-
-    setStagedAttachments((prev) => prev.map((item) => {
-      if (item.id !== id) return item;
-      if (nextMode === 'inline') {
-        const guardrail = getInlineModeGuardrailError(item.file, uploadConfig);
-        if (guardrail) {
-          if (uploadConfig.fileReferenceEnabled) {
-            setAttachmentError(`${guardrail} Keep this file as File Reference.`);
-            return { ...item, mode: 'file_reference' };
-          }
-          setAttachmentError('File exceeds inline cap; enable file-reference mode or choose smaller file.');
-          return item;
-        }
-      }
-      return { ...item, mode: nextMode };
-    }));
-  }, [uploadConfig]);
-
   const toggleForwarding = useCallback((id: string, enabled: boolean) => {
     setStagedAttachments((prev) => prev.map((item) => {
       if (item.id !== id) return item;
@@ -469,7 +614,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const removeStagedAttachment = useCallback((id: string) => {
     setStagedAttachments((prev) => {
       const target = prev.find((item) => item.id === id);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      revokeAttachmentPreview(target?.previewUrl);
       return prev.filter((item) => item.id !== id);
     });
     setAttachmentError(null);
@@ -477,43 +622,157 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
   const clearStagedAttachments = useCallback(() => {
     setStagedAttachments((prev) => {
-      prev.forEach((item) => {
-        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-      });
+      prev.forEach((item) => revokeAttachmentPreview(item.previewUrl));
       return [];
     });
   }, []);
+
+  const loadPathPickerDirectory = useCallback(async (dirPath: string) => {
+    setPathPickerLoading(true);
+    setPathPickerError(null);
+    try {
+      const query = dirPath ? `?path=${encodeURIComponent(dirPath)}&depth=1` : '?depth=1';
+      const response = await fetch(`/api/files/tree${query}`);
+      const payload = await response.json().catch(() => null) as FileTreeResponse | null;
+      if (!response.ok || !payload?.ok || !Array.isArray(payload.entries) || !payload.workspaceInfo?.rootPath) {
+        throw new Error(payload?.error || 'Failed to load workspace files.');
+      }
+
+      setPathPickerEntries(payload.entries);
+      setPathPickerCurrentDir(payload.root === '.' ? '' : (payload.root || dirPath));
+      setPathPickerSelected(null);
+      setPathPickerWorkspaceRoot(payload.workspaceInfo.rootPath);
+      setPathPickerCustomRoot(Boolean(payload.workspaceInfo.isCustomWorkspace));
+    } catch (error) {
+      setPathPickerError(error instanceof Error ? error.message : 'Failed to load workspace files.');
+      setPathPickerEntries([]);
+      setPathPickerSelected(null);
+    } finally {
+      setPathPickerLoading(false);
+    }
+  }, []);
+
+  const attachSelectedServerPath = useCallback(async () => {
+    if (!pathPickerSelected || pathPickerSelected.type !== 'file') return;
+
+    setAttachmentError(null);
+
+    const availableSlots = MAX_ATTACHMENTS - stagedAttachments.length;
+    if (availableSlots <= 0) {
+      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/files/resolve?path=${encodeURIComponent(pathPickerSelected.path)}`);
+      const payload = await response.json().catch(() => null) as ResolvePathResponse | null;
+      if (!response.ok || !payload?.ok || payload.type !== 'file' || !payload.path) {
+        throw new Error(payload?.error || 'Failed to validate selected workspace path.');
+      }
+
+      const absolutePath = buildAbsoluteWorkspacePath(pathPickerWorkspaceRoot, payload.path);
+      const mimeType = inferMimeTypeFromName(pathPickerSelected.name);
+      const syntheticFile = createServerPathBackedFile({
+        name: pathPickerSelected.name,
+        absolutePath,
+        sizeBytes: pathPickerSelected.size,
+        mimeType,
+      });
+      const relativePath = payload.path;
+      const previewUrl = mimeType.startsWith('image/')
+        ? `/api/files/raw?path=${encodeURIComponent(relativePath)}`
+        : undefined;
+
+      setStagedAttachments((prev) => ([...prev, {
+        id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file: syntheticFile,
+        origin: 'server_path',
+        mode: 'file_reference',
+        forwardToSubagents: false,
+        previewUrl,
+        relativePath,
+      }]));
+      setShowAttachByPathDialog(false);
+    } catch (error) {
+      setPathPickerError(error instanceof Error ? error.message : 'Failed to validate selected workspace path.');
+    }
+  }, [pathPickerSelected, pathPickerWorkspaceRoot, stagedAttachments.length]);
+
+  useEffect(() => {
+    if (!showAttachByPathDialog) return;
+    void loadPathPickerDirectory(pathPickerCurrentDir);
+  }, [loadPathPickerDirectory, pathPickerCurrentDir, showAttachByPathDialog]);
 
   // Report wake word state to parent
   useEffect(() => {
     onWakeWordState?.(wakeWordEnabled, toggleWakeWord);
   }, [wakeWordEnabled, toggleWakeWord, onWakeWordState]);
 
-  const buildInlineAttachment = useCallback(async (item: StagedAttachment): Promise<ImageAttachment> => {
+  const buildInlineAttachment = useCallback(async (item: StagedAttachment): Promise<{
+    attachment: ImageAttachment;
+    preparation?: UploadPreparationMetadata;
+  }> => {
     if (item.file.type.startsWith('image/')) {
-      const { base64, mimeType, preview } = await compressImage(item.file);
+      const compressed = await compressImage(item.file, {
+        contextMaxBytes: uploadConfig.inlineImageContextMaxBytes,
+        contextTargetBytes: Math.floor(uploadConfig.inlineImageContextMaxBytes * 0.9),
+        maxDimension: uploadConfig.imageOptimizationMaxDimension,
+        minDimension: uploadConfig.inlineImageShrinkMinDimension,
+        webpQuality: uploadConfig.imageOptimizationWebpQuality,
+      });
       return {
-        id: item.id,
-        mimeType,
-        content: base64,
-        preview,
-        name: item.file.name,
+        attachment: {
+          id: item.id,
+          mimeType: compressed.mimeType,
+          content: compressed.base64,
+          preview: compressed.preview,
+          name: item.file.name,
+        },
+        preparation: {
+          sourceMode: 'inline',
+          finalMode: 'inline',
+          outcome: 'optimized_inline',
+          reason: `Adaptive inline shrink fit within the context-safe budget (${formatFileSize(compressed.bytes)} <= ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}).`,
+          originalMimeType: item.file.type || 'application/octet-stream',
+          originalSizeBytes: item.file.size,
+          inlineBase64Bytes: compressed.bytes,
+          contextSafetyMaxBytes: uploadConfig.inlineImageContextMaxBytes,
+          inlineTargetBytes: compressed.targetBytes,
+          inlineChosenWidth: compressed.width,
+          inlineChosenHeight: compressed.height,
+          inlineIterations: compressed.iterations,
+          inlineMinDimension: compressed.minDimension,
+          localPathAvailable: hasResolvableLocalPath(item.file),
+          optimizerAttempted: false,
+        },
       };
     }
 
     const dataUrl = await readAsDataUrl(item.file);
     const [, base64 = ''] = dataUrl.split(',', 2);
     return {
-      id: item.id,
-      mimeType: item.file.type || 'application/octet-stream',
-      content: base64,
-      preview: dataUrl,
-      name: item.file.name,
+      attachment: {
+        id: item.id,
+        mimeType: item.file.type || 'application/octet-stream',
+        content: base64,
+        preview: dataUrl,
+        name: item.file.name,
+      },
     };
-  }, []);
+  }, [
+    uploadConfig.imageOptimizationMaxDimension,
+    uploadConfig.imageOptimizationWebpQuality,
+    uploadConfig.inlineImageContextMaxBytes,
+    uploadConfig.inlineImageShrinkMinDimension,
+  ]);
 
-  const buildInlineDescriptor = useCallback((item: StagedAttachment, attachment: ImageAttachment): UploadAttachmentDescriptor => ({
+  const buildInlineDescriptor = useCallback((
+    item: StagedAttachment,
+    attachment: ImageAttachment,
+    preparation?: UploadPreparationMetadata,
+  ): UploadAttachmentDescriptor => ({
     id: item.id,
+    origin: item.origin,
     mode: 'inline',
     name: item.file.name,
     mimeType: attachment.mimeType,
@@ -525,22 +784,153 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       previewUrl: attachment.preview,
       compressed: item.file.type.startsWith('image/'),
     },
-    policy: {
-      forwardToSubagents: false,
-    },
-  }), []);
-
-  const buildFileReferenceDescriptor = useCallback((item: StagedAttachment): UploadAttachmentDescriptor => ({
-    id: item.id,
-    mode: 'file_reference',
-    name: item.file.name,
-    mimeType: item.file.type || 'application/octet-stream',
-    sizeBytes: item.file.size,
-    reference: resolveFileReference(item.file),
+    preparation,
     policy: {
       forwardToSubagents: item.forwardToSubagents,
     },
   }), []);
+
+  const buildFileReferenceDescriptor = useCallback(async (
+    item: StagedAttachment,
+    preparation?: UploadPreparationMetadata,
+  ): Promise<UploadAttachmentDescriptor> => {
+    const originalReference = resolveFileReference(item.file);
+    const fallbackMimeType = item.file.type || 'application/octet-stream';
+
+    const descriptorBase: UploadAttachmentDescriptor = {
+      id: item.id,
+      origin: item.origin,
+      mode: 'file_reference',
+      name: item.file.name,
+      mimeType: fallbackMimeType,
+      sizeBytes: item.file.size,
+      reference: originalReference,
+      preparation,
+      policy: {
+        forwardToSubagents: item.forwardToSubagents,
+      },
+    };
+
+    if (!uploadConfig.imageOptimizationEnabled || !fallbackMimeType.startsWith('image/')) {
+      return descriptorBase;
+    }
+
+    try {
+      const optimized = await optimizeFileReference(originalReference, fallbackMimeType);
+      return {
+        ...descriptorBase,
+        name: getFileNameFromPath(optimized.optimizedArtifact.path),
+        mimeType: optimized.optimizedArtifact.mimeType,
+        sizeBytes: optimized.optimizedArtifact.sizeBytes,
+        reference: {
+          kind: 'local_path',
+          path: optimized.optimizedArtifact.path,
+          uri: optimized.optimizedArtifact.uri,
+        },
+        optimization: {
+          applied: optimized.optimized,
+          tempDerivative: optimized.optimized,
+          cleanupAfterSend: optimized.optimized,
+          original: optimized.original,
+          optimized: optimized.optimizedArtifact,
+        },
+      };
+    } catch {
+      return descriptorBase;
+    }
+  }, [uploadConfig.imageOptimizationEnabled]);
+
+  const prepareInlineItem = useCallback(async (item: StagedAttachment): Promise<{
+    inlineAttachment?: ImageAttachment;
+    descriptor: UploadAttachmentDescriptor;
+  }> => {
+    const { attachment: inlineAttachment, preparation } = await buildInlineAttachment(item);
+    const inlineBase64Bytes = getBase64ByteLength(inlineAttachment.content);
+    const localPathAvailable = hasResolvableLocalPath(item.file);
+
+    if (!item.file.type.startsWith('image/')) {
+      return {
+        inlineAttachment,
+        descriptor: buildInlineDescriptor(item, inlineAttachment, {
+          sourceMode: 'inline',
+          finalMode: 'inline',
+          outcome: 'inline_ready',
+          originalMimeType: item.file.type || 'application/octet-stream',
+          originalSizeBytes: item.file.size,
+          inlineBase64Bytes,
+          localPathAvailable,
+        }),
+      };
+    }
+
+    if (inlineBase64Bytes <= uploadConfig.inlineImageContextMaxBytes) {
+      return {
+        inlineAttachment,
+        descriptor: buildInlineDescriptor(item, inlineAttachment, {
+          ...preparation,
+          sourceMode: 'inline',
+          finalMode: 'inline',
+          outcome: 'optimized_inline',
+          reason: preparation?.inlineBase64Bytes != null && preparation.inlineTargetBytes != null && preparation.inlineBase64Bytes <= preparation.inlineTargetBytes
+            ? `Adaptive inline shrink fit under the target budget (${formatFileSize(preparation.inlineBase64Bytes)} <= ${formatFileSize(preparation.inlineTargetBytes)}).`
+            : `Adaptive inline shrink fit within the context-safe budget (${formatFileSize(inlineBase64Bytes)} <= ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}).`,
+          originalMimeType: item.file.type || 'application/octet-stream',
+          originalSizeBytes: item.file.size,
+          inlineBase64Bytes,
+          contextSafetyMaxBytes: uploadConfig.inlineImageContextMaxBytes,
+          localPathAvailable,
+          optimizerAttempted: false,
+        }),
+      };
+    }
+
+    const fallbackReason = `Adaptive inline shrinking hit the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) without reaching the context-safe budget.`;
+
+    if (
+      item.origin === 'server_path'
+      && uploadConfig.inlineImageAutoDowngradeToFileReference
+      && uploadConfig.fileReferenceEnabled
+      && localPathAvailable
+    ) {
+      return {
+        descriptor: await buildFileReferenceDescriptor(item, {
+          ...preparation,
+          sourceMode: 'inline',
+          finalMode: 'file_reference',
+          outcome: 'downgraded_to_file_reference',
+          reason: `${fallbackReason} Falling back to file reference (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}).`,
+          originalMimeType: item.file.type || 'application/octet-stream',
+          originalSizeBytes: item.file.size,
+          inlineBase64Bytes,
+          contextSafetyMaxBytes: uploadConfig.inlineImageContextMaxBytes,
+          inlineFallbackReason: 'minimum inline dimension reached; used file reference fallback',
+          localPathAvailable: true,
+          optimizerAttempted: uploadConfig.imageOptimizationEnabled,
+        }),
+      };
+    }
+
+    if (item.origin === 'upload') {
+      throw new Error(
+        `"${item.file.name}" was blocked after adaptive inline shrinking reached the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) and browser uploads cannot preserve a true file-reference fallback (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}). Send a smaller image or use Attach by Path.`,
+      );
+    }
+
+    throw new Error(
+      uploadConfig.fileReferenceEnabled
+        ? `"${item.file.name}" was blocked after adaptive inline shrinking reached the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) and no file-reference fallback was available (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}).`
+        : `"${item.file.name}" was blocked after adaptive inline shrinking reached the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}). Enable file-reference mode or choose a smaller image.`,
+    );
+  }, [
+    buildFileReferenceDescriptor,
+    buildInlineAttachment,
+    buildInlineDescriptor,
+    uploadConfig.fileReferenceEnabled,
+    uploadConfig.imageOptimizationEnabled,
+    uploadConfig.inlineImageAutoDowngradeToFileReference,
+    uploadConfig.inlineImageContextMaxBytes,
+    uploadConfig.inlineImageShrinkMinDimension,
+  ]);
 
   const handleSend = useCallback(async () => {
     const text = inputRef.current?.value.trim();
@@ -570,13 +960,27 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
       for (const item of stagedAttachments) {
         if (item.mode === 'inline') {
-          const inlineAttachment = await buildInlineAttachment(item);
-          inlineAttachments.push(inlineAttachment);
-          descriptors.push(buildInlineDescriptor(item, inlineAttachment));
+          const prepared = await prepareInlineItem(item);
+          if (prepared.inlineAttachment) {
+            inlineAttachments.push(prepared.inlineAttachment);
+          }
+          descriptors.push(prepared.descriptor);
           continue;
         }
 
-        descriptors.push(buildFileReferenceDescriptor(item));
+        const descriptor = await buildFileReferenceDescriptor(item, {
+          sourceMode: 'file_reference',
+          finalMode: 'file_reference',
+          outcome: 'file_reference_ready',
+          reason: item.file.type.startsWith('image/')
+            ? 'Sent as file reference; inline context budget not used.'
+            : 'Sent as file reference.',
+          originalMimeType: item.file.type || 'application/octet-stream',
+          originalSizeBytes: item.file.size,
+          localPathAvailable: hasResolvableLocalPath(item.file),
+          optimizerAttempted: uploadConfig.imageOptimizationEnabled && item.file.type.startsWith('image/'),
+        });
+        descriptors.push(descriptor);
       }
 
       const uploadPayload: OutgoingUploadPayload | undefined = descriptors.length > 0
@@ -600,7 +1004,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         input.style.height = 'auto';
       }
 
-      onSend(text || '', inlineAttachments.length > 0 ? inlineAttachments : undefined, uploadPayload);
+      await onSend(text || '', inlineAttachments.length > 0 ? inlineAttachments : undefined, uploadPayload);
       clearStagedAttachments();
       setAttachmentError(null);
       clearVoiceError();
@@ -618,10 +1022,9 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     stagedAttachments,
     uploadConfig,
     inputHistory,
-    buildInlineAttachment,
-    buildInlineDescriptor,
     buildFileReferenceDescriptor,
     onSend,
+    prepareInlineItem,
     clearStagedAttachments,
     clearVoiceError,
   ]);
@@ -712,6 +1115,24 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     resizeInput();
   };
 
+  const openUploadFilesPicker = useCallback(() => {
+    if (!uploadsEnabled) return;
+    setIsAttachmentMenuOpen(false);
+    fileInputRef.current?.click();
+  }, [uploadsEnabled]);
+
+  const openAttachByPathPicker = useCallback(() => {
+    if (!attachByPathEnabled) return;
+    setIsAttachmentMenuOpen(false);
+    setPathPickerError(null);
+    setPathPickerSelected(null);
+    setPathPickerCurrentDir('');
+    setShowAttachByPathDialog(true);
+  }, [attachByPathEnabled]);
+
+  const pathPickerBreadcrumbs = pathPickerCurrentDir
+    ? pathPickerCurrentDir.split('/').filter(Boolean)
+    : [];
   const fileAccept = uploadConfig.fileReferenceEnabled || uploadConfig.twoModeEnabled ? '*/*' : 'image/*';
 
   return (
@@ -726,9 +1147,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       {/* Staged attachments preview */}
       {stagedAttachments.length > 0 && (
         <div className="flex flex-col gap-2 px-4 py-2 bg-card border-t border-border">
-          {showModeChooser && (
-            <div className="text-[10px] text-muted-foreground">Upload mode chooser: INLINE for small images, FILE_REF for larger files.</div>
-          )}
           <div className="flex gap-2 flex-wrap">
             {stagedAttachments.map((item) => (
               <div key={item.id} className="relative group border border-border rounded px-2 py-1.5 bg-background min-w-[190px] max-w-[260px]">
@@ -750,28 +1168,15 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
                   <div className="min-w-0 flex-1">
                     <div className="text-[11px] truncate">{item.file.name}</div>
                     <div className="text-[10px] text-muted-foreground">{formatFileSize(item.file.size)}</div>
-                    {!showModeChooser && (
-                      <div className="text-[9px] mt-0.5 text-primary/90 uppercase">{item.mode === 'inline' ? 'Inline' : 'File Ref'}</div>
+                    {item.origin === 'server_path' && item.relativePath && (
+                      <div className="text-[9px] mt-0.5 truncate text-muted-foreground">{item.relativePath}</div>
                     )}
+                    <div className="text-[9px] mt-0.5 text-primary/90 uppercase">{item.origin === 'server_path' ? 'Path Ref' : 'Upload'}</div>
                   </div>
                 </div>
 
-                {showModeChooser && (
-                  <div className="mt-1">
-                    <label className="text-[9px] text-muted-foreground uppercase tracking-wide">Mode</label>
-                    <select
-                      aria-label={`Upload mode for ${item.file.name}`}
-                      value={item.mode}
-                      onChange={(e) => updateAttachmentMode(item.id, e.target.value as UploadMode)}
-                      className="w-full mt-0.5 text-[10px] bg-card border border-border rounded px-1.5 py-1"
-                    >
-                      <option value="inline">Inline</option>
-                      <option value="file_reference">File Reference</option>
-                    </select>
-                  </div>
-                )}
 
-                {uploadConfig.allowSubagentForwarding && item.mode === 'file_reference' && (
+                {uploadConfig.allowSubagentForwarding && (
                   <label className="mt-1 inline-flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
                     <input
                       type="checkbox"
@@ -833,15 +1238,56 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           rows={1}
           className="flex-1 font-mono text-[13px] bg-transparent text-foreground border-none px-2.5 py-3 resize-none outline-none min-h-[42px] max-h-[160px]"
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!uploadsEnabled}
-          className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-          title={uploadsEnabled ? 'Attach file' : 'Uploads disabled by configuration'}
-          aria-label={uploadsEnabled ? 'Attach file' : 'Uploads disabled by configuration'}
-        >
-          <Paperclip size={16} />
-        </button>
+        <div className="relative self-stretch" ref={attachmentMenuRef}>
+          <button
+            type="button"
+            onClick={() => {
+              if (!uploadsEnabled) return;
+              setIsAttachmentMenuOpen((prev) => !prev);
+            }}
+            disabled={!uploadsEnabled}
+            className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch h-full flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            title={uploadsEnabled ? 'Open attachment menu' : 'Uploads disabled by configuration'}
+            aria-label={uploadsEnabled ? 'Open attachment menu' : 'Uploads disabled by configuration'}
+            aria-haspopup="menu"
+            aria-expanded={isAttachmentMenuOpen}
+          >
+            <Paperclip size={16} />
+          </button>
+          {isAttachmentMenuOpen && uploadsEnabled && (
+            <div
+              role="menu"
+              aria-label="Attachment actions"
+              className="absolute bottom-[calc(100%+0.5rem)] right-0 z-40 min-w-[220px] rounded-md border border-border bg-popover p-1.5 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openUploadFilesPicker}
+                className="flex w-full items-start gap-2 rounded px-2 py-2 text-left text-[11px] text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                <Upload size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="block font-medium">Upload files</span>
+                  <span className="block text-[10px] text-muted-foreground">Use the existing browser file picker / drag-drop flow.</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openAttachByPathPicker}
+                disabled={!attachByPathEnabled}
+                className="mt-1 flex w-full items-start gap-2 rounded px-2 py-2 text-left text-[11px] text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FolderOpen size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="block font-medium">Attach by Path</span>
+                  <span className="block text-[10px] text-muted-foreground">Browse validated workspace / server-known files.</span>
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
         <button
           onClick={() => { void handleSend(); }}
           disabled={isGenerating || isPreparingInline}
@@ -864,6 +1310,124 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           {voiceError}
         </div>
       )}
+      <Dialog open={showAttachByPathDialog} onOpenChange={setShowAttachByPathDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Attach by Path</DialogTitle>
+            <DialogDescription>
+              Pick a validated workspace / server-known file. The selected path will be attached as a true file reference instead of a browser upload.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-1 rounded border border-border/70 bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setPathPickerCurrentDir('')}
+                className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-accent-foreground"
+              >
+                {pathPickerCustomRoot ? 'Server root' : 'Workspace'}
+              </button>
+              {pathPickerBreadcrumbs.map((segment, index) => {
+                const nextPath = pathPickerBreadcrumbs.slice(0, index + 1).join('/');
+                return (
+                  <span key={nextPath} className="flex items-center gap-1">
+                    <span>/</span>
+                    <button
+                      type="button"
+                      onClick={() => setPathPickerCurrentDir(nextPath)}
+                      className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {segment}
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+
+            <div className="rounded border border-border/70">
+              <div className="max-h-[320px] overflow-y-auto">
+                {pathPickerLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-3 py-8 text-[12px] text-muted-foreground">
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading files…
+                  </div>
+                ) : pathPickerError ? (
+                  <div className="px-3 py-8 text-center text-[12px] text-destructive">{pathPickerError}</div>
+                ) : pathPickerEntries.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-[12px] text-muted-foreground">No files in this directory.</div>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {pathPickerEntries.map((entry) => {
+                      const isSelected = pathPickerSelected?.path === entry.path;
+                      const isFile = entry.type === 'file';
+                      return (
+                        <button
+                          key={entry.path}
+                          type="button"
+                          onClick={() => {
+                            if (entry.type === 'directory') {
+                              setPathPickerCurrentDir(entry.path);
+                              return;
+                            }
+                            setPathPickerSelected(entry);
+                          }}
+                          className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] hover:bg-accent/60 ${isSelected ? 'bg-accent/70 text-accent-foreground' : ''}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            {entry.type === 'directory' ? <FolderOpen size={14} className="shrink-0 text-primary" /> : <FileText size={14} className="shrink-0 text-muted-foreground" />}
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{entry.name}</span>
+                              <span className="block truncate text-[10px] text-muted-foreground">{entry.path}</span>
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">{isFile ? formatFileSize(entry.size ?? 0) : 'Folder'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded border border-border/70 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+              {pathPickerSelected
+                ? <>Selected: <span className="font-medium text-foreground">{pathPickerSelected.path}</span></>
+                : 'Select a file to attach it as a server path reference.'}
+            </div>
+          </div>
+          <DialogFooter showCloseButton>
+            <button
+              type="button"
+              onClick={() => {
+                const current = pathPickerCurrentDir;
+                if (!current) return;
+                const parent = current.includes('/') ? current.slice(0, current.lastIndexOf('/')) : '';
+                setPathPickerCurrentDir(parent);
+              }}
+              disabled={!pathPickerCurrentDir || pathPickerLoading}
+              className="rounded border border-border px-3 py-1.5 text-[11px] text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Up
+            </button>
+            <button
+              type="button"
+              onClick={() => { void loadPathPickerDirectory(pathPickerCurrentDir); }}
+              disabled={pathPickerLoading}
+              className="rounded border border-border px-3 py-1.5 text-[11px] text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => { void attachSelectedServerPath(); }}
+              disabled={!pathPickerSelected || pathPickerLoading}
+              className="rounded bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Attach selected path
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });

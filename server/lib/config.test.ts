@@ -427,8 +427,19 @@ describe('config module', () => {
         fileReferenceEnabled: false,
         modeChooserEnabled: false,
         inlineAttachmentMaxMb: 4,
+        inlineImageContextMaxBytes: 32768,
+        inlineImageAutoDowngradeToFileReference: true,
+        inlineImageShrinkMinDimension: 512,
         exposeInlineBase64ToAgent: false,
         allowSubagentForwarding: false,
+        optimization: {
+          enabled: true,
+          tempDir: '~/.cache/openclaw/nerve/optimized-uploads',
+          maxDimension: 2048,
+          preserveTransparency: true,
+          webpQuality: 82,
+          staleMaxAgeHours: 24,
+        },
       });
     });
 
@@ -438,8 +449,16 @@ describe('config module', () => {
       process.env.NERVE_UPLOAD_FILE_REFERENCE_ENABLED = 'true';
       process.env.NERVE_UPLOAD_MODE_CHOOSER_ENABLED = 'true';
       process.env.NERVE_INLINE_ATTACHMENT_MAX_MB = '6';
+      process.env.NERVE_INLINE_IMAGE_CONTEXT_MAX_BYTES = '196608';
+      process.env.NERVE_INLINE_IMAGE_AUTO_DOWNGRADE_TO_FILE_REFERENCE = 'false';
+      process.env.NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION = '896';
       process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT = 'true';
       process.env.NERVE_UPLOAD_ALLOW_SUBAGENT_FORWARDING = 'true';
+      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED = 'true';
+      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR = '~/tmp/optimized';
+      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION = '3072';
+      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY = '72';
+      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_STALE_MAX_AGE_HOURS = '48';
 
       const { config } = await importFreshConfig();
 
@@ -448,8 +467,16 @@ describe('config module', () => {
       expect(config.upload.fileReferenceEnabled).toBe(true);
       expect(config.upload.modeChooserEnabled).toBe(true);
       expect(config.upload.inlineAttachmentMaxMb).toBe(6);
+      expect(config.upload.inlineImageContextMaxBytes).toBe(196608);
+      expect(config.upload.inlineImageAutoDowngradeToFileReference).toBe(false);
+      expect(config.upload.inlineImageShrinkMinDimension).toBe(896);
       expect(config.upload.exposeInlineBase64ToAgent).toBe(true);
       expect(config.upload.allowSubagentForwarding).toBe(true);
+      expect(config.upload.optimization.enabled).toBe(true);
+      expect(config.upload.optimization.tempDir).toBe('~/tmp/optimized');
+      expect(config.upload.optimization.maxDimension).toBe(3072);
+      expect(config.upload.optimization.webpQuality).toBe(72);
+      expect(config.upload.optimization.staleMaxAgeHours).toBe(48);
     });
 
     it('falls back to default inline cap when env is invalid', async () => {

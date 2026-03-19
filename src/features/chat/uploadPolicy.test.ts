@@ -34,7 +34,7 @@ describe('uploadPolicy', () => {
     expect(getDefaultUploadMode(file, config)).toBe('inline');
   });
 
-  it('defaults larger files to file_reference when both modes are enabled', () => {
+  it('defaults images to inline and non-images to file_reference when both modes are enabled', () => {
     const config = makeConfig({
       twoModeEnabled: true,
       inlineEnabled: true,
@@ -45,7 +45,7 @@ describe('uploadPolicy', () => {
 
     const image = makeFile('big.png', 'image/png', 2 * 1024 * 1024);
     const pdf = makeFile('notes.pdf', 'application/pdf', 400_000);
-    expect(getDefaultUploadMode(image, config)).toBe('file_reference');
+    expect(getDefaultUploadMode(image, config)).toBe('inline');
     expect(getDefaultUploadMode(pdf, config)).toBe('file_reference');
   });
 
@@ -68,10 +68,12 @@ describe('uploadPolicy', () => {
     expect(getDefaultUploadMode(file, config)).toBeNull();
   });
 
-  it('returns hard inline guardrail errors for oversized files', () => {
+  it('returns hard inline guardrail errors for oversized non-image files only', () => {
     const config = makeConfig({ inlineAttachmentMaxMb: 1.5 });
-    const file = makeFile('archive.zip', 'application/zip', 2 * 1024 * 1024);
-    expect(getInlineModeGuardrailError(file, config)).toContain('exceeds inline cap (1.5MB)');
+    const archive = makeFile('archive.zip', 'application/zip', 2 * 1024 * 1024);
+    const image = makeFile('huge.png', 'image/png', 8 * 1024 * 1024);
+    expect(getInlineModeGuardrailError(archive, config)).toContain('exceeds inline cap (1.5MB)');
+    expect(getInlineModeGuardrailError(image, config)).toBeNull();
   });
 
   it('shows chooser only when all chooser gates are true', () => {

@@ -194,8 +194,35 @@ const uploadInlineEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_INLINE_ENAB
 const uploadFileReferenceEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_FILE_REFERENCE_ENABLED, false);
 const uploadModeChooserEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_MODE_CHOOSER_ENABLED, false);
 const inlineAttachmentMaxMb = parsePositiveNumberEnv(process.env.NERVE_INLINE_ATTACHMENT_MAX_MB, 4);
+const inlineImageContextMaxBytes = Math.max(
+  16 * 1024,
+  Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_CONTEXT_MAX_BYTES, 32_768)),
+);
+const inlineImageAutoDowngradeToFileReference = parseBooleanEnv(
+  process.env.NERVE_INLINE_IMAGE_AUTO_DOWNGRADE_TO_FILE_REFERENCE,
+  true,
+);
+const inlineImageShrinkMinDimension = Math.max(
+  256,
+  Math.min(4096, Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION, 512))),
+);
 const uploadExposeInlineBase64ToAgent = parseBooleanEnv(process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT, false);
 const uploadAllowSubagentForwarding = parseBooleanEnv(process.env.NERVE_UPLOAD_ALLOW_SUBAGENT_FORWARDING, false);
+const uploadImageOptimizationEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED, true);
+const uploadImageOptimizationTempDir = process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR
+  || '~/.cache/openclaw/nerve/optimized-uploads';
+const uploadImageOptimizationMaxDimension = Math.max(
+  256,
+  Math.min(8192, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION, 2048))),
+);
+const uploadImageOptimizationWebpQuality = Math.max(
+  1,
+  Math.min(100, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY, 82))),
+);
+const uploadImageOptimizationStaleMaxAgeHours = Math.max(
+  1,
+  Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_STALE_MAX_AGE_HOURS, 24)),
+);
 
 function normalizeLanguagePreference(language: string | undefined): string {
   const normalized = (language || DEFAULT_LANGUAGE).trim().toLowerCase();
@@ -276,8 +303,19 @@ export const config = {
     fileReferenceEnabled: uploadFileReferenceEnabled,
     modeChooserEnabled: uploadModeChooserEnabled,
     inlineAttachmentMaxMb,
+    inlineImageContextMaxBytes,
+    inlineImageAutoDowngradeToFileReference,
+    inlineImageShrinkMinDimension,
     exposeInlineBase64ToAgent: uploadExposeInlineBase64ToAgent,
     allowSubagentForwarding: uploadAllowSubagentForwarding,
+    optimization: {
+      enabled: uploadImageOptimizationEnabled,
+      tempDir: uploadImageOptimizationTempDir,
+      maxDimension: uploadImageOptimizationMaxDimension,
+      preserveTransparency: true,
+      webpQuality: uploadImageOptimizationWebpQuality,
+      staleMaxAgeHours: uploadImageOptimizationStaleMaxAgeHours,
+    },
   },
 
   // Limits
