@@ -171,9 +171,9 @@ Verification run:
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-17-nerve-followups-forwarding-and-image-sizing.md`
 - repo files only if a safe verification-time fix is required
 
-**Status:** ⚠️ Partial (live API/runtime verified; full chat-send ACK path not executed)
+**Status:** ✅ Complete
 
-**Results:** Live verification pass executed directly against the running local Nerve server at `http://127.0.0.1:3080` after confirming restore-managed env/config state.
+**Results:** Initial live verification pass executed directly against the running local Nerve server at `http://127.0.0.1:3080` after confirming restore-managed env/config state. A later human validation pass on 2026-03-18 completed the missing UI chat-send coverage: successful real Nerve sends delivered both file-reference and inline attachments to the main agent with the expected manifests/optimization metadata, which is sufficient to retire the earlier send-ACK validation gap for the optimization pipeline itself.
 
 Observed runtime/config state before verification:
 - `.env` contains expected keys/values:
@@ -209,11 +209,9 @@ Additional verification:
   - `src/features/chat/InputBar.test.tsx`
 
 Blocker for full end-to-end chat-send ACK validation:
-- Browser automation reached Nerve UI, but the app was in gateway-disconnected state (`OFFLINE`, `0 SESSIONS`, connect dialog open), so a real in-UI send ACK cycle (which triggers ChatContext cleanup call after successful `chat.send`) was not executed in this pass.
+- Browser automation reached Nerve UI, but the app was in gateway-disconnected state (`OFFLINE`, `0 SESSIONS`, connect dialog open), so a real in-UI send ACK cycle (which triggers ChatContext cleanup call after successful `chat.send`) was not executed in that first pass.
 - Cleanup route and artifact deletion behavior were still verified live at runtime using the same API path ChatContext calls post-ACK.
-
-Recommended next step:
-- Run one operator-assisted or connected-session UI send with a file-reference image upload and confirm post-send cleanup invocation in-network logs (or trace), then close `nerve-bop`.
+- Follow-up human validation on 2026-03-18 then exercised successful real Nerve sends from the live UI, including a file-reference send from workspace `avatar.png` and inline sends from phone/browser uploads. Those sends demonstrated that the end-user send path is working again; the remaining defect now lives specifically in the subagent-forwarding bridge rather than in the optimization/send-ACK path itself.
 
 ## Final Results
 
@@ -222,15 +220,17 @@ Recommended next step:
 **What We Built:**
 - Closed the forwarding-policy investigation (`nerve-fsv`) by fixing inline forwarding policy generation/visibility and validating it with tests.
 - Implemented and validated a scoped upload-image optimization pipeline (`nerve-c7f`) for model-facing file-reference artifacts with temp derivatives, metadata surfacing, stale cleanup, and post-send deletion.
+- Closed the live optimization verification bead (`nerve-bop`) after real UI sends on 2026-03-18 confirmed the main-agent send path is functioning with both file-reference and inline attachment flows.
 - Extended Nerve upload configuration + restore-managed defaults to cover optimization behavior.
 
 **Commits:**
-- None yet.
+- Pending current closeout commit.
 
 **Lessons Learned:**
 - The safest integration point for optimization is the descriptor assembly boundary right before `chat.send`, where policy and metadata are already centralized.
 - Temp derivative lifecycle needs both proactive stale cleanup and immediate post-send cleanup to avoid cache growth.
+- Human testing cleanly separated a solved optimization/send path from the still-broken subagent forwarding bridge.
 
 ---
 
-*Created on 2026-03-17*
+*Completed on 2026-03-18*

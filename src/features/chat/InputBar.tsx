@@ -16,6 +16,7 @@ import type {
   UploadArtifactMetadata,
   UploadAttachmentDescriptor,
   UploadPreparationMetadata,
+  UploadMode,
 } from './types';
 import {
   DEFAULT_UPLOAD_FEATURE_CONFIG,

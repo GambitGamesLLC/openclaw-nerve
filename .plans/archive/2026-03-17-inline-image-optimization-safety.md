@@ -143,23 +143,25 @@ Why this is the safest spot:
 - `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve/.plans/2026-03-17-inline-image-optimization-safety.md`
 - repo files only if a safe verification-time fix is required
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**Results:** Live operator verification produced the expected safety behavior for the original failure mode: the same large inline image no longer reached model context unbounded. Instead, Nerve blocked send with a clear composer error: `"Chip_With_Drones_Cute.png" exceeded the inline context-safe budget after compression (126 KB > 125 KB). It was blocked because file-reference fallback is unavailable for this attachment.` This confirms the new inline guardrail works and prevents context-window blowups. The remaining gap is fallback coverage: for at least this browser/webchat-origin attachment path, Nerve could not auto-downgrade to `file_reference`, so the UX is fail-closed rather than seamless auto-recovery. Next slice should add a browser-safe staging/fallback path so oversized inline images can be converted into file-reference uploads even when no reusable local file path is available.
+**Results:** Initial live operator verification produced the expected safety behavior for the original failure mode: the same large inline image no longer reached model context unbounded. Instead, Nerve blocked send with a clear composer error: `"Chip_With_Drones_Cute.png" exceeded the inline context-safe budget after compression (126 KB > 125 KB). It was blocked because file-reference fallback is unavailable for this attachment.` This confirmed the new inline guardrail works and prevents context-window blowups.
+
+Follow-up human testing on 2026-03-18 added the missing real-world confirmation: a phone/browser-origin inline image that first appeared to hit a stale `768px` floor later succeeded with a manifest showing the intended current policy path (`inlineMinDimension: 512`, adaptive shrink to a context-safe payload, and successful main-agent delivery). That means the guardrail + shrink path is functioning in live use. The known remaining UX gap is still fallback coverage for cases where a browser-origin upload cannot be converted into a file-reference path, but that no longer blocks closure of this verification slice.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Added inline image context-safety guardrails, verified that oversized inline images fail closed instead of exploding context, and confirmed in later live human testing that the intended 512px adaptive inline path now succeeds when an image can be safely shrunk under budget.
 
 **Commits:**
-- Pending.
+- Pending current closeout commit.
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The right question was not just whether inline images were blocked, but whether real browser-origin uploads could still succeed under the new policy. Human testing proved both the protection and the viable success path.
 
 ---
 
-*Created on 2026-03-17*
+*Completed on 2026-03-18*
