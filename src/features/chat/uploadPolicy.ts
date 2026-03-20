@@ -10,7 +10,6 @@ export interface UploadFeatureConfig {
   inlineImageAutoDowngradeToFileReference: boolean;
   inlineImageShrinkMinDimension: number;
   exposeInlineBase64ToAgent: boolean;
-  allowSubagentForwarding: boolean;
   imageOptimizationEnabled: boolean;
   imageOptimizationMaxDimension: number;
   imageOptimizationWebpQuality: number;
@@ -26,7 +25,6 @@ export const DEFAULT_UPLOAD_FEATURE_CONFIG: UploadFeatureConfig = {
   inlineImageAutoDowngradeToFileReference: true,
   inlineImageShrinkMinDimension: 512,
   exposeInlineBase64ToAgent: false,
-  allowSubagentForwarding: false,
   imageOptimizationEnabled: true,
   imageOptimizationMaxDimension: 2048,
   imageOptimizationWebpQuality: 82,

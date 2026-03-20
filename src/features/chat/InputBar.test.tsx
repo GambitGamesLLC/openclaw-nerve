@@ -80,7 +80,6 @@ describe('InputBar', () => {
     inlineImageAutoDowngradeToFileReference: boolean;
     inlineImageShrinkMinDimension: number;
     exposeInlineBase64ToAgent: boolean;
-    allowSubagentForwarding: boolean;
     imageOptimizationEnabled: boolean;
     imageOptimizationMaxDimension: number;
     imageOptimizationWebpQuality: number;
@@ -97,7 +96,6 @@ describe('InputBar', () => {
       inlineImageAutoDowngradeToFileReference: true,
       inlineImageShrinkMinDimension: 512,
       exposeInlineBase64ToAgent: false,
-      allowSubagentForwarding: false,
       imageOptimizationEnabled: true,
       imageOptimizationMaxDimension: 2048,
       imageOptimizationWebpQuality: 82,
@@ -584,44 +582,30 @@ describe('InputBar', () => {
     expect(uploadPayload?.descriptors[0].reference).toBeUndefined();
   });
 
-  it('keeps forwarding explicit and opt-in via per-file toggle when allowed', async () => {
-    uploadConfigResponse.allowSubagentForwarding = true;
-
+  it('hides manual forwarding controls and forwards path attachments by default', async () => {
     const onSend = vi.fn();
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
+
+    fireEvent.click(await screen.findByRole('button', { name: /attach-me\.png/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Attach selected path/i }));
+
     await waitFor(() => {
-      expect(fileInput.accept).toBe('*/*');
+      expect(screen.getAllByText('attach-me.png').length).toBeGreaterThan(0);
     });
 
-    const largeImage = new File([new Uint8Array(2 * 1024 * 1024)], 'forwardable.png', { type: 'image/png' });
-    Object.defineProperty(largeImage, 'path', {
-      configurable: true,
-      value: '/workspace/forwardable.png',
-    });
-
-    fireEvent.change(fileInput, { target: { files: [largeImage] } });
-
-    const toggle = await screen.findByLabelText('Allow forwarding forwardable.png to subagents');
-    expect(toggle).not.toBeChecked();
+    expect(screen.queryByLabelText(/Allow forwarding .* to subagents/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Send message'));
-    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
-    expect(onSend.mock.calls[0][2].descriptors[0].policy.forwardToSubagents).toBe(false);
 
-    onSend.mockClear();
-    fireEvent.change(fileInput, { target: { files: [largeImage] } });
-    const toggleSecondPass = await screen.findByLabelText('Allow forwarding forwardable.png to subagents');
-    fireEvent.click(toggleSecondPass);
-    fireEvent.click(screen.getByLabelText('Send message'));
     await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
     expect(onSend.mock.calls[0][2].descriptors[0].policy.forwardToSubagents).toBe(true);
+    expect(onSend.mock.calls[0][2].manifest.allowSubagentForwarding).toBe(true);
   });
 
-  it('supports forwarding opt-in for inline uploads when allowed', async () => {
-    uploadConfigResponse.allowSubagentForwarding = true;
-
+  it('forwards inline uploads by default without a forwarding toggle', async () => {
     const onSend = vi.fn();
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
@@ -631,11 +615,9 @@ describe('InputBar', () => {
     });
 
     const smallImage = new File([new Uint8Array(120_000)], 'inline-forwardable.png', { type: 'image/png' });
-
     fireEvent.change(fileInput, { target: { files: [smallImage] } });
 
-    const toggle = await screen.findByLabelText('Allow forwarding inline-forwardable.png to subagents');
-    fireEvent.click(toggle);
+    expect(screen.queryByLabelText(/Allow forwarding .* to subagents/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Send message'));
 
@@ -643,6 +625,7 @@ describe('InputBar', () => {
     expect(onSend.mock.calls[0][2].descriptors[0].origin).toBe('upload');
     expect(onSend.mock.calls[0][2].descriptors[0].mode).toBe('inline');
     expect(onSend.mock.calls[0][2].descriptors[0].policy.forwardToSubagents).toBe(true);
+    expect(onSend.mock.calls[0][2].manifest.allowSubagentForwarding).toBe(true);
   });
 
   it('disables the attachment menu when both upload modes are disabled', async () => {

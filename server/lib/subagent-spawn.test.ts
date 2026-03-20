@@ -310,6 +310,72 @@ describe('buildSessionsSpawnArgs', () => {
     });
   });
 
+  it('forwards mixed inline + server_path descriptors into child attachments and path metadata together', async () => {
+    const filePath = await makeTempFile('mixed-path.webp', 'mixed path bytes');
+
+    const args = await buildSessionsSpawnArgs({
+      task: 'Inspect this mixed payload',
+      uploadPayload: {
+        manifest: { allowSubagentForwarding: true },
+        descriptors: [
+          {
+            id: 'upload-1',
+            origin: 'upload',
+            mode: 'inline',
+            name: 'proof.png',
+            mimeType: 'image/png',
+            sizeBytes: 120000,
+            inline: { encoding: 'base64', base64: 'cHJvb2Y=' },
+            preparation: {
+              sourceMode: 'inline',
+              finalMode: 'inline',
+              outcome: 'optimized_inline',
+            },
+            policy: { forwardToSubagents: true },
+          },
+          {
+            id: 'path-1',
+            origin: 'server_path',
+            mode: 'file_reference',
+            name: 'capture.png',
+            mimeType: 'image/webp',
+            sizeBytes: 16,
+            reference: { kind: 'local_path', path: filePath, uri: `file://${filePath}` },
+            preparation: {
+              sourceMode: 'file_reference',
+              finalMode: 'file_reference',
+              outcome: 'file_reference_ready',
+            },
+            optimization: {
+              applied: true,
+              tempDerivative: true,
+            },
+            policy: { forwardToSubagents: true },
+          },
+        ],
+      },
+    });
+
+    expect(args).toEqual({
+      task: `Inspect this mixed payload\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":16,"reference":{"kind":"local_path","path":"${filePath}","uri":"file://${filePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+      runtime: 'subagent',
+      attachments: [
+        {
+          name: 'proof.png',
+          mimeType: 'image/png',
+          encoding: 'base64',
+          content: 'cHJvb2Y=',
+        },
+        {
+          name: 'mixed-path.webp',
+          mimeType: 'image/webp',
+          encoding: 'base64',
+          content: Buffer.from('mixed path bytes', 'utf8').toString('base64'),
+        },
+      ],
+    });
+  });
+
   it('does not append a forwarded path manifest for non-server_path uploads', async () => {
     const args = await buildSessionsSpawnArgs({
       task: 'Inspect this upload',

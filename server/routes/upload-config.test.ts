@@ -29,7 +29,6 @@ describe('GET /api/upload-config', () => {
     expect(json).toHaveProperty('inlineImageAutoDowngradeToFileReference');
     expect(json).toHaveProperty('inlineImageShrinkMinDimension');
     expect(json).toHaveProperty('exposeInlineBase64ToAgent');
-    expect(json).toHaveProperty('allowSubagentForwarding');
     expect(json).toHaveProperty('imageOptimizationEnabled');
     expect(json).toHaveProperty('imageOptimizationMaxDimension');
     expect(json).toHaveProperty('imageOptimizationWebpQuality');

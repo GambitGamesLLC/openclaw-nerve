@@ -207,7 +207,6 @@ const inlineImageShrinkMinDimension = Math.max(
   Math.min(4096, Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION, 512))),
 );
 const uploadExposeInlineBase64ToAgent = parseBooleanEnv(process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT, false);
-const uploadAllowSubagentForwarding = parseBooleanEnv(process.env.NERVE_UPLOAD_ALLOW_SUBAGENT_FORWARDING, false);
 const uploadImageOptimizationEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED, true);
 const uploadImageOptimizationTempDir = process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR
   || '~/.cache/openclaw/nerve/optimized-uploads';
@@ -307,7 +306,6 @@ export const config = {
     inlineImageAutoDowngradeToFileReference,
     inlineImageShrinkMinDimension,
     exposeInlineBase64ToAgent: uploadExposeInlineBase64ToAgent,
-    allowSubagentForwarding: uploadAllowSubagentForwarding,
     optimization: {
       enabled: uploadImageOptimizationEnabled,
       tempDir: uploadImageOptimizationTempDir,

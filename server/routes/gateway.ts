@@ -381,24 +381,29 @@ app.post('/api/gateway/session-patch', rateLimitGeneral, async (c) => {
 const uploadInlineSchema = z.object({
   encoding: z.string().optional(),
   base64: z.string().optional(),
-}).strict();
+});
 
 const uploadReferenceSchema = z.object({
   kind: z.string().optional(),
   path: z.string().optional(),
-}).strict();
+  uri: z.string().optional(),
+});
 
 const uploadDescriptorSchema = z.object({
   id: z.string().optional(),
+  origin: z.string().optional(),
   mode: z.string().optional(),
   name: z.string().optional(),
   mimeType: z.string().optional(),
+  sizeBytes: z.number().optional(),
   inline: uploadInlineSchema.optional(),
   reference: uploadReferenceSchema.optional(),
+  preparation: z.record(z.string(), z.unknown()).optional(),
+  optimization: z.record(z.string(), z.unknown()).optional(),
   policy: z.object({
     forwardToSubagents: z.boolean().optional(),
-  }).strict().optional(),
-}).strict();
+  }).optional(),
+});
 
 const sessionSpawnSchema = z.object({
   task: z.string().min(1).max(200_000),
@@ -409,8 +414,8 @@ const sessionSpawnSchema = z.object({
     descriptors: z.array(uploadDescriptorSchema).max(50).optional(),
     manifest: z.object({
       allowSubagentForwarding: z.boolean().optional(),
-    }).strict().optional(),
-  }).strict().optional(),
+    }).optional(),
+  }).optional(),
 });
 
 app.post('/api/gateway/session-spawn', rateLimitGeneral, async (c) => {

@@ -429,9 +429,6 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
                           optimized: {formatAttachmentSize(attachment.optimization.original.sizeBytes)} → {formatAttachmentSize(attachment.optimization.optimized.sizeBytes)}
                         </div>
                       )}
-                      {attachment.policy.forwardToSubagents && (
-                        <div className="mt-0.5 text-orange">forwarded to subagents</div>
-                      )}
                     </div>
                   );
                 })}

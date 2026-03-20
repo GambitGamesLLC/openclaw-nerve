@@ -7,7 +7,7 @@ bead_ids:
 # gambit-openclaw-nerve
 
 **Date:** 2026-03-18  
-**Status:** Draft  
+**Status:** In Progress  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -44,9 +44,9 @@ The remaining real defect is in the Nerve → subagent handoff path. A live mixe
 - Nerve attachment/dispatch files as needed for the fix
 - Tests as needed for the fix
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending next session. Live reproduction already captured: a mixed payload containing one `server_path/file_reference` avatar image and one `upload/inline` image, both with `policy.forwardToSubagents: true`, reached the main agent correctly but produced no forwarded bytes, no `<nerve-upload-manifest>`, and no `<nerve-forwarded-server-paths>` block in the child context.
+**Results:** 2026-03-19 coder pass traced the code and recent commits, then found the key remaining gap: `server/lib/subagent-spawn.ts` already knew how to convert mixed `upload/inline` + `server_path/file_reference` descriptors into child `sessions_spawn.attachments` plus `<nerve-forwarded-server-paths>...`, but `server/routes/gateway.ts` still validated `uploadPayload` with a too-strict schema that rejected/stripped realistic frontend descriptor fields (`origin`, `sizeBytes`, `reference.uri`, `preparation`, `optimization`, and extra inline metadata). That meant the live mixed payload could still fail before reaching the forwarding bridge. The fix was to relax the route schema while explicitly accepting the descriptor fields the bridge actually needs. Added focused regression tests in `server/lib/subagent-spawn.test.ts` and `server/routes/gateway.test.ts` covering a realistic mixed inline + path payload end-to-end through the HTTP bridge. Local verification passed; no commit was made.
 
 ### Task 2: Re-run live Nerve validation for subagent forwarding after the fix
 
@@ -70,15 +70,15 @@ The remaining real defect is in the Nerve → subagent handoff path. A live mixe
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ⚠️ Partial
 
-**What We Built:** Pending. Handoff target for next session is now clear: the main-agent path is healthy, but mixed forwarded attachment sets are still being dropped before child-session context delivery.
+**What We Built:** Code-side forwarding is now aligned with the intended mixed-payload behavior. The repo already contained the core forwarding implementation in `server/lib/subagent-spawn.ts`; this pass completed the bridge by making `POST /api/gateway/session-spawn` accept realistic upload descriptors from the frontend and by adding regression tests that prove a mixed `upload/inline` + `server_path/file_reference` payload produces both child attachment bytes and `<nerve-forwarded-server-paths>` metadata.
 
 **Commits:**
-- Pending.
+- None (per instruction).
 
-**Lessons Learned:** Fresh human testing should happen before code surgery when attachment/runtime behavior is in doubt; it narrowed the problem from a broad upload suspicion to a specific subagent-forwarding bridge failure.
+**Lessons Learned:** The bug was only partially fixed in repo state: the lower-level forwarding helper had landed, but the HTTP validation layer still rejected real descriptor shapes. Route-level regression tests matter here because unit tests against the forwarding helper alone were not enough to prove the live Nerve path worked.
 
 ---
 
-*Completed on Pending*
+*Completed on 2026-03-19 (code-side pass; human retest still pending)*

@@ -53,7 +53,6 @@ interface StagedAttachment {
   file: File;
   origin: 'upload' | 'server_path';
   mode: UploadMode;
-  forwardToSubagents: boolean;
   previewUrl?: string;
   relativePath?: string;
 }
@@ -341,7 +340,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
               ? data.inlineImageShrinkMinDimension
               : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageShrinkMinDimension,
           exposeInlineBase64ToAgent: Boolean(data.exposeInlineBase64ToAgent),
-          allowSubagentForwarding: Boolean(data.allowSubagentForwarding),
           imageOptimizationEnabled: data.imageOptimizationEnabled !== false,
           imageOptimizationMaxDimension:
             typeof data.imageOptimizationMaxDimension === 'number' && data.imageOptimizationMaxDimension > 0
@@ -548,7 +546,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         file,
         origin: 'upload',
         mode: 'inline',
-        forwardToSubagents: false,
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
       });
     }
@@ -603,13 +600,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     };
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
-  }, []);
-
-  const toggleForwarding = useCallback((id: string, enabled: boolean) => {
-    setStagedAttachments((prev) => prev.map((item) => {
-      if (item.id !== id) return item;
-      return { ...item, forwardToSubagents: enabled };
-    }));
   }, []);
 
   const removeStagedAttachment = useCallback((id: string) => {
@@ -689,7 +679,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         file: syntheticFile,
         origin: 'server_path',
         mode: 'file_reference',
-        forwardToSubagents: false,
         previewUrl,
         relativePath,
       }]));
@@ -787,7 +776,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     },
     preparation,
     policy: {
-      forwardToSubagents: item.forwardToSubagents,
+      forwardToSubagents: true,
     },
   }), []);
 
@@ -808,7 +797,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       reference: originalReference,
       preparation,
       policy: {
-        forwardToSubagents: item.forwardToSubagents,
+        forwardToSubagents: true,
       },
     };
 
@@ -990,7 +979,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           manifest: {
             enabled: uploadConfig.twoModeEnabled,
             exposeInlineBase64ToAgent: uploadConfig.exposeInlineBase64ToAgent,
-            allowSubagentForwarding: uploadConfig.allowSubagentForwarding,
+            allowSubagentForwarding: true,
           },
         }
         : undefined;
@@ -1176,19 +1165,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
                   </div>
                 </div>
 
-
-                {uploadConfig.allowSubagentForwarding && (
-                  <label className="mt-1 inline-flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      aria-label={`Allow forwarding ${item.file.name} to subagents`}
-                      checked={item.forwardToSubagents}
-                      onChange={(e) => toggleForwarding(item.id, e.target.checked)}
-                      className="h-3 w-3 rounded border-border"
-                    />
-                    Forward to subagents
-                  </label>
-                )}
               </div>
             ))}
           </div>

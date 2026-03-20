@@ -1,5 +1,8 @@
 /** Tests for the gateway routes (models, session-info, session-patch). */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, it, expect, vi, afterAll, afterEach } from 'vitest';
 import { Hono } from 'hono';
 
 let execFileImpl: (...args: unknown[]) => void;
@@ -67,6 +70,10 @@ const GOOD_MODELS = JSON.stringify({
   ],
 });
 
+const mixedAttachmentTempDir = mkdtempSync(path.join(tmpdir(), 'nerve-gateway-route-'));
+const mixedAttachmentFilePath = path.join(mixedAttachmentTempDir, 'mixed-path.webp');
+writeFileSync(mixedAttachmentFilePath, 'mixed path bytes', 'utf8');
+
 import gatewayRoutes from './gateway.js';
 
 function buildApp() {
@@ -78,6 +85,10 @@ function buildApp() {
 describe('gateway routes', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    rmSync(mixedAttachmentTempDir, { recursive: true, force: true });
   });
 
   function setDefaults() {
@@ -263,6 +274,103 @@ describe('gateway routes', () => {
                 mimeType: 'image/png',
                 encoding: 'base64',
                 content: 'cHJvb2Y=',
+              },
+            ],
+          },
+        },
+      ]);
+    });
+
+    it('accepts realistic mixed inline + server_path descriptors and forwards both bytes and path metadata', async () => {
+      setDefaults();
+      const invokedCalls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+      invokeGatewayImpl = (tool: string, args: Record<string, unknown>) => {
+        invokedCalls.push({ tool, args });
+        return { status: 'accepted', childSessionKey: 'agent:main:subagent:mixed123' };
+      };
+
+      const app = buildApp();
+      const res = await app.request('/api/gateway/session-spawn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task: 'Inspect these forwarded files',
+          uploadPayload: {
+            manifest: {
+              allowSubagentForwarding: true,
+              enabled: true,
+              exposeInlineBase64ToAgent: false,
+            },
+            descriptors: [
+              {
+                id: 'upload-1',
+                origin: 'upload',
+                mode: 'inline',
+                name: 'proof.png',
+                mimeType: 'image/png',
+                sizeBytes: 120000,
+                inline: {
+                  encoding: 'base64',
+                  base64: 'cHJvb2Y=',
+                  base64Bytes: 8,
+                  compressed: true,
+                  previewUrl: 'data:image/png;base64,ignored',
+                },
+                preparation: {
+                  sourceMode: 'inline',
+                  finalMode: 'inline',
+                  outcome: 'optimized_inline',
+                },
+                policy: { forwardToSubagents: true },
+              },
+              {
+                id: 'path-1',
+                origin: 'server_path',
+                mode: 'file_reference',
+                name: 'capture.png',
+                mimeType: 'image/webp',
+                sizeBytes: 14,
+                reference: {
+                  kind: 'local_path',
+                  path: mixedAttachmentFilePath,
+                  uri: `file://${mixedAttachmentFilePath}`,
+                },
+                preparation: {
+                  sourceMode: 'file_reference',
+                  finalMode: 'file_reference',
+                  outcome: 'file_reference_ready',
+                },
+                optimization: {
+                  applied: true,
+                  tempDerivative: true,
+                },
+                policy: { forwardToSubagents: true },
+              },
+            ],
+          },
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, childSessionKey: 'agent:main:subagent:mixed123' });
+      expect(invokedCalls).toEqual([
+        {
+          tool: 'sessions_spawn',
+          args: {
+            task: `Inspect these forwarded files\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${mixedAttachmentFilePath}","uri":"file://${mixedAttachmentFilePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+            runtime: 'subagent',
+            attachments: [
+              {
+                name: 'proof.png',
+                mimeType: 'image/png',
+                encoding: 'base64',
+                content: 'cHJvb2Y=',
+              },
+              {
+                name: 'mixed-path.webp',
+                mimeType: 'image/webp',
+                encoding: 'base64',
+                content: Buffer.from('mixed path bytes', 'utf8').toString('base64'),
               },
             ],
           },

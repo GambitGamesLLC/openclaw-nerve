@@ -107,6 +107,5 @@ describe('MessageBubble upload summaries', () => {
     expect(screen.getByText('1024×768 • 2 steps • min 512px')).toBeInTheDocument();
     expect(screen.getByText(/512×384 • 8 steps • min 512px • reason: minimum inline dimension reached; used file reference fallback/i)).toBeInTheDocument();
     expect(screen.getByText('path: capture.mov')).toBeInTheDocument();
-    expect(screen.getByText('forwarded to subagents')).toBeInTheDocument();
   });
 });
