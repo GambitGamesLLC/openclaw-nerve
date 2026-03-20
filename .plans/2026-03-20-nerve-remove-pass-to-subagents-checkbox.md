@@ -82,7 +82,7 @@ The current repo already has in-flight local modifications from the attachment-f
 **What We Built:** Removed the visible `pass to subagents` checkbox from the Nerve UI, internalized forwarding defaults for attachment payload construction, removed the exposed forwarding status/badge and Nerve-local config knob for this toggle, and verified the targeted implementation tests locally. A next-session live validation pass is still pending after operator-side `update.sh` plus Nerve refresh/restart.
 
 **Commits:**
-- Pending.
+- `ad73e47` - Simplify subagent forwarding UI and archive validation handoff
 
 **Lessons Learned:** Human-facing success matters more than whether the handoff path is native forwarding or assistant-mediated reconstruction, but larger attachment payload handoff limits should still be tracked separately from the checkbox-removal decision.
 
