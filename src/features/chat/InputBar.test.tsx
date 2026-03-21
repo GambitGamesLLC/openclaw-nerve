@@ -1,7 +1,7 @@
 import { createRef } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { InputBar, type InputBarHandle } from './InputBar';
+import { InputBar, type InputBarHandle, resetInputBarComposerSnapshotForTests } from './InputBar';
 import { compressImage } from './image-compress';
 
 vi.mock('./image-compress', () => ({
@@ -86,6 +86,8 @@ describe('InputBar', () => {
   };
 
   beforeEach(() => {
+    resetInputBarComposerSnapshotForTests();
+
     uploadConfigResponse = {
       twoModeEnabled: true,
       inlineEnabled: true,
@@ -683,5 +685,48 @@ describe('InputBar', () => {
       expect(screen.getByText('Upload')).toBeInTheDocument();
     });
     expect(screen.queryByText(/too large to send as a browser upload/i)).not.toBeInTheDocument();
+  });
+
+  it('restores in-progress text and staged uploads after remount', async () => {
+    const onSend = vi.fn();
+    const firstRender = render(<InputBar onSend={onSend} isGenerating={false} />);
+
+    const textarea = firstRender.getByLabelText('Message input') as HTMLTextAreaElement;
+    fireEvent.input(textarea, { target: { value: 'keep this draft alive' } });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await waitFor(() => {
+      expect(fileInput.accept).toBe('*/*');
+    });
+
+    const image = new File([new Uint8Array(50_000)], 'persist-me.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [image] } });
+
+    await waitFor(() => {
+      expect(firstRender.getByText('persist-me.png')).toBeInTheDocument();
+      expect(firstRender.getByDisplayValue('keep this draft alive')).toBeInTheDocument();
+    });
+
+    firstRender.unmount();
+
+    render(<InputBar onSend={onSend} isGenerating={false} />);
+
+    expect(screen.getByDisplayValue('keep this draft alive')).toBeInTheDocument();
+    expect(screen.getByText('persist-me.png')).toBeInTheDocument();
+    expect(screen.getByText('Upload')).toBeInTheDocument();
+  });
+
+  it('keeps the path picker footer controls mounted inside the constrained dialog shell', async () => {
+    render(<InputBar onSend={vi.fn()} isGenerating={false} />);
+
+    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Attach by Path' });
+    expect(dialog).toHaveClass('max-h-[calc(100vh-2rem)]');
+    expect(dialog).toHaveClass('overflow-hidden');
+    expect(screen.getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Attach selected path/i })).toBeInTheDocument();
   });
 });

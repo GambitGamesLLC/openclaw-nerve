@@ -68,6 +68,40 @@ interface FileTreeResponse {
   error?: string;
 }
 
+interface ComposerSnapshot {
+  text: string;
+  stagedAttachments: StagedAttachment[];
+  attachmentError: string | null;
+  showAttachByPathDialog: boolean;
+  pathPickerCurrentDir: string;
+  pathPickerEntries: TreeEntry[];
+  pathPickerSelected: TreeEntry | null;
+  pathPickerError: string | null;
+  pathPickerWorkspaceRoot: string;
+  pathPickerCustomRoot: boolean;
+}
+
+function createEmptyComposerSnapshot(): ComposerSnapshot {
+  return {
+    text: '',
+    stagedAttachments: [],
+    attachmentError: null,
+    showAttachByPathDialog: false,
+    pathPickerCurrentDir: '',
+    pathPickerEntries: [],
+    pathPickerSelected: null,
+    pathPickerError: null,
+    pathPickerWorkspaceRoot: '',
+    pathPickerCustomRoot: false,
+  };
+}
+
+let persistedComposerSnapshot: ComposerSnapshot = createEmptyComposerSnapshot();
+
+export function resetInputBarComposerSnapshotForTests() {
+  persistedComposerSnapshot = createEmptyComposerSnapshot();
+}
+
 interface ResolvePathResponse {
   ok: boolean;
   path?: string;
@@ -228,20 +262,21 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const attachmentMenuRef = useRef<HTMLDivElement>(null);
   const deferredResizeFrameRef = useRef<number | null>(null);
   const deferredResizeSettledFrameRef = useRef<number | null>(null);
-  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>([]);
+  const [draftText, setDraftText] = useState(() => persistedComposerSnapshot.text);
+  const [stagedAttachments, setStagedAttachments] = useState<StagedAttachment[]>(() => persistedComposerSnapshot.stagedAttachments);
   const [uploadConfig, setUploadConfig] = useState<UploadFeatureConfig>(DEFAULT_UPLOAD_FEATURE_CONFIG);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(() => persistedComposerSnapshot.attachmentError);
   const [isDragging, setIsDragging] = useState(false);
   const [isPreparingInline, setIsPreparingInline] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const [showAttachByPathDialog, setShowAttachByPathDialog] = useState(false);
-  const [pathPickerCurrentDir, setPathPickerCurrentDir] = useState('');
-  const [pathPickerEntries, setPathPickerEntries] = useState<TreeEntry[]>([]);
-  const [pathPickerSelected, setPathPickerSelected] = useState<TreeEntry | null>(null);
+  const [showAttachByPathDialog, setShowAttachByPathDialog] = useState(() => persistedComposerSnapshot.showAttachByPathDialog);
+  const [pathPickerCurrentDir, setPathPickerCurrentDir] = useState(() => persistedComposerSnapshot.pathPickerCurrentDir);
+  const [pathPickerEntries, setPathPickerEntries] = useState<TreeEntry[]>(() => persistedComposerSnapshot.pathPickerEntries);
+  const [pathPickerSelected, setPathPickerSelected] = useState<TreeEntry | null>(() => persistedComposerSnapshot.pathPickerSelected);
   const [pathPickerLoading, setPathPickerLoading] = useState(false);
-  const [pathPickerError, setPathPickerError] = useState<string | null>(null);
-  const [pathPickerWorkspaceRoot, setPathPickerWorkspaceRoot] = useState('');
-  const [pathPickerCustomRoot, setPathPickerCustomRoot] = useState(false);
+  const [pathPickerError, setPathPickerError] = useState<string | null>(() => persistedComposerSnapshot.pathPickerError);
+  const [pathPickerWorkspaceRoot, setPathPickerWorkspaceRoot] = useState(() => persistedComposerSnapshot.pathPickerWorkspaceRoot);
+  const [pathPickerCustomRoot, setPathPickerCustomRoot] = useState(() => persistedComposerSnapshot.pathPickerCustomRoot);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendError, setSendError] = useState(false);
 
@@ -313,6 +348,41 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       cancelAnimationFrame(deferredResizeSettledFrameRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    persistedComposerSnapshot = {
+      text: draftText,
+      stagedAttachments,
+      attachmentError,
+      showAttachByPathDialog,
+      pathPickerCurrentDir,
+      pathPickerEntries,
+      pathPickerSelected,
+      pathPickerError,
+      pathPickerWorkspaceRoot,
+      pathPickerCustomRoot,
+    };
+  }, [
+    attachmentError,
+    draftText,
+    pathPickerCurrentDir,
+    pathPickerCustomRoot,
+    pathPickerEntries,
+    pathPickerError,
+    pathPickerSelected,
+    pathPickerWorkspaceRoot,
+    showAttachByPathDialog,
+    stagedAttachments,
+  ]);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (input.value !== draftText) {
+      input.value = draftText;
+    }
+    resizeInput();
+  }, [draftText, resizeInput]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -401,6 +471,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       input.value = mode === 'append'
         ? mergeAddToChatText(input.value, text)
         : text;
+      setDraftText(input.value);
       resizeInput();
       focusInput();
       scheduleDeferredResize();
@@ -458,6 +529,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       input.style.fontStyle = '';
       input.style.opacity = '';
     }
+    setDraftText('');
     onSend('[voice] ' + text);
   }, agentName, voiceLang, voicePhrasesVersion, effectiveSttInputMode);
 
@@ -993,6 +1065,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         input.value = '';
         input.style.height = 'auto';
       }
+      setDraftText('');
 
       await onSend(text || '', inlineAttachments.length > 0 ? inlineAttachments : undefined, uploadPayload);
       clearStagedAttachments();
@@ -1040,6 +1113,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         input.value = '';
         input.style.height = 'auto';
       }
+      setDraftText('');
       return;
     }
 
@@ -1070,6 +1144,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         if (entry !== null) {
           e.preventDefault();
           input.value = entry;
+          setDraftText(entry);
           input.style.height = 'auto';
           input.style.height = Math.min(input.scrollHeight, 160) + 'px';
           input.setSelectionRange(input.value.length, input.value.length);
@@ -1088,8 +1163,10 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         const entry = inputHistory.navigateDown();
         if (entry !== null) {
           input.value = entry;
+          setDraftText(entry);
         } else {
           input.value = '';
+          setDraftText('');
         }
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 160) + 'px';
@@ -1100,6 +1177,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
   const handleInput = () => {
     if (!inputRef.current) return;
+    setDraftText(inputRef.current.value);
     resetTabCompletion();
     clearVoiceError();
     resizeInput();
@@ -1288,14 +1366,14 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         </div>
       )}
       <Dialog open={showAttachByPathDialog} onOpenChange={setShowAttachByPathDialog}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="shrink-0 px-6 pt-6">
             <DialogTitle>Attach by Path</DialogTitle>
             <DialogDescription>
               Pick a validated workspace / server-known file. The selected path will be attached as a true file reference instead of a browser upload.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="flex-1 space-y-3 overflow-y-auto px-6 pb-4">
             <div className="flex flex-wrap items-center gap-1 rounded border border-border/70 bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
               <button
                 type="button"
@@ -1372,7 +1450,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
                 : 'Select a file to attach it as a server path reference.'}
             </div>
           </div>
-          <DialogFooter showCloseButton>
+          <DialogFooter showCloseButton className="shrink-0 border-t border-border/70 px-6 py-4">
             <button
               type="button"
               onClick={() => {
