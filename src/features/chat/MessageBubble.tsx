@@ -51,6 +51,10 @@ function formatInlineDimensions(width?: number, height?: number): string | null 
   return `${width}×${height}`;
 }
 
+function formatArtifactRole(role: 'canonical_staged_source' | 'optimized_derivative'): string {
+  return role === 'canonical_staged_source' ? 'canonical staged source' : 'optimized derivative';
+}
+
 function buildAttachmentSummary(attachments: UploadAttachmentDescriptor[]): string {
   const inline = attachments.filter((item) => item.mode === 'inline').length;
   const fileReference = attachments.length - inline;
@@ -424,11 +428,22 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
                           path: {getReferenceTail(attachment.reference.path)}
                         </div>
                       )}
-                      {attachment.optimization?.applied && (
+                      {attachment.optimization?.artifacts?.length ? (
+                        <div className="mt-0.5 text-muted-foreground">
+                          {attachment.optimization.artifacts.map((artifact) => (
+                            <div key={`${attachment.id}-${artifact.role}`}>
+                              {formatArtifactRole(artifact.role)}: {formatAttachmentSize(artifact.sizeBytes)} • {artifact.mimeType}
+                              {formatInlineDimensions(artifact.width ?? undefined, artifact.height ?? undefined)
+                                ? ` • ${formatInlineDimensions(artifact.width ?? undefined, artifact.height ?? undefined)}`
+                                : ''}
+                            </div>
+                          ))}
+                        </div>
+                      ) : attachment.optimization?.applied ? (
                         <div className="mt-0.5 text-muted-foreground">
                           optimized: {formatAttachmentSize(attachment.optimization.original.sizeBytes)} → {formatAttachmentSize(attachment.optimization.optimized.sizeBytes)}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   );
                 })}

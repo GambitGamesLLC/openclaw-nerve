@@ -65,12 +65,19 @@ export interface UploadArtifactMetadata {
   height: number | null;
 }
 
+export type UploadArtifactRole = 'canonical_staged_source' | 'optimized_derivative';
+
+export interface UploadArtifactComparisonMetadata extends UploadArtifactMetadata {
+  role: UploadArtifactRole;
+}
+
 export interface UploadOptimizationMetadata {
   applied: boolean;
   tempDerivative: boolean;
   cleanupAfterSend: boolean;
   original: UploadArtifactMetadata;
   optimized: UploadArtifactMetadata;
+  artifacts: UploadArtifactComparisonMetadata[];
 }
 
 export interface UploadAttachmentDescriptor {

@@ -41,6 +41,47 @@ function createUserMessage(): ChatMsg {
           localPathAvailable: false,
           optimizerAttempted: false,
         },
+        optimization: {
+          applied: true,
+          tempDerivative: true,
+          cleanupAfterSend: true,
+          original: {
+            path: '/workspace/.temp/nerve-uploads/2026/03/21/small.png',
+            uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/small.png',
+            mimeType: 'image/png',
+            sizeBytes: 120_000,
+            width: 1024,
+            height: 768,
+          },
+          optimized: {
+            path: '/home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+            uri: 'file:///home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+            mimeType: 'image/webp',
+            sizeBytes: 64_000,
+            width: 1024,
+            height: 768,
+          },
+          artifacts: [
+            {
+              role: 'canonical_staged_source',
+              path: '/workspace/.temp/nerve-uploads/2026/03/21/small.png',
+              uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/small.png',
+              mimeType: 'image/png',
+              sizeBytes: 120_000,
+              width: 1024,
+              height: 768,
+            },
+            {
+              role: 'optimized_derivative',
+              path: '/home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+              uri: 'file:///home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+              mimeType: 'image/webp',
+              sizeBytes: 64_000,
+              width: 1024,
+              height: 768,
+            },
+          ],
+        },
         policy: {
           forwardToSubagents: false,
         },
@@ -106,6 +147,8 @@ describe('MessageBubble upload summaries', () => {
     expect(screen.getByText('inline payload: 95.7 KB / cap 32.0 KB / target 28.8 KB')).toBeInTheDocument();
     expect(screen.getByText('1024×768 • 2 steps • min 512px')).toBeInTheDocument();
     expect(screen.getByText(/512×384 • 8 steps • min 512px • reason: minimum inline dimension reached; used file reference fallback/i)).toBeInTheDocument();
+    expect(screen.getByText('canonical staged source: 117 KB • image/png • 1024×768')).toBeInTheDocument();
+    expect(screen.getByText('optimized derivative: 62.5 KB • image/webp • 1024×768')).toBeInTheDocument();
     expect(screen.getByText('path: capture.mov')).toBeInTheDocument();
   });
 });

@@ -31,6 +31,47 @@ function makeUploadPayload(overrides: Partial<OutgoingUploadPayload> = {}): Outg
           inlineChosenHeight: 768,
           optimizerAttempted: true,
         },
+        optimization: {
+          applied: true,
+          tempDerivative: true,
+          cleanupAfterSend: true,
+          original: {
+            path: '/workspace/.temp/nerve-uploads/2026/03/21/small.png',
+            uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/small.png',
+            mimeType: 'image/png',
+            sizeBytes: 120_000,
+            width: 1024,
+            height: 768,
+          },
+          optimized: {
+            path: '/home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+            uri: 'file:///home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+            mimeType: 'image/webp',
+            sizeBytes: 64_000,
+            width: 1024,
+            height: 768,
+          },
+          artifacts: [
+            {
+              role: 'canonical_staged_source',
+              path: '/workspace/.temp/nerve-uploads/2026/03/21/small.png',
+              uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/small.png',
+              mimeType: 'image/png',
+              sizeBytes: 120_000,
+              width: 1024,
+              height: 768,
+            },
+            {
+              role: 'optimized_derivative',
+              path: '/home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+              uri: 'file:///home/derrick/.cache/openclaw/nerve/optimized-uploads/small.webp',
+              mimeType: 'image/webp',
+              sizeBytes: 64_000,
+              width: 1024,
+              height: 768,
+            },
+          ],
+        },
         policy: {
           forwardToSubagents: false,
         },
@@ -110,6 +151,10 @@ describe('appendUploadManifest', () => {
     expect(inlineAttachment.preparation?.outcome).toBe('optimized_inline');
     expect(inlineAttachment.preparation?.inlineChosenWidth).toBe(1024);
     expect(inlineAttachment.preparation?.inlineChosenHeight).toBe(768);
+    expect(inlineAttachment.optimization?.artifacts).toEqual([
+      expect.objectContaining({ role: 'canonical_staged_source', mimeType: 'image/png', sizeBytes: 120_000 }),
+      expect.objectContaining({ role: 'optimized_derivative', mimeType: 'image/webp', sizeBytes: 64_000 }),
+    ]);
   });
 
   it('includes inline base64 in explicit debug mode but still strips preview URLs', () => {

@@ -25,6 +25,7 @@ app.post('/api/upload-optimizer', rateLimitGeneral, async (c) => {
       optimized: result.optimized,
       original: result.original,
       optimizedArtifact: result.optimizedArtifact,
+      artifacts: result.artifacts,
       cleanupPath: result.cleanupPath,
     });
   } catch (error) {

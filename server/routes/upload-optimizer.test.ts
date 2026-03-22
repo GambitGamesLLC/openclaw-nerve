@@ -20,6 +20,26 @@ vi.mock('../lib/upload-optimizer.js', () => ({
       width: 80,
       height: 80,
     },
+    artifacts: [
+      {
+        role: 'canonical_staged_source',
+        path: '/tmp/original.png',
+        uri: 'file:///tmp/original.png',
+        mimeType: 'image/png',
+        sizeBytes: 100,
+        width: 100,
+        height: 100,
+      },
+      {
+        role: 'optimized_derivative',
+        path: '/tmp/optimized.webp',
+        uri: 'file:///tmp/optimized.webp',
+        mimeType: 'image/webp',
+        sizeBytes: 50,
+        width: 80,
+        height: 80,
+      },
+    ],
     cleanupPath: '/tmp/optimized.webp',
   })),
   deleteOptimizedUploads: vi.fn(async () => ({ deleted: 1 })),
@@ -47,6 +67,7 @@ describe('upload optimizer routes', () => {
     expect(json.optimized).toBe(true);
     expect(json).toHaveProperty('original');
     expect(json).toHaveProperty('optimizedArtifact');
+    expect(json).toHaveProperty('artifacts');
   });
 
   it('cleans up optimized derivative paths', async () => {
