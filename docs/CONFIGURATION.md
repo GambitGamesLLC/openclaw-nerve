@@ -2,6 +2,8 @@
 
 Nerve is configured via a `.env` file in the project root. All variables have sensible defaults — only `GATEWAY_TOKEN` is strictly required.
 
+> Upload contract: browser/mobile uploads are canonically staged under `~/.openclaw/workspace/.temp/nerve-uploads/...`. When a later agent or subagent needs the file, prefer that staged path/reference. `~/.cache/openclaw/nerve/optimized-uploads/...` is only an optimization temp area, not the durable handoff contract.
+
 ---
 
 ## Setup Wizard
@@ -266,6 +268,9 @@ NERVE_BEADS_PROJECTS_ROOT=~/.openclaw/workspace/projects
 | `SESSIONS_DIR` | `~/.openclaw/agents/main/sessions/` | Session transcript directory (scanned for token usage) |
 | `USAGE_FILE` | `~/.openclaw/token-usage.json` | Persistent cumulative token usage data |
 | `NERVE_VOICE_PHRASES_PATH` | `~/.nerve/voice-phrases.json` | Override location for per-language voice phrase overrides |
+| `NERVE_UPLOAD_STAGING_TEMP_DIR` | `~/.openclaw/workspace/.temp/nerve-uploads` | Canonical staging root for browser/mobile uploads. Prefer these staged file paths/references for later agent/subagent handoff. |
+| `NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS` | `24` | Maximum age before staged uploads are eligible for TTL cleanup. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR` | `~/.cache/openclaw/nerve/optimized-uploads` | Ephemeral optimization temp area for derived upload artifacts. Not the durable handoff contract. |
 | `NERVE_WATCH_WORKSPACE_RECURSIVE` | `false` | Enables recursive `fs.watch` for the entire workspace (legacy behavior). Disabled by default to prevent Linux inotify `ENOSPC` watcher exhaustion. |
 | `WORKSPACE_ROOT` | *(auto-detected)* | Allowed base directory for git workdir registration. Auto-derived from `git worktree list` or parent of `process.cwd()` |
 
@@ -275,6 +280,9 @@ MEMORY_PATH=/custom/path/MEMORY.md
 MEMORY_DIR=/custom/path/memory/
 SESSIONS_DIR=/custom/path/sessions/
 NERVE_VOICE_PHRASES_PATH=/custom/path/voice-phrases.json
+NERVE_UPLOAD_STAGING_TEMP_DIR=~/.openclaw/workspace/.temp/nerve-uploads
+NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS=24
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR=~/.cache/openclaw/nerve/optimized-uploads
 NERVE_WATCH_WORKSPACE_RECURSIVE=false
 ```
 

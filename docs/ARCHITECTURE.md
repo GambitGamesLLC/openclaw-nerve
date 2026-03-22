@@ -324,7 +324,7 @@ Applied in order in `app.ts`:
 | `/api/tts` | `routes/tts.ts` | POST | Text-to-speech with provider auto-selection (OpenAI → Replicate → Edge). LRU cache with TTL |
 | `/api/tts/config` | `routes/tts.ts` | GET, PUT | TTS voice configuration per provider (read / partial update) |
 | `/api/transcribe` | `routes/transcribe.ts` | POST | Audio transcription via OpenAI Whisper or local whisper.cpp (`STT_PROVIDER`). Multipart file upload, MIME validation |
-| `/api/upload-stage` | `routes/upload-stage.ts` | POST | Normalize browser uploads into workspace temp files under `~/.openclaw/workspace/.temp/nerve-uploads/...` and return path-backed artifacts |
+| `/api/upload-stage` | `routes/upload-stage.ts` | POST | Normalize browser/mobile uploads into workspace temp files under `~/.openclaw/workspace/.temp/nerve-uploads/...` and return path-backed artifacts. This staged workspace path is the canonical upload contract for later agent/subagent handoff. |
 | `/api/upload-stage/cleanup` | `routes/upload-stage.ts` | POST | Best-effort removal of staged upload paths inside the staging root; stale staged uploads also age out via TTL cleanup on later stage requests (24h default) |
 | `/api/transcribe/config` | `routes/transcribe.ts` | GET, PUT | STT runtime config (provider/model/language), model readiness/download status, hot-reload updates |
 | `/api/language` | `routes/transcribe.ts` | GET, PUT | Language preference + Edge voice gender management (`NERVE_LANGUAGE`, `EDGE_VOICE_GENDER`) |

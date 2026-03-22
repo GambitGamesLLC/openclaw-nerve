@@ -38,7 +38,7 @@ That suggests we should tighten the mental model and docs: the workspace temp pa
 
 **Status:** ✅ Complete
 
-**Results:** Updated `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, and `.env.example` so the durable upload contract is explicit: browser/mobile uploads are canonically staged under `~/.openclaw/workspace/.temp/nerve-uploads/...`, and later agent/subagent handoff should prefer that staged path/reference. Tightened the wording around `~/.cache/openclaw/nerve/optimized-uploads/...` so it is described only as an ephemeral optimization temp area rather than the durable path contract. Committed as part of `9473a09`.
+**Results:** Updated `docs/ARCHITECTURE.md`, `docs/CONFIGURATION.md`, and `.env.example` so the durable upload contract is explicit: browser/mobile uploads are canonically staged under `~/.openclaw/workspace/.temp/nerve-uploads/...`, and later agent/subagent handoff should prefer that staged path/reference. Tightened the wording around `~/.cache/openclaw/nerve/optimized-uploads/...` so it is described only as an ephemeral optimization temp area rather than the durable path contract. Committed with message `docs: clarify canonical nerve upload staging path`.
 
 ---
 
@@ -80,14 +80,14 @@ That suggests we should tighten the mental model and docs: the workspace temp pa
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** Completed the code-level investigation of the optimized upload cache lifecycle. The repo now has a documented finding in this plan: staged/original upload paths are the durable handoff surface, while `~/.cache/openclaw/nerve/optimized-uploads/...` remains a transient derivative that is still leaked into current manifests/references even though cleanup logic treats it as ephemeral. Documentation/code follow-up for making the staged path explicitly canonical is still pending under Task 1.
+**What We Built:** Completed both halves of the slice. The plan now records the code-level lifecycle finding that optimized derivatives under `~/.cache/openclaw/nerve/optimized-uploads/...` are transient implementation artifacts, and the repo docs now explicitly state that browser/mobile uploads are canonically staged under `~/.openclaw/workspace/.temp/nerve-uploads/...` and that later agent/subagent handoff should prefer that staged path/reference.
 
 **Commits:**
-- Pending (no tracked code/docs changed beyond this plan update yet)
+- `docs: clarify canonical nerve upload staging path`
 
-**Lessons Learned:** The current implementation has a mismatch between behavior and contract: optimized derivatives are intentionally short-lived, but successful optimization still rewrites the outward-facing `reference.path` to the temp cache path. The clean fix direction is to keep optimization metadata explicit while restoring the staged/original path as the canonical persisted reference.
+**Lessons Learned:** The current implementation still leaks optimized temp paths into outward-facing descriptors during send, even though the real durable handoff surface is the staged/original path. The docs are now aligned with the durable contract while follow-up code work can close the remaining behavior/contract mismatch.
 
 ---
 
