@@ -1,3 +1,8 @@
+---
+plan_id: plan-2026-03-21-nerve-mobile-upload-validation-followup
+bead_ids:
+  - nerve-173
+---
 # gambit-openclaw-nerve
 
 **Date:** 2026-03-21  

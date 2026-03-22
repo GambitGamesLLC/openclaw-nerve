@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-21-nerve-canonical-upload-path-and-optimized-cache-check
+bead_ids:
+  - nerve-rp3
+  - nerve-3pj
+---
 # gambit-openclaw-nerve
 
 **Date:** 2026-03-21  
