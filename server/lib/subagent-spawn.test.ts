@@ -1,7 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   appendForwardedServerPathManifest,
   buildSessionsSpawnArgs,
@@ -9,20 +6,6 @@ import {
   collectForwardedServerPathDescriptors,
   extractUploadManifestFromTask,
 } from './subagent-spawn.js';
-
-const tempDirs: string[] = [];
-
-async function makeTempFile(name: string, content: string): Promise<string> {
-  const dir = await mkdtemp(path.join(tmpdir(), 'nerve-subagent-spawn-'));
-  tempDirs.push(dir);
-  const filePath = path.join(dir, name);
-  await writeFile(filePath, content, 'utf8');
-  return filePath;
-}
-
-afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
-});
 
 describe('extractUploadManifestFromTask', () => {
   it('strips the upload manifest from the task and returns its descriptors', () => {
@@ -46,8 +29,8 @@ describe('extractUploadManifestFromTask', () => {
 });
 
 describe('collectForwardedServerPathDescriptors', () => {
-  it('keeps only forwardable server_path file references and preserves their metadata contract', async () => {
-    const filePath = await makeTempFile('notes.webp', 'subagent hello');
+  it('keeps forwardable local-path file references regardless of upload origin', () => {
+    const filePath = '/workspace/.temp/nerve-uploads/2026/03/21/notes.webp';
 
     const descriptors = collectForwardedServerPathDescriptors({
       manifest: { allowSubagentForwarding: true },
@@ -77,7 +60,7 @@ describe('collectForwardedServerPathDescriptors', () => {
           mode: 'file_reference',
           name: 'uploaded.txt',
           mimeType: 'text/plain',
-          reference: { kind: 'local_path', path: filePath, uri: `file://${filePath}` },
+          reference: { kind: 'local_path', path: '/workspace/.temp/nerve-uploads/2026/03/21/uploaded.txt', uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/uploaded.txt' },
           policy: { forwardToSubagents: true },
         },
         {
@@ -112,38 +95,45 @@ describe('collectForwardedServerPathDescriptors', () => {
         },
         policy: { forwardToSubagents: true },
       },
+      {
+        id: 'upload-1',
+        origin: 'upload',
+        mode: 'file_reference',
+        name: 'uploaded.txt',
+        mimeType: 'text/plain',
+        reference: { kind: 'local_path', path: '/workspace/.temp/nerve-uploads/2026/03/21/uploaded.txt', uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/uploaded.txt' },
+        policy: { forwardToSubagents: true },
+      },
     ]);
   });
 });
 
 describe('appendForwardedServerPathManifest', () => {
-  it('appends an explicit forwarded server_path manifest to the subagent task', () => {
+  it('appends an explicit forwarded local-path manifest to the subagent task', () => {
     const task = appendForwardedServerPathManifest('Inspect this file', [
       {
         id: 'path-1',
-        origin: 'server_path',
+        origin: 'upload',
         mode: 'file_reference',
         name: 'notes.txt',
         mimeType: 'text/plain',
         reference: {
           kind: 'local_path',
-          path: '/workspace/notes.txt',
-          uri: 'file:///workspace/notes.txt',
+          path: '/workspace/.temp/nerve-uploads/notes.txt',
+          uri: 'file:///workspace/.temp/nerve-uploads/notes.txt',
         },
         policy: { forwardToSubagents: true },
       },
     ]);
 
     expect(task).toBe(
-      'Inspect this file\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"notes.txt","mimeType":"text/plain","reference":{"kind":"local_path","path":"/workspace/notes.txt","uri":"file:///workspace/notes.txt"},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>',
+      'Inspect this file\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"notes.txt","mimeType":"text/plain","reference":{"kind":"local_path","path":"/workspace/.temp/nerve-uploads/notes.txt","uri":"file:///workspace/.temp/nerve-uploads/notes.txt"},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>',
     );
   });
 });
 
 describe('buildSessionsSpawnAttachments', () => {
-  it('keeps only forwardable attachments and resolves file references into base64 payloads', async () => {
-    const filePath = await makeTempFile('notes.txt', 'subagent hello');
-
+  it('keeps only forwardable inline attachments and skips file references', async () => {
     const attachments = await buildSessionsSpawnAttachments({
       manifest: { allowSubagentForwarding: true },
       descriptors: [
@@ -157,10 +147,11 @@ describe('buildSessionsSpawnAttachments', () => {
         },
         {
           id: 'ref-1',
+          origin: 'upload',
           mode: 'file_reference',
           name: 'notes.txt',
           mimeType: 'text/plain',
-          reference: { kind: 'local_path', path: filePath },
+          reference: { kind: 'local_path', path: '/workspace/.temp/nerve-uploads/notes.txt' },
           policy: { forwardToSubagents: true },
         },
         {
@@ -180,12 +171,6 @@ describe('buildSessionsSpawnAttachments', () => {
         mimeType: 'image/png',
         encoding: 'base64',
         content: 'cHJvb2Y=',
-      },
-      {
-        name: 'notes.txt',
-        mimeType: 'text/plain',
-        encoding: 'base64',
-        content: Buffer.from('subagent hello', 'utf8').toString('base64'),
       },
     ]);
   });
@@ -246,8 +231,8 @@ describe('buildSessionsSpawnArgs', () => {
     });
   });
 
-  it('appends forwarded server_path metadata to the child task while preserving byte attachments', async () => {
-    const filePath = await makeTempFile('notes.webp', 'subagent hello');
+  it('appends forwarded file-reference metadata to the child task without byte attachments', async () => {
+    const filePath = '/workspace/.temp/nerve-uploads/2026/03/21/notes.webp';
 
     const args = await buildSessionsSpawnArgs({
       task: 'Inspect this path attachment',
@@ -256,7 +241,7 @@ describe('buildSessionsSpawnArgs', () => {
         descriptors: [
           {
             id: 'path-1',
-            origin: 'server_path',
+            origin: 'upload',
             mode: 'file_reference',
             name: 'notes.png',
             mimeType: 'image/webp',
@@ -278,16 +263,8 @@ describe('buildSessionsSpawnArgs', () => {
     });
 
     expect(args).toEqual({
-      task: `Inspect this path attachment\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"notes.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${filePath}","uri":"file://${filePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+      task: `Inspect this path attachment\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"notes.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${filePath}","uri":"file://${filePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
       runtime: 'subagent',
-      attachments: [
-        {
-          name: 'notes.webp',
-          mimeType: 'image/webp',
-          encoding: 'base64',
-          content: Buffer.from('subagent hello', 'utf8').toString('base64'),
-        },
-      ],
     });
   });
 
@@ -310,8 +287,8 @@ describe('buildSessionsSpawnArgs', () => {
     });
   });
 
-  it('forwards mixed inline + server_path descriptors into child attachments and path metadata together', async () => {
-    const filePath = await makeTempFile('mixed-path.webp', 'mixed path bytes');
+  it('forwards mixed inline + file-reference descriptors into child attachments and path metadata together', async () => {
+    const filePath = '/workspace/.temp/nerve-uploads/2026/03/21/mixed-path.webp';
 
     const args = await buildSessionsSpawnArgs({
       task: 'Inspect this mixed payload',
@@ -335,7 +312,7 @@ describe('buildSessionsSpawnArgs', () => {
           },
           {
             id: 'path-1',
-            origin: 'server_path',
+            origin: 'upload',
             mode: 'file_reference',
             name: 'capture.png',
             mimeType: 'image/webp',
@@ -357,7 +334,7 @@ describe('buildSessionsSpawnArgs', () => {
     });
 
     expect(args).toEqual({
-      task: `Inspect this mixed payload\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":16,"reference":{"kind":"local_path","path":"${filePath}","uri":"file://${filePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+      task: `Inspect this mixed payload\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":16,"reference":{"kind":"local_path","path":"${filePath}","uri":"file://${filePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
       runtime: 'subagent',
       attachments: [
         {
@@ -366,17 +343,11 @@ describe('buildSessionsSpawnArgs', () => {
           encoding: 'base64',
           content: 'cHJvb2Y=',
         },
-        {
-          name: 'mixed-path.webp',
-          mimeType: 'image/webp',
-          encoding: 'base64',
-          content: Buffer.from('mixed path bytes', 'utf8').toString('base64'),
-        },
       ],
     });
   });
 
-  it('does not append a forwarded path manifest for non-server_path uploads', async () => {
+  it('appends a forwarded path manifest for staged upload file references', async () => {
     const args = await buildSessionsSpawnArgs({
       task: 'Inspect this upload',
       uploadPayload: {
@@ -385,10 +356,14 @@ describe('buildSessionsSpawnArgs', () => {
           {
             id: 'upload-1',
             origin: 'upload',
-            mode: 'inline',
+            mode: 'file_reference',
             name: 'proof.png',
             mimeType: 'image/png',
-            inline: { encoding: 'base64', base64: 'cHJvb2Y=' },
+            reference: {
+              kind: 'local_path',
+              path: '/workspace/.temp/nerve-uploads/2026/03/21/proof.png',
+              uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/proof.png',
+            },
             policy: { forwardToSubagents: true },
           },
         ],
@@ -396,16 +371,8 @@ describe('buildSessionsSpawnArgs', () => {
     });
 
     expect(args).toEqual({
-      task: 'Inspect this upload',
+      task: 'Inspect this upload\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"upload-1","origin":"upload","mode":"file_reference","name":"proof.png","mimeType":"image/png","reference":{"kind":"local_path","path":"/workspace/.temp/nerve-uploads/2026/03/21/proof.png","uri":"file:///workspace/.temp/nerve-uploads/2026/03/21/proof.png"},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>',
       runtime: 'subagent',
-      attachments: [
-        {
-          name: 'proof.png',
-          mimeType: 'image/png',
-          encoding: 'base64',
-          content: 'cHJvb2Y=',
-        },
-      ],
     });
   });
 });

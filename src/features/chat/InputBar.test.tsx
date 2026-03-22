@@ -125,6 +125,24 @@ describe('InputBar', () => {
           json: async () => uploadConfigResponse,
         } as Response;
       }
+      if (url.includes('/api/upload-stage')) {
+        const formData = init?.body as FormData | undefined;
+        const files = formData ? formData.getAll('files').filter((value): value is File => value instanceof File) : [];
+        return {
+          ok: true,
+          json: async () => ({
+            ok: true,
+            root: '/workspace/.temp/nerve-uploads',
+            files: files.map((file, index) => ({
+              path: `/workspace/.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
+              uri: `file:///workspace/.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
+              mimeType: file.type || 'application/octet-stream',
+              sizeBytes: file.size,
+              originalName: file.name,
+            })),
+          }),
+        } as Response;
+      }
       if (url.includes('/api/upload-optimizer')) {
         const payload = typeof init?.body === 'string' ? JSON.parse(init.body) as { path?: string; mimeType?: string } : {};
         const sourcePath = payload.path || '/workspace/optimized-source.png';
@@ -379,7 +397,7 @@ describe('InputBar', () => {
     expect(screen.queryByText('too-big.zip')).not.toBeInTheDocument();
   });
 
-  it('sends inline attachments through existing transport path', async () => {
+  it('stages browser uploads into file-reference descriptors before send', async () => {
     const onSend = vi.fn();
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
@@ -392,19 +410,17 @@ describe('InputBar', () => {
       target: { files: [smallImage] },
     });
 
+    await waitFor(() => {
+      expect(screen.getByText('shot.png')).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByLabelText('Send message'));
 
     await waitFor(() => {
       expect(onSend).toHaveBeenCalledTimes(1);
     });
 
-    expect(compressImage).toHaveBeenCalledWith(
-      expect.any(File),
-      expect.objectContaining({
-        contextMaxBytes: 32_768,
-        contextTargetBytes: 29_491,
-      }),
-    );
+    expect(compressImage).not.toHaveBeenCalled();
 
     const [text, attachments, uploadPayload] = onSend.mock.calls[0] as [
       string,
@@ -413,52 +429,32 @@ describe('InputBar', () => {
         descriptors: Array<{
           origin: string;
           mode: string;
+          reference?: { kind: string; path: string; uri: string };
           preparation?: {
             outcome: string;
-            contextSafetyMaxBytes?: number;
-            inlineChosenWidth?: number;
-            inlineChosenHeight?: number;
-            inlineIterations?: number;
-            inlineTargetBytes?: number;
           };
         }>;
       }?,
     ];
     expect(text).toBe('hello');
-    expect(attachments).toHaveLength(1);
-    expect(attachments?.[0]).toMatchObject({
-      mimeType: 'image/png',
-      content: 'mock-shot.png',
-      name: 'shot.png',
-    });
+    expect(attachments).toBeUndefined();
     expect(uploadPayload?.descriptors).toHaveLength(1);
-    expect(uploadPayload?.descriptors[0].origin).toBe('upload');
-    expect(uploadPayload?.descriptors[0].mode).toBe('inline');
-    expect(uploadPayload?.descriptors[0].preparation).toMatchObject({
-      outcome: 'optimized_inline',
-      contextSafetyMaxBytes: 32_768,
-      inlineChosenWidth: 1024,
-      inlineChosenHeight: 768,
-      inlineIterations: 1,
-      inlineTargetBytes: 29_491,
+    expect(uploadPayload?.descriptors[0]).toMatchObject({
+      origin: 'upload',
+      mode: 'file_reference',
+      reference: {
+        kind: 'local_path',
+        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
+        uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
+      },
+      preparation: {
+        outcome: 'file_reference_ready',
+      },
     });
   });
 
-  it('blocks oversized browser-uploaded images with honest upload fallback copy', async () => {
+  it('keeps large browser-uploaded images on the staged file-reference path', async () => {
     const onSend = vi.fn();
-    vi.mocked(compressImage).mockImplementation(async (file: File) => ({
-      base64: 'x'.repeat(200_000),
-      mimeType: file.type || 'application/octet-stream',
-      preview: `data:${file.type};base64,oversized-${file.name}`,
-      width: 512,
-      height: 512,
-      bytes: 150_000,
-      iterations: 8,
-      attempts: [],
-      targetBytes: 29_491,
-      maxBytes: 32_768,
-      minDimension: 512,
-    }));
 
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
@@ -471,10 +467,6 @@ describe('InputBar', () => {
     });
 
     const image = new File([new Uint8Array(2 * 1024 * 1024)], 'oversized-inline.png', { type: 'image/png' });
-    Object.defineProperty(image, 'path', {
-      configurable: true,
-      value: '/workspace/oversized-inline.png',
-    });
 
     fireEvent.change(fileInput, {
       target: { files: [image] },
@@ -488,13 +480,19 @@ describe('InputBar', () => {
     fireEvent.click(screen.getByLabelText('Send message'));
 
     await waitFor(() => {
-      expect(screen.getByText(/browser uploads cannot preserve a true file-reference fallback/i)).toBeInTheDocument();
-      expect(screen.getByText(/use Attach by Path/i)).toBeInTheDocument();
+      expect(onSend).toHaveBeenCalledTimes(1);
     });
-    expect(onSend).not.toHaveBeenCalled();
+    expect(onSend.mock.calls[0][1]).toBeUndefined();
+    expect(onSend.mock.calls[0][2].descriptors[0]).toMatchObject({
+      origin: 'upload',
+      mode: 'file_reference',
+      reference: {
+        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.webp',
+      },
+    });
   });
 
-  it('blocks oversized inline images when no safe file-reference fallback is available', async () => {
+  it('does not re-inline staged browser uploads during send preparation', async () => {
     const onSend = vi.fn();
     vi.mocked(compressImage).mockImplementation(async (file: File) => ({
       base64: 'x'.repeat(200_000),
@@ -513,7 +511,7 @@ describe('InputBar', () => {
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
     const textarea = screen.getByLabelText('Message input') as HTMLTextAreaElement;
-    fireEvent.input(textarea, { target: { value: 'this should block' } });
+    fireEvent.input(textarea, { target: { value: 'ship staged upload' } });
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     await waitFor(() => {
@@ -526,15 +524,20 @@ describe('InputBar', () => {
       target: { files: [image] },
     });
 
+    await waitFor(() => {
+      expect(screen.getByText('oversized-inline.png')).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByLabelText('Send message'));
 
     await waitFor(() => {
-      expect(screen.getByText(/blocked after adaptive inline shrinking reached the minimum dimension/i)).toBeInTheDocument();
+      expect(onSend).toHaveBeenCalledTimes(1);
     });
-    expect(onSend).not.toHaveBeenCalled();
+    expect(compressImage).not.toHaveBeenCalled();
+    expect(onSend.mock.calls[0][2].descriptors[0].mode).toBe('file_reference');
   });
 
-  it('keeps browser uploads on the inline transport path', async () => {
+  it('keeps browser uploads on the staged file-reference transport path', async () => {
     const onSend = vi.fn();
     render(<InputBar onSend={onSend} isGenerating={false} />);
 
@@ -550,6 +553,10 @@ describe('InputBar', () => {
 
     fireEvent.change(fileInput, {
       target: { files: [doc] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('notes.txt')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByLabelText('Send message'));
@@ -572,16 +579,17 @@ describe('InputBar', () => {
     ];
 
     expect(text).toBe('ship this file');
-    expect(attachments).toHaveLength(1);
+    expect(attachments).toBeUndefined();
     expect(uploadPayload?.descriptors).toHaveLength(1);
     expect(uploadPayload?.descriptors[0]).toMatchObject({
       origin: 'upload',
-      mode: 'inline',
-      inline: {
-        base64: expect.any(String),
+      mode: 'file_reference',
+      reference: {
+        kind: 'local_path',
+        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-notes.txt',
+        uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/1-notes.txt',
       },
     });
-    expect(uploadPayload?.descriptors[0].reference).toBeUndefined();
   });
 
   it('hides manual forwarding controls and forwards path attachments by default', async () => {
@@ -619,13 +627,17 @@ describe('InputBar', () => {
     const smallImage = new File([new Uint8Array(120_000)], 'inline-forwardable.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [smallImage] } });
 
+    await waitFor(() => {
+      expect(screen.getByText('inline-forwardable.png')).toBeInTheDocument();
+    });
+
     expect(screen.queryByLabelText(/Allow forwarding .* to subagents/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Send message'));
 
     await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
     expect(onSend.mock.calls[0][2].descriptors[0].origin).toBe('upload');
-    expect(onSend.mock.calls[0][2].descriptors[0].mode).toBe('inline');
+    expect(onSend.mock.calls[0][2].descriptors[0].mode).toBe('file_reference');
     expect(onSend.mock.calls[0][2].descriptors[0].policy.forwardToSubagents).toBe(true);
     expect(onSend.mock.calls[0][2].manifest.allowSubagentForwarding).toBe(true);
   });
@@ -657,7 +669,7 @@ describe('InputBar', () => {
     fireEvent.change(fileInput, { target: { files: [image] } });
 
     await waitFor(() => {
-      expect(screen.getByText(/browser uploads send uploaded bytes, not durable path references/i)).toBeInTheDocument();
+      expect(screen.getByText(/browser uploads are disabled by configuration/i)).toBeInTheDocument();
       expect(screen.getByText(/use Attach by Path/i)).toBeInTheDocument();
     });
     expect(screen.queryByText('vision-off.png')).not.toBeInTheDocument();

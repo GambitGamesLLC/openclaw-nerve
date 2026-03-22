@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
 
 export interface ForwardableUploadAttachmentDescriptor {
   id?: string;
@@ -40,7 +39,7 @@ export interface SessionsSpawnAttachment {
 
 export interface ForwardedServerPathDescriptor {
   id?: string;
-  origin: 'server_path';
+  origin?: 'upload' | 'server_path' | string;
   mode: 'file_reference';
   name: string;
   mimeType?: string;
@@ -112,9 +111,6 @@ export function collectForwardedServerPathDescriptors(
     if (descriptor.policy?.forwardToSubagents !== true) {
       continue;
     }
-    if (descriptor.origin !== 'server_path') {
-      continue;
-    }
     if (descriptor.mode !== 'file_reference' || descriptor.reference?.kind !== 'local_path') {
       continue;
     }
@@ -127,7 +123,7 @@ export function collectForwardedServerPathDescriptors(
 
     descriptors.push({
       id: descriptor.id,
-      origin: 'server_path',
+      ...(descriptor.origin ? { origin: descriptor.origin } : {}),
       mode: 'file_reference',
       name,
       mimeType: descriptor.mimeType,
@@ -194,19 +190,6 @@ export async function buildSessionsSpawnAttachments(
       continue;
     }
 
-    if (descriptor.mode === 'file_reference' && descriptor.reference?.kind === 'local_path') {
-      const localPath = descriptor.reference.path?.trim();
-      if (!localPath) {
-        continue;
-      }
-      const fileBytes = await readFile(localPath);
-      attachments.push({
-        name,
-        content: fileBytes.toString('base64'),
-        encoding: 'base64',
-        mimeType: descriptor.mimeType,
-      });
-    }
   }
 
   return attachments;

@@ -434,6 +434,10 @@ describe('config module', () => {
         inlineImageAutoDowngradeToFileReference: true,
         inlineImageShrinkMinDimension: 512,
         exposeInlineBase64ToAgent: false,
+        staging: {
+          tempDir: path.join(process.env.HOME || '', '.openclaw', 'workspace', '.temp', 'nerve-uploads'),
+          staleMaxAgeHours: 24,
+        },
         optimization: {
           enabled: true,
           tempDir: '~/.cache/openclaw/nerve/optimized-uploads',
@@ -456,6 +460,8 @@ describe('config module', () => {
       process.env.NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION = '896';
       process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT = 'true';
       process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED = 'true';
+      process.env.NERVE_UPLOAD_STAGING_TEMP_DIR = '~/tmp/nerve-uploads';
+      process.env.NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS = '72';
       process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR = '~/tmp/optimized';
       process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION = '3072';
       process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY = '72';
@@ -472,6 +478,8 @@ describe('config module', () => {
       expect(config.upload.inlineImageAutoDowngradeToFileReference).toBe(false);
       expect(config.upload.inlineImageShrinkMinDimension).toBe(896);
       expect(config.upload.exposeInlineBase64ToAgent).toBe(true);
+      expect(config.upload.staging.tempDir).toBe('~/tmp/nerve-uploads');
+      expect(config.upload.staging.staleMaxAgeHours).toBe(72);
       expect(config.upload.optimization.enabled).toBe(true);
       expect(config.upload.optimization.tempDir).toBe('~/tmp/optimized');
       expect(config.upload.optimization.maxDimension).toBe(3072);

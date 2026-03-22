@@ -239,6 +239,38 @@ interface UploadOptimizerResponse {
   optimizedArtifact: UploadArtifactMetadata;
 }
 
+interface UploadStageArtifact {
+  path: string;
+  uri: string;
+  mimeType: string;
+  sizeBytes: number;
+  originalName: string;
+}
+
+interface UploadStageResponse {
+  ok: boolean;
+  root?: string;
+  files?: UploadStageArtifact[];
+  error?: string;
+}
+
+async function stageBrowserUploads(files: File[]): Promise<UploadStageArtifact[]> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file, file.name));
+
+  const response = await fetch('/api/upload-stage', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => null) as UploadStageResponse | null;
+  if (!response.ok || payload?.ok !== true || !Array.isArray(payload.files)) {
+    throw new Error(payload?.error || 'Failed to stage browser uploads.');
+  }
+
+  return payload.files;
+}
+
 async function optimizeFileReference(reference: FileUploadReference, mimeType: string): Promise<UploadOptimizerResponse> {
   const response = await fetch('/api/upload-optimizer', {
     method: 'POST',
@@ -568,7 +600,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     }
   }, [interimTranscript, liveTranscriptionPreview, voiceState]);
 
-  const processFiles = useCallback((files: FileList | File[]) => {
+  const processFiles = useCallback(async (files: FileList | File[]) => {
     const selected = Array.from(files);
     if (selected.length === 0) return;
     setAttachmentError(null);
@@ -590,7 +622,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     }
 
     const inlineCapBytes = getInlineAttachmentMaxBytes(uploadConfig);
-    const next: StagedAttachment[] = [];
+    const accepted: File[] = [];
     let firstError: string | null = null;
 
     for (const file of filesToStage) {
@@ -601,7 +633,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       }
 
       if (!uploadConfig.inlineEnabled) {
-        firstError ||= 'Browser uploads send uploaded bytes, not durable path references. Enable inline uploads or use Attach by Path.';
+        firstError ||= 'Browser uploads are disabled by configuration. Enable uploads or use Attach by Path.';
         continue;
       }
 
@@ -613,18 +645,37 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         continue;
       }
 
-      next.push({
-        id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file,
-        origin: 'upload',
-        mode: 'inline',
-        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
-      });
+      accepted.push(file);
     }
 
-    if (next.length > 0) {
-      setStagedAttachments((prev) => [...prev, ...next]);
+    if (accepted.length > 0) {
+      try {
+        const staged = await stageBrowserUploads(accepted);
+        const next = staged.map((artifact, index) => {
+          const sourceFile = accepted[index];
+          const mimeType = artifact.mimeType || sourceFile?.type || 'application/octet-stream';
+          const stagedFile = createServerPathBackedFile({
+            name: sourceFile?.name || artifact.originalName,
+            absolutePath: artifact.path,
+            sizeBytes: artifact.sizeBytes,
+            mimeType,
+          });
+
+          return {
+            id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            file: stagedFile,
+            origin: 'upload' as const,
+            mode: 'file_reference' as const,
+            previewUrl: mimeType.startsWith('image/') ? URL.createObjectURL(sourceFile) : undefined,
+          };
+        });
+
+        setStagedAttachments((prev) => [...prev, ...next]);
+      } catch (error) {
+        firstError ||= error instanceof Error ? error.message : 'Failed to stage browser uploads.';
+      }
     }
+
     if (firstError) {
       setAttachmentError(firstError);
     }
@@ -1049,7 +1100,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         ? {
           descriptors,
           manifest: {
-            enabled: uploadConfig.twoModeEnabled,
+            enabled: true,
             exposeInlineBase64ToAgent: uploadConfig.exposeInlineBase64ToAgent,
             allowSubagentForwarding: true,
           },

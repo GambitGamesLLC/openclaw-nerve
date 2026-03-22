@@ -222,6 +222,12 @@ const uploadImageOptimizationStaleMaxAgeHours = Math.max(
   1,
   Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_STALE_MAX_AGE_HOURS, 24)),
 );
+const uploadStagingTempDir = process.env.NERVE_UPLOAD_STAGING_TEMP_DIR
+  || path.join(HOME, '.openclaw', 'workspace', '.temp', 'nerve-uploads');
+const uploadStagingStaleMaxAgeHours = Math.max(
+  1,
+  Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS, 24)),
+);
 
 function normalizeLanguagePreference(language: string | undefined): string {
   const normalized = (language || DEFAULT_LANGUAGE).trim().toLowerCase();
@@ -306,6 +312,10 @@ export const config = {
     inlineImageAutoDowngradeToFileReference,
     inlineImageShrinkMinDimension,
     exposeInlineBase64ToAgent: uploadExposeInlineBase64ToAgent,
+    staging: {
+      tempDir: uploadStagingTempDir,
+      staleMaxAgeHours: uploadStagingStaleMaxAgeHours,
+    },
     optimization: {
       enabled: uploadImageOptimizationEnabled,
       tempDir: uploadImageOptimizationTempDir,

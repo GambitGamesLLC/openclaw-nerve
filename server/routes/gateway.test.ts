@@ -281,7 +281,7 @@ describe('gateway routes', () => {
       ]);
     });
 
-    it('accepts realistic mixed inline + server_path descriptors and forwards both bytes and path metadata', async () => {
+    it('accepts realistic mixed inline + file-reference descriptors and prefers path metadata for staged uploads', async () => {
       setDefaults();
       const invokedCalls: Array<{ tool: string; args: Record<string, unknown> }> = [];
       invokeGatewayImpl = (tool: string, args: Record<string, unknown>) => {
@@ -325,7 +325,7 @@ describe('gateway routes', () => {
               },
               {
                 id: 'path-1',
-                origin: 'server_path',
+                origin: 'upload',
                 mode: 'file_reference',
                 name: 'capture.png',
                 mimeType: 'image/webp',
@@ -357,7 +357,7 @@ describe('gateway routes', () => {
         {
           tool: 'sessions_spawn',
           args: {
-            task: `Inspect these forwarded files\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"server_path","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${mixedAttachmentFilePath}","uri":"file://${mixedAttachmentFilePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+            task: `Inspect these forwarded files\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${mixedAttachmentFilePath}","uri":"file://${mixedAttachmentFilePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
             runtime: 'subagent',
             attachments: [
               {
@@ -365,12 +365,6 @@ describe('gateway routes', () => {
                 mimeType: 'image/png',
                 encoding: 'base64',
                 content: 'cHJvb2Y=',
-              },
-              {
-                name: 'mixed-path.webp',
-                mimeType: 'image/webp',
-                encoding: 'base64',
-                content: Buffer.from('mixed path bytes', 'utf8').toString('base64'),
               },
             ],
           },
