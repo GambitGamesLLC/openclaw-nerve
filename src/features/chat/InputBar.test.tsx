@@ -366,12 +366,19 @@ describe('InputBar', () => {
     expect(uploadPayload?.descriptors[0]).toMatchObject({
       origin: 'server_path',
       mode: 'file_reference',
-      name: 'attach-me.webp',
-      mimeType: 'image/webp',
+      name: 'attach-me.png',
+      mimeType: 'image/png',
       reference: {
         kind: 'local_path',
-        path: '/workspace/attach-me.webp',
-        uri: 'file:///workspace/attach-me.webp',
+        path: '/workspace/attach-me.png',
+        uri: 'file:///workspace/attach-me.png',
+      },
+      optimization: {
+        applied: true,
+        optimized: {
+          path: '/workspace/attach-me.webp',
+          mimeType: 'image/webp',
+        },
       },
     });
   });
@@ -472,11 +479,18 @@ describe('InputBar', () => {
       mode: 'file_reference',
       reference: {
         kind: 'local_path',
-        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
-        uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
+        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-shot.png',
+        uri: 'file:///workspace/.temp/nerve-uploads/2026/03/21/1-shot.png',
       },
       preparation: {
         outcome: 'file_reference_ready',
+      },
+      optimization: {
+        applied: true,
+        optimized: {
+          path: '/workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
+          mimeType: 'image/webp',
+        },
       },
     });
   });
@@ -515,7 +529,13 @@ describe('InputBar', () => {
       origin: 'upload',
       mode: 'file_reference',
       reference: {
-        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.webp',
+        path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.png',
+      },
+      optimization: {
+        applied: true,
+        optimized: {
+          path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.webp',
+        },
       },
     });
   });

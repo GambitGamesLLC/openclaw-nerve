@@ -228,11 +228,6 @@ function hasResolvableLocalPath(file: File): boolean {
   return Boolean(fileWithPath.path || fileWithPath.webkitRelativePath);
 }
 
-function getFileNameFromPath(pathOrUri: string): string {
-  const normalized = pathOrUri.replace(/^file:\/\//, '').replace(/\\/g, '/');
-  return normalized.split('/').filter(Boolean).pop() || pathOrUri;
-}
-
 interface UploadOptimizerResponse {
   ok: boolean;
   optimized: boolean;
@@ -950,14 +945,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       const optimized = await optimizeFileReference(originalReference, fallbackMimeType);
       return {
         ...descriptorBase,
-        name: getFileNameFromPath(optimized.optimizedArtifact.path),
-        mimeType: optimized.optimizedArtifact.mimeType,
-        sizeBytes: optimized.optimizedArtifact.sizeBytes,
-        reference: {
-          kind: 'local_path',
-          path: optimized.optimizedArtifact.path,
-          uri: optimized.optimizedArtifact.uri,
-        },
         optimization: {
           applied: optimized.optimized,
           tempDerivative: optimized.optimized,
