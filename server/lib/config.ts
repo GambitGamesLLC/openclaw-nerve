@@ -206,17 +206,33 @@ const inlineImageShrinkMinDimension = Math.max(
   256,
   Math.min(4096, Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION, 512))),
 );
+const inlineImageMaxDimension = Math.max(
+  256,
+  Math.min(4096, Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_MAX_DIMENSION, 2048))),
+);
+const inlineImageWebpQuality = Math.max(
+  1,
+  Math.min(100, Math.round(parsePositiveNumberEnv(process.env.NERVE_INLINE_IMAGE_WEBP_QUALITY, 82))),
+);
 const uploadExposeInlineBase64ToAgent = parseBooleanEnv(process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT, false);
 const uploadImageOptimizationEnabled = parseBooleanEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED, true);
 const uploadImageOptimizationTempDir = process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR
   || '~/.cache/openclaw/nerve/optimized-uploads';
+const uploadImageOptimizationTargetBytes = Math.max(
+  64 * 1024,
+  Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES, 1024 * 1024)),
+);
+const uploadImageOptimizationMaxBytes = Math.max(
+  uploadImageOptimizationTargetBytes,
+  Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES, Math.round(uploadImageOptimizationTargetBytes * 1.25))),
+);
 const uploadImageOptimizationMaxDimension = Math.max(
   256,
-  Math.min(8192, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION, 2048))),
+  Math.min(8192, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION, 4096))),
 );
 const uploadImageOptimizationWebpQuality = Math.max(
   1,
-  Math.min(100, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY, 82))),
+  Math.min(100, Math.round(parsePositiveNumberEnv(process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY, 90))),
 );
 const uploadImageOptimizationStaleMaxAgeHours = Math.max(
   1,
@@ -311,6 +327,8 @@ export const config = {
     inlineImageContextMaxBytes,
     inlineImageAutoDowngradeToFileReference,
     inlineImageShrinkMinDimension,
+    inlineImageMaxDimension,
+    inlineImageWebpQuality,
     exposeInlineBase64ToAgent: uploadExposeInlineBase64ToAgent,
     staging: {
       tempDir: uploadStagingTempDir,
@@ -319,6 +337,8 @@ export const config = {
     optimization: {
       enabled: uploadImageOptimizationEnabled,
       tempDir: uploadImageOptimizationTempDir,
+      targetBytes: uploadImageOptimizationTargetBytes,
+      maxBytes: uploadImageOptimizationMaxBytes,
       maxDimension: uploadImageOptimizationMaxDimension,
       preserveTransparency: true,
       webpQuality: uploadImageOptimizationWebpQuality,

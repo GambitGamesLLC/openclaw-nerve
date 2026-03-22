@@ -79,8 +79,12 @@ describe('InputBar', () => {
     inlineImageContextMaxBytes: number;
     inlineImageAutoDowngradeToFileReference: boolean;
     inlineImageShrinkMinDimension: number;
+    inlineImageMaxDimension: number;
+    inlineImageWebpQuality: number;
     exposeInlineBase64ToAgent: boolean;
     imageOptimizationEnabled: boolean;
+    imageOptimizationTargetBytes: number;
+    imageOptimizationMaxBytes: number;
     imageOptimizationMaxDimension: number;
     imageOptimizationWebpQuality: number;
   };
@@ -97,10 +101,14 @@ describe('InputBar', () => {
       inlineImageContextMaxBytes: 32_768,
       inlineImageAutoDowngradeToFileReference: true,
       inlineImageShrinkMinDimension: 512,
+      inlineImageMaxDimension: 2048,
+      inlineImageWebpQuality: 82,
       exposeInlineBase64ToAgent: false,
       imageOptimizationEnabled: true,
-      imageOptimizationMaxDimension: 2048,
-      imageOptimizationWebpQuality: 82,
+      imageOptimizationTargetBytes: 1_048_576,
+      imageOptimizationMaxBytes: 1_310_720,
+      imageOptimizationMaxDimension: 4096,
+      imageOptimizationWebpQuality: 90,
     };
 
     vi.mocked(compressImage).mockImplementation(async (file: File) => ({
@@ -168,6 +176,26 @@ describe('InputBar', () => {
               width: 2048,
               height: 2048,
             },
+            artifacts: [
+              {
+                role: 'canonical_staged_source',
+                path: sourcePath,
+                uri: `file://${sourcePath}`,
+                mimeType: payload.mimeType || 'image/png',
+                sizeBytes: 2 * 1024 * 1024,
+                width: 4096,
+                height: 4096,
+              },
+              {
+                role: 'optimized_derivative',
+                path: optimizedPath,
+                uri: `file://${optimizedPath}`,
+                mimeType: 'image/webp',
+                sizeBytes: 350_000,
+                width: 2048,
+                height: 2048,
+              },
+            ],
           }),
         } as Response;
       }

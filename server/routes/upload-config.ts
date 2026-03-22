@@ -14,8 +14,12 @@ app.get('/api/upload-config', rateLimitGeneral, (c) => {
     inlineImageContextMaxBytes: config.upload.inlineImageContextMaxBytes,
     inlineImageAutoDowngradeToFileReference: config.upload.inlineImageAutoDowngradeToFileReference,
     inlineImageShrinkMinDimension: config.upload.inlineImageShrinkMinDimension,
+    inlineImageMaxDimension: config.upload.inlineImageMaxDimension,
+    inlineImageWebpQuality: config.upload.inlineImageWebpQuality,
     exposeInlineBase64ToAgent: config.upload.exposeInlineBase64ToAgent,
     imageOptimizationEnabled: config.upload.optimization.enabled,
+    imageOptimizationTargetBytes: config.upload.optimization.targetBytes,
+    imageOptimizationMaxBytes: config.upload.optimization.maxBytes,
     imageOptimizationMaxDimension: config.upload.optimization.maxDimension,
     imageOptimizationWebpQuality: config.upload.optimization.webpQuality,
   });

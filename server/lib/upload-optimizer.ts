@@ -14,10 +14,17 @@ export interface UploadArtifactInfo {
   height: number | null;
 }
 
+export type UploadArtifactRole = 'canonical_staged_source' | 'optimized_derivative';
+
+export interface UploadArtifactComparisonInfo extends UploadArtifactInfo {
+  role: UploadArtifactRole;
+}
+
 export interface OptimizedUploadResult {
   optimized: boolean;
   original: UploadArtifactInfo;
   optimizedArtifact: UploadArtifactInfo;
+  artifacts: UploadArtifactComparisonInfo[];
   cleanupPath?: string;
 }
 
@@ -64,6 +71,67 @@ async function buildArtifactInfo(filePath: string, preferredMimeType?: string): 
   };
 }
 
+function buildArtifactComparison(
+  original: UploadArtifactInfo,
+  optimizedArtifact: UploadArtifactInfo,
+  optimized: boolean,
+): UploadArtifactComparisonInfo[] {
+  const artifacts: UploadArtifactComparisonInfo[] = [
+    {
+      role: 'canonical_staged_source',
+      ...original,
+    },
+  ];
+
+  if (optimized) {
+    artifacts.push({
+      role: 'optimized_derivative',
+      ...optimizedArtifact,
+    });
+  }
+
+  return artifacts;
+}
+
+function buildQualityLadder(baseQuality: number): number[] {
+  const values = [
+    baseQuality,
+    baseQuality - 4,
+    baseQuality - 8,
+    baseQuality - 12,
+    baseQuality - 18,
+    72,
+    64,
+    56,
+    48,
+  ].map((value) => Math.max(1, Math.min(100, Math.round(value))));
+
+  return [...new Set(values)].sort((a, b) => b - a);
+}
+
+function computeDimensionRungs(startDimension: number, minDimension: number): number[] {
+  const rungs = new Set<number>([
+    Math.max(minDimension, Math.round(startDimension)),
+    Math.max(minDimension, Math.round(startDimension * 0.92)),
+    Math.max(minDimension, Math.round(startDimension * 0.84)),
+    Math.max(minDimension, Math.round(startDimension * 0.76)),
+    Math.max(minDimension, Math.round(startDimension * 0.68)),
+    Math.max(minDimension, Math.round(startDimension * 0.6)),
+    minDimension,
+  ]);
+
+  return [...rungs].filter(Boolean).sort((a, b) => b - a);
+}
+
+function getArtifactMaxDimension(artifact: UploadArtifactInfo): number {
+  return Math.max(artifact.width ?? 0, artifact.height ?? 0, 1);
+}
+
+function isOriginalAlreadyPreferred(original: UploadArtifactInfo): boolean {
+  return original.sizeBytes <= config.upload.optimization.targetBytes
+    && getArtifactMaxDimension(original) <= config.upload.optimization.maxDimension;
+}
+
 export async function cleanupStaleOptimizedUploads(): Promise<{ removed: number }> {
   const tempDir = getOptimizedUploadsDir();
   const maxAgeMs = config.upload.optimization.staleMaxAgeHours * 60 * 60 * 1000;
@@ -101,6 +169,16 @@ export async function optimizeUploadImage(params: {
       optimized: false,
       original,
       optimizedArtifact: original,
+      artifacts: buildArtifactComparison(original, original, false),
+    };
+  }
+
+  if (isOriginalAlreadyPreferred(original)) {
+    return {
+      optimized: false,
+      original,
+      optimizedArtifact: original,
+      artifacts: buildArtifactComparison(original, original, false),
     };
   }
 
@@ -118,28 +196,71 @@ export async function optimizeUploadImage(params: {
   await fs.mkdir(tempDir, { recursive: true });
   const optimizedPath = path.join(tempDir, `${basename}-${fingerprint}.${targetExt}`);
 
-  const pipeline = sharp(sourcePath)
-    .rotate()
-    .resize({
-      width: config.upload.optimization.maxDimension,
-      height: config.upload.optimization.maxDimension,
-      fit: 'inside',
-      withoutEnlargement: true,
-    });
+  const startDimension = Math.min(
+    config.upload.optimization.maxDimension,
+    Math.max(sourceMetadata.width ?? 1, sourceMetadata.height ?? 1),
+  );
+  const minDimension = Math.min(startDimension, Math.max(1024, Math.round(config.upload.optimization.maxDimension * 0.5)));
+  const dimensionRungs = computeDimensionRungs(startDimension, minDimension);
+  const qualityLadder = usePng ? [100] : buildQualityLadder(config.upload.optimization.webpQuality);
 
-  if (usePng) {
-    pipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
-  } else {
-    pipeline.webp({ quality: config.upload.optimization.webpQuality });
+  let selectedArtifact: UploadArtifactInfo | null = null;
+
+  for (const maxDimension of dimensionRungs) {
+    for (const quality of qualityLadder) {
+      const pipeline = sharp(sourcePath)
+        .rotate()
+        .resize({
+          width: maxDimension,
+          height: maxDimension,
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+
+      if (usePng) {
+        pipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
+      } else {
+        pipeline.webp({ quality, effort: 5 });
+      }
+
+      await pipeline.toFile(optimizedPath);
+      const candidate = await buildArtifactInfo(optimizedPath, targetMime);
+      selectedArtifact = candidate;
+
+      if (candidate.sizeBytes <= config.upload.optimization.targetBytes) {
+        break;
+      }
+
+      if (candidate.sizeBytes <= config.upload.optimization.maxBytes) {
+        break;
+      }
+    }
+
+    if (selectedArtifact && selectedArtifact.sizeBytes <= config.upload.optimization.maxBytes) {
+      break;
+    }
   }
 
-  await pipeline.toFile(optimizedPath);
-  const optimizedArtifact = await buildArtifactInfo(optimizedPath, targetMime);
+  const optimizedArtifact = selectedArtifact ?? await buildArtifactInfo(optimizedPath, targetMime);
+
+  if (
+    optimizedArtifact.sizeBytes >= original.sizeBytes
+    && getArtifactMaxDimension(optimizedArtifact) <= getArtifactMaxDimension(original)
+  ) {
+    await fs.unlink(optimizedPath).catch(() => {});
+    return {
+      optimized: false,
+      original,
+      optimizedArtifact: original,
+      artifacts: buildArtifactComparison(original, original, false),
+    };
+  }
 
   return {
     optimized: true,
     original,
     optimizedArtifact,
+    artifacts: buildArtifactComparison(original, optimizedArtifact, true),
     cleanupPath: optimizedPath,
   };
 }

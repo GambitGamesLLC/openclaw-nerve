@@ -258,6 +258,39 @@ NERVE_BEADS_DEFAULT_SOURCE=repo-a
 NERVE_BEADS_PROJECTS_ROOT=~/.openclaw/workspace/projects
 ```
 
+### Upload Handling
+
+Nerve now treats **inline image shrinking** and **file-reference optimization** as two different concerns:
+
+- **Inline images** still target a small context-safe payload by default (`32 KB`) so raw base64 attachments do not explode prompt size.
+- **File-reference optimization** is tuned for orchestrator/subagent workflows where the preferred contract is a staged path under `~/.openclaw/workspace/.temp/nerve-uploads/...`. In that path-based flow, preserving detail matters more than squeezing every image down to an inline-safe blob, so the optimizer now targets roughly **1 MB** and skips recompression entirely when the canonical staged upload is already within budget.
+
+| Variable | Default | Description |
+|---------|---------|-------------|
+| `NERVE_INLINE_IMAGE_CONTEXT_MAX_BYTES` | `32768` | Inline image base64 budget for context-safe prompt embedding. |
+| `NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION` | `512` | Smallest dimension inline shrinking will fall to before blocking/downgrading. |
+| `NERVE_INLINE_IMAGE_MAX_DIMENSION` | `2048` | Starting resize ceiling for inline image shrinking. |
+| `NERVE_INLINE_IMAGE_WEBP_QUALITY` | `82` | Starting WebP quality for inline image shrinking. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED` | `true` | Enables optional temp derivatives for file-reference image uploads. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES` | `1048576` | Preferred preservation target (~1 MB) for optimized file-reference derivatives. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES` | `1310720` | Soft ceiling for optimized file-reference derivatives before the optimizer keeps stepping down. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION` | `4096` | Maximum dimension for optimized file-reference derivatives. Larger than the inline default to preserve more detail. |
+| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY` | `90` | Starting WebP quality for file-reference optimization. |
+
+```env
+NERVE_INLINE_IMAGE_CONTEXT_MAX_BYTES=32768
+NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION=512
+NERVE_INLINE_IMAGE_MAX_DIMENSION=2048
+NERVE_INLINE_IMAGE_WEBP_QUALITY=82
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED=true
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES=1048576
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES=1310720
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION=4096
+NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY=90
+```
+
+If you want **more aggressive** optimization, lower the target/max bytes and max dimension. If you want to preserve the original staged file whenever possible, keep the target around `1 MB` or disable optimization entirely and hand subagents the canonical staged path directly.
+
 ### File Paths
 
 | Variable | Default | Description |

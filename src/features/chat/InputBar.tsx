@@ -13,6 +13,7 @@ import type {
   FileUploadReference,
   ImageAttachment,
   OutgoingUploadPayload,
+  UploadArtifactComparisonMetadata,
   UploadArtifactMetadata,
   UploadAttachmentDescriptor,
   UploadPreparationMetadata,
@@ -237,6 +238,7 @@ interface UploadOptimizerResponse {
   optimized: boolean;
   original: UploadArtifactMetadata;
   optimizedArtifact: UploadArtifactMetadata;
+  artifacts?: UploadArtifactComparisonMetadata[];
 }
 
 interface UploadStageArtifact {
@@ -441,8 +443,24 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
             typeof data.inlineImageShrinkMinDimension === 'number' && data.inlineImageShrinkMinDimension > 0
               ? data.inlineImageShrinkMinDimension
               : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageShrinkMinDimension,
+          inlineImageMaxDimension:
+            typeof data.inlineImageMaxDimension === 'number' && data.inlineImageMaxDimension > 0
+              ? data.inlineImageMaxDimension
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageMaxDimension,
+          inlineImageWebpQuality:
+            typeof data.inlineImageWebpQuality === 'number' && data.inlineImageWebpQuality > 0
+              ? data.inlineImageWebpQuality
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageWebpQuality,
           exposeInlineBase64ToAgent: Boolean(data.exposeInlineBase64ToAgent),
           imageOptimizationEnabled: data.imageOptimizationEnabled !== false,
+          imageOptimizationTargetBytes:
+            typeof data.imageOptimizationTargetBytes === 'number' && data.imageOptimizationTargetBytes > 0
+              ? data.imageOptimizationTargetBytes
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationTargetBytes,
+          imageOptimizationMaxBytes:
+            typeof data.imageOptimizationMaxBytes === 'number' && data.imageOptimizationMaxBytes > 0
+              ? data.imageOptimizationMaxBytes
+              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationMaxBytes,
           imageOptimizationMaxDimension:
             typeof data.imageOptimizationMaxDimension === 'number' && data.imageOptimizationMaxDimension > 0
               ? data.imageOptimizationMaxDimension
@@ -829,9 +847,9 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       const compressed = await compressImage(item.file, {
         contextMaxBytes: uploadConfig.inlineImageContextMaxBytes,
         contextTargetBytes: Math.floor(uploadConfig.inlineImageContextMaxBytes * 0.9),
-        maxDimension: uploadConfig.imageOptimizationMaxDimension,
+        maxDimension: uploadConfig.inlineImageMaxDimension,
         minDimension: uploadConfig.inlineImageShrinkMinDimension,
-        webpQuality: uploadConfig.imageOptimizationWebpQuality,
+        webpQuality: uploadConfig.inlineImageWebpQuality,
       });
       return {
         attachment: {
@@ -873,8 +891,8 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       },
     };
   }, [
-    uploadConfig.imageOptimizationMaxDimension,
-    uploadConfig.imageOptimizationWebpQuality,
+    uploadConfig.inlineImageMaxDimension,
+    uploadConfig.inlineImageWebpQuality,
     uploadConfig.inlineImageContextMaxBytes,
     uploadConfig.inlineImageShrinkMinDimension,
   ]);
@@ -946,6 +964,16 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           cleanupAfterSend: optimized.optimized,
           original: optimized.original,
           optimized: optimized.optimizedArtifact,
+          artifacts: optimized.artifacts ?? [
+            {
+              role: 'canonical_staged_source',
+              ...optimized.original,
+            },
+            {
+              role: 'optimized_derivative',
+              ...optimized.optimizedArtifact,
+            },
+          ],
         },
       };
     } catch {
