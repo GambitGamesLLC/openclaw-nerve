@@ -1,2 +1,4 @@
 {"id":"int-cb00b365","kind":"field_change","created_at":"2026-03-21T20:40:58.513923295Z","actor":"Derrick Barra","issue_id":"nerve-gzn","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-e6aaec20","kind":"field_change","created_at":"2026-03-21T20:46:30.268634527Z","actor":"Derrick Barra","issue_id":"nerve-gzn","extra":{"field":"status","new_value":"closed","old_value":"in_progress"}}
+{"id":"int-31dbfd6f","kind":"field_change","created_at":"2026-03-22T01:23:08.085471922Z","actor":"Derrick Barra","issue_id":"nerve-3wx","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
+{"id":"int-a59b259e","kind":"field_change","created_at":"2026-03-22T01:36:23.859079607Z","actor":"Derrick Barra","issue_id":"nerve-3wx","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Implemented canonical workspace temp upload staging for Nerve"}}
