@@ -7,7 +7,7 @@ bead_ids:
 # gambit-openclaw-nerve
 
 **Date:** 2026-03-22  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -81,10 +81,10 @@ This was **not** an end-to-end live browser send/agent roundtrip; it was an equi
 
 **Commits:**
 - `81a4131` - Keep canonical staged paths in upload descriptors
-- `Pending in working tree` - plan-only validation notes for `nerve-xw0` (no code changes required)
+- `a83221c` - docs: record canonical staged-path validation
 
 **Lessons Learned:** The strongest practical verification here is a real staged artifact plus the real optimizer/runtime contract, because the optimized cache file is intentionally ephemeral. That gives a trustworthy check of the descriptor shape while avoiding over-claiming that a full live send/roundtrip was exercised.
 
 ---
 
-*Drafted on 2026-03-22*
+*Completed on 2026-03-22*
