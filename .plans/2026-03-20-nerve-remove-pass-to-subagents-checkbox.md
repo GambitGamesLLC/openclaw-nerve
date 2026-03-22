@@ -1,3 +1,9 @@
+---
+plan_id: plan-2026-03-20-nerve-remove-pass-to-subagents-checkbox
+bead_ids:
+  - nerve-ae3
+  - nerve-5hh
+---
 # gambit-openclaw-nerve
 
 **Date:** 2026-03-20  
