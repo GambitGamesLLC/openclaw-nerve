@@ -27,6 +27,19 @@ curl -fsSL https://raw.githubusercontent.com/daggerhashimoto/openclaw-nerve/mast
 
 </div>
 
+<details>
+<summary><strong>Screenshots</strong></summary>
+<br />
+
+<table align="center">
+<tr>
+<td align="center"><img src="https://y7qrgowhkj.ufs.sh/f/WxqUPjL9oRPTRBre6go2FRlk6Tbtc5WnrMZ9AUKdBC3vsNi0" alt="Nerve screenshot 1" width="200" /></td>
+<td align="center"><img src="https://y7qrgowhkj.ufs.sh/f/WxqUPjL9oRPTW4tYWWL9oRPTJEIWbY7sVfKzjyrSCXqMdGv6" alt="Nerve screenshot 2" width="200" /></td>
+<td align="center"><img src="https://y7qrgowhkj.ufs.sh/f/WxqUPjL9oRPTSe31HqKJOvEcMqm9djw1Y5srz3GQTIUlFg84" alt="Nerve screenshot 3" width="200" /></td>
+</tr>
+</table>
+</details>
+
 ## Why Nerve exists
 
 Chat is great for talking to agents.
