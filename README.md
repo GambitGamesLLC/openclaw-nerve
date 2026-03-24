@@ -27,8 +27,6 @@ curl -fsSL https://raw.githubusercontent.com/daggerhashimoto/openclaw-nerve/mast
 
 </div>
 
-<br />
-
 <table align="center">
 <p align="center">
 <strong>Mobile Screenshots</strong>
