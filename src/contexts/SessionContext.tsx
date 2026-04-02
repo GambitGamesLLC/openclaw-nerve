@@ -23,6 +23,8 @@ const IDLE_STATES = new Set(['idle', 'done', 'error', 'final', 'aborted', 'compl
 
 // Use the full session list for the sidebar so older root chats stay visible.
 const FULL_SESSIONS_LIMIT = 1000;
+const MAIN_SESSION_KEY = 'agent:main:main';
+const SESSIONS_SPAWNED_LIMIT = 500;
 
 export type SubagentCleanupMode = 'keep' | 'delete';
 
@@ -218,11 +220,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const listAuthoritativeSessions = useCallback(async () => {
     if (connectionState !== 'connected') return sessionsRef.current;
     try {
-      const [res, hiddenCronSessions] = await Promise.all([
+      const [res, hiddenCronSessions, spawnedRes] = await Promise.all([
         rpc('sessions.list', { limit: FULL_SESSIONS_LIMIT }) as Promise<SessionsListResponse>,
         fetchHiddenCronSessions(24 * 60, FULL_SESSIONS_LIMIT),
+        // Keep active child sessions visible even when the full sessions.list
+        // result lags behind the recent spawn/discovery flow.
+        rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as Promise<SessionsListResponse>,
       ]);
-      return mergeSessionLists(res?.sessions ?? [], hiddenCronSessions);
+      return mergeSessionLists(
+        mergeSessionLists(res?.sessions ?? [], hiddenCronSessions),
+        spawnedRes?.sessions ?? [],
+      );
     } catch (err) {
       console.debug('[SessionContext] Failed to fetch authoritative session list:', err);
       return sessionsRef.current;
