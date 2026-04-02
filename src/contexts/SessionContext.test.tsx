@@ -394,6 +394,87 @@ describe('SessionContext', () => {
     expect(rpcMock).not.toHaveBeenCalledWith('sessions.list', expect.objectContaining({ activeMinutes: expect.any(Number) }));
   });
 
+  it('keeps a newly spawned active child session visible after the authoritative refresh omits it', async () => {
+    let subagentSpawnRequested = false;
+    rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'chat.send') {
+        subagentSpawnRequested = true;
+        return {};
+      }
+
+      if (method === 'sessions.list') {
+        if (params?.spawnedBy === 'agent:main:main') {
+          return {
+            sessions: subagentSpawnRequested
+              ? [
+                  { sessionKey: 'agent:main:main', label: 'Main' },
+                  { sessionKey: 'agent:main:subagent:new-child', label: 'New child', state: 'running' },
+                ]
+              : [
+                  { sessionKey: 'agent:main:main', label: 'Main' },
+                ],
+          };
+        }
+
+        if (params?.activeMinutes === 24 * 60) {
+          return {
+            sessions: subagentSpawnRequested
+              ? [
+                  { sessionKey: 'agent:main:main', label: 'Main' },
+                  { sessionKey: 'agent:main:subagent:new-child', label: 'New child', state: 'running' },
+                ]
+              : [
+                  { sessionKey: 'agent:main:main', label: 'Main' },
+                ],
+          };
+        }
+
+        return {
+          sessions: [
+            { sessionKey: 'agent:main:main', label: 'Main' },
+          ],
+        };
+      }
+
+      return {};
+    });
+
+    function SpawnSubagent() {
+      const { spawnSession } = useSessionContext();
+      return (
+        <button
+          data-testid="spawn-subagent"
+          onClick={() => spawnSession({
+            kind: 'subagent',
+            task: 'Investigate issue',
+            parentSessionKey: 'agent:main:main',
+          })}
+        />
+      );
+    }
+
+    render(
+      <SessionProvider>
+        <SessionLabels />
+        <SpawnSubagent />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Main')).toBeInTheDocument();
+    });
+
+    screen.getByTestId('spawn-subagent').click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-session').textContent).toBe('agent:main:subagent:new-child');
+      expect(screen.getByText('New child')).toBeInTheDocument();
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith('sessions.list', { limit: 1000 });
+    expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:main:main', limit: 500 });
+  });
+
   it('marks background top-level roots unread on start and pings when chat reaches a terminal event', async () => {
     rpcMock.mockImplementation(async (method: string) => {
       if (method === 'sessions.list') {
