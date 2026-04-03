@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-04-03-detach-image-optimization-from-upload-reference-v2
+bead_ids:
+  - nerve-i6ij
+  - nerve-x9kn
+  - nerve-a05w
+---
 # Gambit OpenClaw Nerve — detach image optimization from upload/reference v2
 
 **Date:** 2026-04-03  

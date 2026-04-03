@@ -1011,9 +1011,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           sourceMode: 'file_reference',
           finalMode: 'file_reference',
           outcome: 'file_reference_ready',
-          reason: item.file.type.startsWith('image/')
-            ? 'Sent as file reference; inline context budget not used.'
-            : 'Sent as file reference.',
+          reason: 'Sent as file reference.',
           originalMimeType: item.file.type || 'application/octet-stream',
           originalSizeBytes: item.file.size,
           localPathAvailable: hasResolvableLocalPath(item.file),
@@ -1298,7 +1296,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           <DialogHeader className="shrink-0 px-6 pt-6">
             <DialogTitle>Browse workspace files</DialogTitle>
             <DialogDescription>
-              Pick a validated workspace / server-known file. The selected path will be attached as a true file reference instead of a browser upload.
+              Pick a validated workspace file. The selected path will be attached directly as a file reference.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 space-y-3 overflow-y-auto px-6 pb-4">

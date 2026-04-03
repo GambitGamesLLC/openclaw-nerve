@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-04-03-post-dogfood-cleanup-and-upstream-prep
+bead_ids:
+  - nerve-8l00
+  - nerve-lm7i
+  - nerve-3gjt
+---
 # Gambit OpenClaw Nerve — post-dogfood cleanup and upstream prep
 
 **Date:** 2026-04-03  

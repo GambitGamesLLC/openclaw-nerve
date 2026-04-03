@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-04-03-remove-optimization-from-upload-reference-v2-implementation
+bead_ids:
+  - nerve-44mg
+  - nerve-9flm
+  - nerve-rt99
+---
 # Gambit OpenClaw Nerve — remove optimization from upload/reference v2 implementation
 
 **Date:** 2026-04-03  
