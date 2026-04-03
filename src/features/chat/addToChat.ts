@@ -12,7 +12,12 @@ export interface BeadChatArtifact extends BaseChatArtifact {
   id: string;
 }
 
-function formatArtifactBlock(kind: 'Plan' | 'Bead', lines: Array<[label: string, value: string | null | undefined]>): string {
+export interface WorkspacePathChatArtifact extends BaseChatArtifact {
+  path: string;
+  kind: 'file' | 'directory';
+}
+
+function formatArtifactBlock(kind: string, lines: Array<[label: string, value: string | null | undefined]>): string {
   return [
     `${kind} context:`,
     ...lines
@@ -34,6 +39,14 @@ export function formatBeadAddToChat(bead: BeadChatArtifact): string {
     ['Source', bead.source],
     ['Title', bead.title],
     ['ID', bead.id],
+  ]);
+}
+
+export function formatWorkspacePathAddToChat(item: WorkspacePathChatArtifact): string {
+  return formatArtifactBlock('Workspace', [
+    ['Source', item.source],
+    ['Kind', item.kind],
+    ['Path', item.path],
   ]);
 }
 

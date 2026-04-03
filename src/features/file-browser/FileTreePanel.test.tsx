@@ -41,6 +41,7 @@ vi.mock('./utils/fileIcons', () => ({
 }));
 
 const mockOnOpenFile = vi.fn();
+const mockOnAddToChat = vi.fn();
 const mockOnRemapOpenPaths = vi.fn();
 const mockOnCloseOpenPaths = vi.fn();
 
@@ -145,6 +146,29 @@ describe('FileTreePanel', () => {
   });
 
   describe('context menu for deletion', () => {
+    it('shows "Add to chat" for workspace entries when requested', async () => {
+      render(
+        <FileTreePanel
+          onOpenFile={mockOnOpenFile}
+          onAddToChat={mockOnAddToChat}
+          onRemapOpenPaths={mockOnRemapOpenPaths}
+          onCloseOpenPaths={mockOnCloseOpenPaths}
+          collapsed={false}
+        />
+      );
+
+      fireEvent.contextMenu(screen.getByText('package.json'), new MouseEvent('contextmenu', { bubbles: true }));
+
+      const addToChatButton = await screen.findByText('Add to chat');
+      fireEvent.click(addToChatButton);
+
+      expect(mockOnAddToChat).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'package.json',
+        path: 'package.json',
+        type: 'file',
+      }));
+    });
+
     it('shows "Move to Trash" for default workspace', async () => {
       render(
         <FileTreePanel

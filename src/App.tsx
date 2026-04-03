@@ -252,6 +252,14 @@ export default function App({ onLogout }: AppProps) {
     });
   }, [setViewMode]);
 
+  const addWorkspaceEntryToChat = useCallback(async (entry: { path: string; type: 'file' | 'directory' }) => {
+    setViewMode('chat');
+    await chatPanelRef.current?.addWorkspacePath(entry.path, entry.type);
+    requestAnimationFrame(() => {
+      chatPanelRef.current?.focusInput();
+    });
+  }, [setViewMode]);
+
   // Build command list with stable references
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const openSearch = useCallback(() => setSearchOpen(true), []);
@@ -648,6 +656,7 @@ export default function App({ onLogout }: AppProps) {
           <PanelErrorBoundary name="File Explorer">
             <FileTreePanel
               onOpenFile={openFile}
+              onAddToChat={addWorkspaceEntryToChat}
               lastChangedPath={lastChangedPath}
               revealRequest={revealRequest}
               onRemapOpenPaths={remapOpenPaths}

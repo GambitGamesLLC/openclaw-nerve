@@ -6,7 +6,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { PanelLeftClose, PanelLeftOpen, RefreshCw, Pencil, Trash2, RotateCcw, X } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, RefreshCw, Pencil, Trash2, RotateCcw, X, Plus } from 'lucide-react';
 import { FileTreeNode } from './FileTreeNode';
 import { useFileTree } from './hooks/useFileTree';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -49,6 +49,7 @@ function isTrashItemPath(filePath: string): boolean {
 
 interface FileTreePanelProps {
   onOpenFile: (path: string) => void;
+  onAddToChat?: (entry: TreeEntry) => void | Promise<void>;
   onRemapOpenPaths?: (fromPath: string, toPath: string) => void;
   onCloseOpenPaths?: (pathPrefix: string) => void;
   /** Called externally when a file changes (SSE) — refreshes affected directory */
@@ -77,6 +78,7 @@ type FileTreeToast =
 
 export function FileTreePanel({
   onOpenFile,
+  onAddToChat,
   onRemapOpenPaths,
   onCloseOpenPaths,
   lastChangedPath,
@@ -545,6 +547,7 @@ export function FileTreePanel({
   const menuEntry = contextMenu?.entry;
   const menuPath = menuEntry?.path || '';
   const menuInTrash = isTrashItemPath(menuPath);
+  const showAddToChat = Boolean(menuEntry && onAddToChat && !menuPath.startsWith('.trash') && menuPath !== '.trash');
   const showRestore = menuInTrash;
   const showRename = Boolean(menuEntry && menuPath !== '.trash');
   const showTrashAction = Boolean(menuEntry && !menuPath.startsWith('.trash') && menuPath !== '.trash');
@@ -653,6 +656,19 @@ export function FileTreePanel({
           className="fixed z-50 min-w-[160px] bg-card border border-border shadow-lg rounded-md py-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {showAddToChat && (
+            <button
+              className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted/60 flex items-center gap-2"
+              onClick={() => {
+                setContextMenu(null);
+                void onAddToChat?.(menuEntry);
+              }}
+            >
+              <Plus size={12} />
+              Add to chat
+            </button>
+          )}
+
           {showRestore && (
             <button
               className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted/60 flex items-center gap-2"
@@ -686,7 +702,7 @@ export function FileTreePanel({
             </button>
           )}
 
-          {!showRestore && !showRename && !showTrashAction && (
+          {!showAddToChat && !showRestore && !showRename && !showTrashAction && (
             <div className="px-3 py-1.5 text-xs text-muted-foreground">
               No actions
             </div>

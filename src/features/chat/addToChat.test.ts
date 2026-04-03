@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBeadAddToChat, formatPlanAddToChat, mergeAddToChatText } from './addToChat';
+import { formatBeadAddToChat, formatPlanAddToChat, formatWorkspacePathAddToChat, mergeAddToChatText } from './addToChat';
 
 describe('addToChat helpers', () => {
   it('formats plan context with source, title, and path', () => {
@@ -24,6 +24,14 @@ describe('addToChat helpers', () => {
       title: 'Implement Add to Chat',
       id: 'nerve-qn2',
     })).toBe('Bead context:\n- Title: Implement Add to Chat\n- ID: nerve-qn2');
+  });
+
+  it('formats workspace path context for directories', () => {
+    expect(formatWorkspacePathAddToChat({
+      source: 'Workspace',
+      kind: 'directory',
+      path: 'src/features/chat',
+    })).toBe('Workspace context:\n- Source: Workspace\n- Kind: directory\n- Path: src/features/chat');
   });
 
   it('appends add-to-chat context after an existing draft', () => {

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
-import { Mic, Paperclip, X, Loader2, ArrowUp, FileText, Upload, FolderOpen } from 'lucide-react';
+import { Mic, Paperclip, X, Loader2, ArrowUp, FileText, FolderOpen } from 'lucide-react';
 import type { TreeEntry } from '@/features/file-browser';
 import { useVoiceInput } from '@/features/voice/useVoiceInput';
 import { useTabCompletion } from '@/hooks/useTabCompletion';
@@ -8,7 +8,7 @@ import { useSessionContext } from '@/contexts/SessionContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { MAX_ATTACHMENTS } from '@/lib/constants';
 import { compressImage } from './image-compress';
-import { mergeAddToChatText } from './addToChat';
+import { formatWorkspacePathAddToChat, mergeAddToChatText } from './addToChat';
 import type {
   FileUploadReference,
   ImageAttachment,
@@ -47,6 +47,7 @@ interface InputBarProps {
 export interface InputBarHandle {
   focus: () => void;
   injectText: (text: string, mode?: 'replace' | 'append') => void;
+  addWorkspacePath: (path: string, kind: 'file' | 'directory') => Promise<void>;
 }
 
 interface StagedAttachment {
@@ -103,11 +104,19 @@ export function resetInputBarComposerSnapshotForTests() {
   persistedComposerSnapshot = createEmptyComposerSnapshot();
 }
 
-interface ResolvePathResponse {
+interface CanonicalUploadReference {
+  kind: 'direct_workspace_reference' | 'imported_workspace_reference';
+  canonicalPath: string;
+  absolutePath: string;
+  uri: string;
+  mimeType: string;
+  sizeBytes: number;
+  originalName: string;
+}
+
+interface UploadReferenceResolveResponse {
   ok: boolean;
-  path?: string;
-  type?: 'file' | 'directory';
-  binary?: boolean;
+  items?: CanonicalUploadReference[];
   error?: string;
 }
 
@@ -150,16 +159,6 @@ function buildFileUriFromPath(path: string): string {
     return `file://${encodeURI(normalized)}`;
   }
   return `file:///${encodeURI(normalized)}`;
-}
-
-function buildAbsoluteWorkspacePath(rootPath: string, relativePath: string): string {
-  if (!relativePath || relativePath === '.') return rootPath;
-
-  const rootHasBackslashes = rootPath.includes('\\');
-  const separator = rootHasBackslashes ? '\\' : '/';
-  const normalizedRoot = rootPath.replace(/[\\/]+$/, '');
-  const normalizedRelative = relativePath.replace(/^\.[\\/]/, '').replace(/^[/\\]+/, '').replace(/[\\/]+/g, separator);
-  return `${normalizedRoot}${separator}${normalizedRelative}`;
 }
 
 function inferMimeTypeFromName(name: string): string {
@@ -236,36 +235,37 @@ interface UploadOptimizerResponse {
   artifacts?: UploadArtifactComparisonMetadata[];
 }
 
-interface UploadStageArtifact {
-  path: string;
-  uri: string;
-  mimeType: string;
-  sizeBytes: number;
-  originalName: string;
-}
-
-interface UploadStageResponse {
-  ok: boolean;
-  root?: string;
-  files?: UploadStageArtifact[];
-  error?: string;
-}
-
-async function stageBrowserUploads(files: File[]): Promise<UploadStageArtifact[]> {
+async function importBrowserUploadsToCanonicalReferences(files: File[]): Promise<CanonicalUploadReference[]> {
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file, file.name));
 
-  const response = await fetch('/api/upload-stage', {
+  const response = await fetch('/api/upload-reference/resolve', {
     method: 'POST',
     body: formData,
   });
 
-  const payload = await response.json().catch(() => null) as UploadStageResponse | null;
-  if (!response.ok || payload?.ok !== true || !Array.isArray(payload.files)) {
-    throw new Error(payload?.error || 'Failed to stage browser uploads.');
+  const payload = await response.json().catch(() => null) as UploadReferenceResolveResponse | null;
+  if (!response.ok || payload?.ok !== true || !Array.isArray(payload.items)) {
+    throw new Error(payload?.error || 'Failed to import browser uploads.');
   }
 
-  return payload.files;
+  return payload.items;
+}
+
+async function resolveWorkspacePathToCanonicalReference(targetPath: string): Promise<CanonicalUploadReference> {
+  const response = await fetch('/api/upload-reference/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: targetPath }),
+  });
+
+  const payload = await response.json().catch(() => null) as UploadReferenceResolveResponse | null;
+  const item = Array.isArray(payload?.items) ? payload.items[0] : null;
+  if (!response.ok || payload?.ok !== true || !item) {
+    throw new Error(payload?.error || 'Failed to resolve selected workspace path.');
+  }
+
+  return item;
 }
 
 async function optimizeFileReference(reference: FileUploadReference, mimeType: string): Promise<UploadOptimizerResponse> {
@@ -288,7 +288,6 @@ async function optimizeFileReference(reference: FileUploadReference, mimeType: s
 export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function InputBar({ onSend, isGenerating, onWakeWordState, agentName = 'Agent' }, ref) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const attachmentMenuRef = useRef<HTMLDivElement>(null);
   const deferredResizeFrameRef = useRef<number | null>(null);
   const deferredResizeSettledFrameRef = useRef<number | null>(null);
   const [draftText, setDraftText] = useState(() => persistedComposerSnapshot.text);
@@ -297,7 +296,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const [attachmentError, setAttachmentError] = useState<string | null>(() => persistedComposerSnapshot.attachmentError);
   const [isDragging, setIsDragging] = useState(false);
   const [isPreparingInline, setIsPreparingInline] = useState(false);
-  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [showAttachByPathDialog, setShowAttachByPathDialog] = useState(() => persistedComposerSnapshot.showAttachByPathDialog);
   const [pathPickerCurrentDir, setPathPickerCurrentDir] = useState(() => persistedComposerSnapshot.pathPickerCurrentDir);
   const [pathPickerEntries, setPathPickerEntries] = useState<TreeEntry[]>(() => persistedComposerSnapshot.pathPickerEntries);
@@ -484,46 +482,20 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     }
   }, [uploadsEnabled, stagedAttachments]);
 
-  useEffect(() => {
-    if (!isAttachmentMenuOpen) return;
+  const injectComposerText = useCallback((text: string, mode: 'replace' | 'append' = 'append') => {
+    const input = inputRef.current;
+    if (!input) return;
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (attachmentMenuRef.current?.contains(event.target as Node)) return;
-      setIsAttachmentMenuOpen(false);
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsAttachmentMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isAttachmentMenuOpen]);
-
-  // Expose focus method to parent
-  useImperativeHandle(ref, () => ({
-    focus: focusInput,
-    injectText: (text: string, mode: 'replace' | 'append' = 'append') => {
-      const input = inputRef.current;
-      if (!input) return;
-
-      input.value = mode === 'append'
-        ? mergeAddToChatText(input.value, text)
-        : text;
-      setDraftText(input.value);
-      resizeInput();
-      focusInput();
-      scheduleDeferredResize();
-      input.setSelectionRange(input.value.length, input.value.length);
-      resetTabCompletion();
-    },
-  }), [focusInput, resetTabCompletion, resizeInput, scheduleDeferredResize]);
+    input.value = mode === 'append'
+      ? mergeAddToChatText(input.value, text)
+      : text;
+    setDraftText(input.value);
+    resizeInput();
+    focusInput();
+    scheduleDeferredResize();
+    input.setSelectionRange(input.value.length, input.value.length);
+    resetTabCompletion();
+  }, [focusInput, resetTabCompletion, resizeInput, scheduleDeferredResize]);
 
   // Fetch current language for voice phrase matching
   const [voiceLang, setVoiceLang] = useState('en');
@@ -646,7 +618,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       }
 
       if (!uploadConfig.inlineEnabled) {
-        firstError ||= 'Browser uploads are disabled by configuration. Enable uploads or use Attach by Path.';
+        firstError ||= 'Browser uploads are disabled by configuration. Enable uploads or browse by path.';
         continue;
       }
 
@@ -654,7 +626,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
         const maxMb = Number.isInteger(uploadConfig.inlineAttachmentMaxMb)
           ? String(uploadConfig.inlineAttachmentMaxMb)
           : uploadConfig.inlineAttachmentMaxMb.toFixed(1);
-        firstError ||= `"${file.name}" is too large to send as a browser upload (${maxMb}MB max inline). Choose a smaller file or use Attach by Path.`;
+        firstError ||= `"${file.name}" is too large to send as a browser upload (${maxMb}MB max inline). Choose a smaller file or browse by path.`;
         continue;
       }
 
@@ -663,13 +635,13 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
     if (accepted.length > 0) {
       try {
-        const staged = await stageBrowserUploads(accepted);
+        const staged = await importBrowserUploadsToCanonicalReferences(accepted);
         const next = staged.map((artifact, index) => {
           const sourceFile = accepted[index];
           const mimeType = artifact.mimeType || sourceFile?.type || 'application/octet-stream';
           const stagedFile = createServerPathBackedFile({
             name: sourceFile?.name || artifact.originalName,
-            absolutePath: artifact.path,
+            absolutePath: artifact.absolutePath,
             sizeBytes: artifact.sizeBytes,
             mimeType,
           });
@@ -679,7 +651,8 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
             file: stagedFile,
             origin: 'upload' as const,
             mode: 'file_reference' as const,
-            previewUrl: mimeType.startsWith('image/') ? URL.createObjectURL(sourceFile) : undefined,
+            previewUrl: mimeType.startsWith('image/') && sourceFile ? URL.createObjectURL(sourceFile) : undefined,
+            relativePath: artifact.canonicalPath,
           };
         });
 
@@ -754,6 +727,60 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     });
   }, []);
 
+  const stageWorkspaceFileReference = useCallback(async (path: string) => {
+    if (!attachByPathEnabled) {
+      setAttachmentError('Workspace path attachments are disabled by configuration.');
+      return;
+    }
+
+    const availableSlots = MAX_ATTACHMENTS - stagedAttachments.length;
+    if (availableSlots <= 0) {
+      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+      return;
+    }
+
+    setAttachmentError(null);
+    const reference = await resolveWorkspacePathToCanonicalReference(path);
+    const mimeType = reference.mimeType || inferMimeTypeFromName(reference.originalName || path);
+    const syntheticFile = createServerPathBackedFile({
+      name: reference.originalName,
+      absolutePath: reference.absolutePath,
+      sizeBytes: reference.sizeBytes,
+      mimeType,
+    });
+    const previewUrl = mimeType.startsWith('image/')
+      ? `/api/files/raw?path=${encodeURIComponent(reference.canonicalPath)}`
+      : undefined;
+
+    setStagedAttachments((prev) => ([...prev, {
+      id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file: syntheticFile,
+      origin: 'server_path',
+      mode: 'file_reference',
+      previewUrl,
+      relativePath: reference.canonicalPath,
+    }]));
+    focusInput();
+  }, [attachByPathEnabled, focusInput, stagedAttachments.length]);
+
+  // Expose focus/add-to-chat methods to parent
+  useImperativeHandle(ref, () => ({
+    focus: focusInput,
+    injectText: injectComposerText,
+    addWorkspacePath: async (path: string, kind: 'file' | 'directory') => {
+      if (kind === 'directory') {
+        injectComposerText(formatWorkspacePathAddToChat({
+          source: 'Workspace',
+          kind,
+          path,
+        }), 'append');
+        return;
+      }
+
+      await stageWorkspaceFileReference(path);
+    },
+  }), [focusInput, injectComposerText, stageWorkspaceFileReference]);
+
   const loadPathPickerDirectory = useCallback(async (dirPath: string) => {
     setPathPickerLoading(true);
     setPathPickerError(null);
@@ -782,47 +809,13 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const attachSelectedServerPath = useCallback(async () => {
     if (!pathPickerSelected || pathPickerSelected.type !== 'file') return;
 
-    setAttachmentError(null);
-
-    const availableSlots = MAX_ATTACHMENTS - stagedAttachments.length;
-    if (availableSlots <= 0) {
-      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
-      return;
-    }
-
     try {
-      const response = await fetch(`/api/files/resolve?path=${encodeURIComponent(pathPickerSelected.path)}`);
-      const payload = await response.json().catch(() => null) as ResolvePathResponse | null;
-      if (!response.ok || !payload?.ok || payload.type !== 'file' || !payload.path) {
-        throw new Error(payload?.error || 'Failed to validate selected workspace path.');
-      }
-
-      const absolutePath = buildAbsoluteWorkspacePath(pathPickerWorkspaceRoot, payload.path);
-      const mimeType = inferMimeTypeFromName(pathPickerSelected.name);
-      const syntheticFile = createServerPathBackedFile({
-        name: pathPickerSelected.name,
-        absolutePath,
-        sizeBytes: pathPickerSelected.size,
-        mimeType,
-      });
-      const relativePath = payload.path;
-      const previewUrl = mimeType.startsWith('image/')
-        ? `/api/files/raw?path=${encodeURIComponent(relativePath)}`
-        : undefined;
-
-      setStagedAttachments((prev) => ([...prev, {
-        id: crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        file: syntheticFile,
-        origin: 'server_path',
-        mode: 'file_reference',
-        previewUrl,
-        relativePath,
-      }]));
+      await stageWorkspaceFileReference(pathPickerSelected.path);
       setShowAttachByPathDialog(false);
     } catch (error) {
-      setPathPickerError(error instanceof Error ? error.message : 'Failed to validate selected workspace path.');
+      setPathPickerError(error instanceof Error ? error.message : 'Failed to resolve selected workspace path.');
     }
-  }, [pathPickerSelected, pathPickerWorkspaceRoot, stagedAttachments.length]);
+  }, [pathPickerSelected, stageWorkspaceFileReference]);
 
   useEffect(() => {
     if (!showAttachByPathDialog) return;
@@ -1040,7 +1033,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
     if (item.origin === 'upload') {
       throw new Error(
-        `"${item.file.name}" was blocked after adaptive inline shrinking reached the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) and browser uploads cannot preserve a true file-reference fallback (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}). Send a smaller image or use Attach by Path.`,
+        `"${item.file.name}" was blocked after adaptive inline shrinking reached the minimum dimension (${uploadConfig.inlineImageShrinkMinDimension}px) and browser uploads cannot preserve a true file-reference fallback (${formatFileSize(inlineBase64Bytes)} > ${formatFileSize(uploadConfig.inlineImageContextMaxBytes)}). Send a smaller image or browse by path.`,
       );
     }
 
@@ -1251,18 +1244,8 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
 
   const openUploadFilesPicker = useCallback(() => {
     if (!uploadsEnabled) return;
-    setIsAttachmentMenuOpen(false);
     fileInputRef.current?.click();
   }, [uploadsEnabled]);
-
-  const openAttachByPathPicker = useCallback(() => {
-    if (!attachByPathEnabled) return;
-    setIsAttachmentMenuOpen(false);
-    setPathPickerError(null);
-    setPathPickerSelected(null);
-    setPathPickerCurrentDir('');
-    setShowAttachByPathDialog(true);
-  }, [attachByPathEnabled]);
 
   const pathPickerBreadcrumbs = pathPickerCurrentDir
     ? pathPickerCurrentDir.split('/').filter(Boolean)
@@ -1359,56 +1342,16 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           rows={1}
           className="flex-1 font-mono text-[13px] bg-transparent text-foreground border-none px-2.5 py-3 resize-none outline-none min-h-[42px] max-h-[160px]"
         />
-        <div className="relative self-stretch" ref={attachmentMenuRef}>
-          <button
-            type="button"
-            onClick={() => {
-              if (!uploadsEnabled) return;
-              setIsAttachmentMenuOpen((prev) => !prev);
-            }}
-            disabled={!uploadsEnabled}
-            className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch h-full flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-            title={uploadsEnabled ? 'Open attachment menu' : 'Uploads disabled by configuration'}
-            aria-label={uploadsEnabled ? 'Open attachment menu' : 'Uploads disabled by configuration'}
-            aria-haspopup="menu"
-            aria-expanded={isAttachmentMenuOpen}
-          >
-            <Paperclip size={16} />
-          </button>
-          {isAttachmentMenuOpen && uploadsEnabled && (
-            <div
-              role="menu"
-              aria-label="Attachment actions"
-              className="absolute bottom-[calc(100%+0.5rem)] right-0 z-40 min-w-[220px] rounded-md border border-border bg-popover p-1.5 shadow-lg"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={openUploadFilesPicker}
-                className="flex w-full items-start gap-2 rounded px-2 py-2 text-left text-[11px] text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                <Upload size={14} className="mt-0.5 shrink-0" />
-                <span>
-                  <span className="block font-medium">Upload files</span>
-                  <span className="block text-[10px] text-muted-foreground">Use the existing browser file picker / drag-drop flow.</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={openAttachByPathPicker}
-                disabled={!attachByPathEnabled}
-                className="mt-1 flex w-full items-start gap-2 rounded px-2 py-2 text-left text-[11px] text-popover-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <FolderOpen size={14} className="mt-0.5 shrink-0" />
-                <span>
-                  <span className="block font-medium">Attach by Path</span>
-                  <span className="block text-[10px] text-muted-foreground">Browse validated workspace / server-known files.</span>
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={openUploadFilesPicker}
+          disabled={!uploadsEnabled}
+          className="bg-transparent border-none text-muted-foreground hover:text-primary cursor-pointer px-2 self-stretch h-full flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          title={uploadsEnabled ? 'Attach files' : 'Uploads disabled by configuration'}
+          aria-label={uploadsEnabled ? 'Attach files' : 'Uploads disabled by configuration'}
+        >
+          <Paperclip size={16} />
+        </button>
         <button
           onClick={() => { void handleSend(); }}
           disabled={isGenerating || isPreparingInline}
@@ -1419,12 +1362,14 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           {isGenerating || isPreparingInline ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <ArrowUp size={16} aria-hidden="true" />}
         </button>
       </div>
-      <div className="text-[10px] text-muted-foreground px-4 pb-1.5 pl-10 bg-card">
-        {voiceState === 'recording'
-          ? 'Recording… Left Shift to send · Double Left Shift to discard'
-          : voiceState === 'transcribing'
-          ? 'Transcribing…'
-          : 'Enter or ⌘Enter to send · Shift+Enter for newline · Double Left Shift for voice · Ctrl+F search'}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground px-4 pb-1.5 pl-10 bg-card">
+        <span>
+          {voiceState === 'recording'
+            ? 'Recording… Left Shift to send · Double Left Shift to discard'
+            : voiceState === 'transcribing'
+            ? 'Transcribing…'
+            : 'Enter or ⌘Enter to send · Shift+Enter for newline · Double Left Shift for voice · Ctrl+F search'}
+        </span>
       </div>
       {voiceError && (
         <div className="text-[10px] text-destructive px-4 pb-1.5 pl-10 bg-card" role="alert">
@@ -1434,7 +1379,7 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       <Dialog open={showAttachByPathDialog} onOpenChange={setShowAttachByPathDialog}>
         <DialogContent className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="shrink-0 px-6 pt-6">
-            <DialogTitle>Attach by Path</DialogTitle>
+            <DialogTitle>Browse workspace files</DialogTitle>
             <DialogDescription>
               Pick a validated workspace / server-known file. The selected path will be attached as a true file reference instead of a browser upload.
             </DialogDescription>

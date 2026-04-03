@@ -39,6 +39,7 @@ import connectDefaultsRoutes from './routes/connect-defaults.js';
 import uploadConfigRoutes from './routes/upload-config.js';
 import uploadOptimizerRoutes from './routes/upload-optimizer.js';
 import uploadStageRoutes from './routes/upload-stage.js';
+import uploadReferenceRoutes from './routes/upload-reference.js';
 import workspaceRoutes from './routes/workspace.js';
 import cronsRoutes from './routes/crons.js';
 import sessionsRoutes from './routes/sessions.js';
@@ -123,7 +124,7 @@ const routes = [
   tokensRoutes, memoriesRoutes, eventsRoutes, serverInfoRoutes,
   codexLimitsRoutes, claudeCodeLimitsRoutes, versionRoutes, versionCheckRoutes,
   gatewayRoutes, connectDefaultsRoutes, uploadConfigRoutes, uploadOptimizerRoutes, uploadStageRoutes,
-  workspaceRoutes, cronsRoutes, sessionsRoutes, skillsRoutes, filesRoutes, apiKeysRoutes,
+  uploadReferenceRoutes, workspaceRoutes, cronsRoutes, sessionsRoutes, skillsRoutes, filesRoutes, apiKeysRoutes,
   voicePhrasesRoutes, fileBrowserRoutes, channelsRoutes, kanbanRoutes, beadsRoutes, plansRoutes,
 ];
 for (const route of routes) app.route('/', route);

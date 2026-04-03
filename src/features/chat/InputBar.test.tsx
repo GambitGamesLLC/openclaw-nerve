@@ -133,16 +133,48 @@ describe('InputBar', () => {
           json: async () => uploadConfigResponse,
         } as Response;
       }
-      if (url.includes('/api/upload-stage')) {
+      if (url.includes('/api/upload-reference/resolve')) {
+        const headers = init?.headers;
+        const contentType = headers instanceof Headers
+          ? (headers.get('Content-Type') || headers.get('content-type') || '')
+          : Array.isArray(headers)
+            ? (headers.find(([key]) => key.toLowerCase() === 'content-type')?.[1] || '')
+            : (headers as Record<string, string> | undefined)?.['Content-Type']
+              ?? (headers as Record<string, string> | undefined)?.['content-type']
+              ?? '';
+
+        if (contentType.includes('application/json')) {
+          const payload = typeof init?.body === 'string'
+            ? JSON.parse(init.body) as { path?: string }
+            : {};
+          const targetPath = payload.path || '';
+          return {
+            ok: true,
+            json: async () => ({
+              ok: true,
+              items: [{
+                kind: 'direct_workspace_reference',
+                canonicalPath: targetPath,
+                absolutePath: `/workspace/${targetPath}`,
+                uri: `file:///workspace/${targetPath}`,
+                mimeType: targetPath.endsWith('.png') ? 'image/png' : 'text/plain',
+                sizeBytes: targetPath.endsWith('.png') ? 2048 : 1234,
+                originalName: targetPath.split('/').pop() || targetPath,
+              }],
+            }),
+          } as Response;
+        }
+
         const formData = init?.body as FormData | undefined;
         const files = formData ? formData.getAll('files').filter((value): value is File => value instanceof File) : [];
         return {
           ok: true,
           json: async () => ({
             ok: true,
-            root: '/workspace/.temp/nerve-uploads',
-            files: files.map((file, index) => ({
-              path: `/workspace/.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
+            items: files.map((file, index) => ({
+              kind: 'imported_workspace_reference',
+              canonicalPath: `.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
+              absolutePath: `/workspace/.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
               uri: `file:///workspace/.temp/nerve-uploads/2026/03/21/${index + 1}-${file.name}`,
               mimeType: file.type || 'application/octet-stream',
               sizeBytes: file.size,
@@ -221,19 +253,6 @@ describe('InputBar', () => {
           }),
         } as Response;
       }
-      if (url.includes('/api/files/resolve')) {
-        const parsed = new URL(url, 'http://localhost');
-        const targetPath = parsed.searchParams.get('path') || '';
-        return {
-          ok: true,
-          json: async () => ({
-            ok: true,
-            path: targetPath,
-            type: targetPath.endsWith('.png') || targetPath.endsWith('.txt') ? 'file' : 'directory',
-            binary: false,
-          }),
-        } as Response;
-      }
       return {
         ok: true,
         json: async () => ({ language: 'en' }),
@@ -294,50 +313,30 @@ describe('InputBar', () => {
     });
   });
 
-  it('shows explicit Upload files and Attach by Path entrypoints in the attachment menu', async () => {
-    render(<InputBar onSend={vi.fn()} isGenerating={false} />);
-
-    const menuButton = await screen.findByLabelText('Open attachment menu');
-    fireEvent.click(menuButton);
-
-    expect(screen.getByRole('menu', { name: 'Attachment actions' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Upload files/i })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Attach by Path/i })).toBeInTheDocument();
-  });
-
-  it('opens the browser picker from the Upload files menu action', async () => {
+  it('uses the paperclip as the single primary attachment affordance', async () => {
     render(<InputBar onSend={vi.fn()} isGenerating={false} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = vi.spyOn(fileInput, 'click');
 
-    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Upload files/i }));
+    fireEvent.click(await screen.findByLabelText('Attach files'));
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu', { name: 'Attachment actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Browse by path/i })).not.toBeInTheDocument();
   });
 
-  it('opens the validated workspace path picker from Attach by Path', async () => {
-    render(<InputBar onSend={vi.fn()} isGenerating={false} />);
-
-    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
-
-    expect(await screen.findByRole('dialog', { name: 'Attach by Path' })).toBeInTheDocument();
-    expect(await screen.findByText(/Pick a validated workspace \/ server-known file/i)).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /attach-me\.png/i })).toBeInTheDocument();
-  });
-
-  it('stages Attach by Path selections as server_path file references', async () => {
+  it('stages workspace file add-to-chat requests as server_path file references', async () => {
     const onSend = vi.fn();
-    render(<InputBar onSend={onSend} isGenerating={false} />);
+    const ref = createRef<InputBarHandle>();
+    render(<InputBar ref={ref} onSend={onSend} isGenerating={false} />);
 
-    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await waitFor(() => {
+      expect(fileInput.accept).toBe('*/*');
+    });
 
-    fireEvent.click(await screen.findByRole('button', { name: /attach-me\.png/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Attach selected path/i }));
+    await ref.current?.addWorkspacePath('attach-me.png', 'file');
 
     await waitFor(() => {
       expect(screen.getAllByText('attach-me.png').length).toBeGreaterThan(0);
@@ -381,6 +380,20 @@ describe('InputBar', () => {
         },
       },
     });
+
+    const fetchUrls = vi.mocked(global.fetch).mock.calls.map(([input]) => String(input));
+    expect(fetchUrls.some((url) => url.includes('/api/upload-reference/resolve'))).toBe(true);
+    expect(fetchUrls.some((url) => url.includes('/api/files/resolve'))).toBe(false);
+  });
+
+  it('adds workspace directories to chat as path context', async () => {
+    const ref = createRef<InputBarHandle>();
+    render(<InputBar ref={ref} onSend={vi.fn()} isGenerating={false} />);
+
+    await ref.current?.addWorkspacePath('src/features/chat', 'directory');
+
+    expect(screen.getByDisplayValue(/Workspace context:/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Path: src\/features\/chat/i)).toBeInTheDocument();
   });
 
   it('stages browser uploads as uploads without exposing a file-reference chooser', async () => {
@@ -411,7 +424,7 @@ describe('InputBar', () => {
     expect(screen.queryByText('File Reference')).not.toBeInTheDocument();
   });
 
-  it('rejects oversized non-image browser uploads with Attach by Path guidance', async () => {
+  it('rejects oversized non-image browser uploads with browse-by-path guidance', async () => {
     render(<InputBar onSend={vi.fn()} isGenerating={false} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -427,7 +440,7 @@ describe('InputBar', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/too large to send as a browser upload/i)).toBeInTheDocument();
-      expect(screen.getByText(/use Attach by Path/i)).toBeInTheDocument();
+      expect(screen.getByText(/choose a smaller file or browse by path/i)).toBeInTheDocument();
     });
     expect(screen.queryByText('too-big.zip')).not.toBeInTheDocument();
   });
@@ -493,6 +506,10 @@ describe('InputBar', () => {
         },
       },
     });
+
+    const fetchUrls = vi.mocked(global.fetch).mock.calls.map(([input]) => String(input));
+    expect(fetchUrls.some((url) => url.includes('/api/upload-reference/resolve'))).toBe(true);
+    expect(fetchUrls.some((url) => url.includes('/api/upload-stage'))).toBe(false);
   });
 
   it('keeps large browser-uploaded images on the staged file-reference path', async () => {
@@ -640,15 +657,17 @@ describe('InputBar', () => {
     });
   });
 
-  it('hides manual forwarding controls and forwards path attachments by default', async () => {
+  it('hides manual forwarding controls and forwards workspace path attachments by default', async () => {
     const onSend = vi.fn();
-    render(<InputBar onSend={onSend} isGenerating={false} />);
+    const ref = createRef<InputBarHandle>();
+    render(<InputBar ref={ref} onSend={onSend} isGenerating={false} />);
 
-    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await waitFor(() => {
+      expect(fileInput.accept).toBe('*/*');
+    });
 
-    fireEvent.click(await screen.findByRole('button', { name: /attach-me\.png/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Attach selected path/i }));
+    await ref.current?.addWorkspacePath('attach-me.png', 'file');
 
     await waitFor(() => {
       expect(screen.getAllByText('attach-me.png').length).toBeGreaterThan(0);
@@ -700,7 +719,7 @@ describe('InputBar', () => {
     expect(attachButton).toBeDisabled();
   });
 
-  it('rejects browser uploads when inline uploads are disabled and directs the user to Attach by Path', async () => {
+  it('rejects browser uploads when inline uploads are disabled and directs the user to browse by path', async () => {
     uploadConfigResponse.inlineEnabled = false;
     uploadConfigResponse.fileReferenceEnabled = true;
     uploadConfigResponse.modeChooserEnabled = false;
@@ -718,7 +737,7 @@ describe('InputBar', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/browser uploads are disabled by configuration/i)).toBeInTheDocument();
-      expect(screen.getByText(/use Attach by Path/i)).toBeInTheDocument();
+      expect(screen.getByText(/enable uploads or browse by path/i)).toBeInTheDocument();
     });
     expect(screen.queryByText('vision-off.png')).not.toBeInTheDocument();
   });
@@ -776,17 +795,4 @@ describe('InputBar', () => {
     expect(screen.getByText('Upload')).toBeInTheDocument();
   });
 
-  it('keeps the path picker footer controls mounted inside the constrained dialog shell', async () => {
-    render(<InputBar onSend={vi.fn()} isGenerating={false} />);
-
-    fireEvent.click(await screen.findByLabelText('Open attachment menu'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Attach by Path/i }));
-
-    const dialog = await screen.findByRole('dialog', { name: 'Attach by Path' });
-    expect(dialog).toHaveClass('max-h-[calc(100vh-2rem)]');
-    expect(dialog).toHaveClass('overflow-hidden');
-    expect(screen.getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Attach selected path/i })).toBeInTheDocument();
-  });
 });
