@@ -13,8 +13,6 @@ import type {
   FileUploadReference,
   ImageAttachment,
   OutgoingUploadPayload,
-  UploadArtifactComparisonMetadata,
-  UploadArtifactMetadata,
   UploadAttachmentDescriptor,
   UploadPreparationMetadata,
   UploadMode,
@@ -227,14 +225,6 @@ function hasResolvableLocalPath(file: File): boolean {
   return Boolean(fileWithPath.path || fileWithPath.webkitRelativePath);
 }
 
-interface UploadOptimizerResponse {
-  ok: boolean;
-  optimized: boolean;
-  original: UploadArtifactMetadata;
-  optimizedArtifact: UploadArtifactMetadata;
-  artifacts?: UploadArtifactComparisonMetadata[];
-}
-
 async function importBrowserUploadsToCanonicalReferences(files: File[]): Promise<CanonicalUploadReference[]> {
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file, file.name));
@@ -266,22 +256,6 @@ async function resolveWorkspacePathToCanonicalReference(targetPath: string): Pro
   }
 
   return item;
-}
-
-async function optimizeFileReference(reference: FileUploadReference, mimeType: string): Promise<UploadOptimizerResponse> {
-  const response = await fetch('/api/upload-optimizer', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: reference.path, mimeType }),
-  });
-
-  const payload = await response.json() as UploadOptimizerResponse | { ok: false; error?: string };
-  if (!response.ok || !payload || payload.ok !== true) {
-    const errorMessage = (payload as { error?: string }).error || 'Failed to optimize image upload.';
-    throw new Error(errorMessage);
-  }
-
-  return payload;
 }
 
 /** Chat input bar with file attachments, voice input, and model effort selector. */
@@ -445,23 +419,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
               ? data.inlineImageWebpQuality
               : DEFAULT_UPLOAD_FEATURE_CONFIG.inlineImageWebpQuality,
           exposeInlineBase64ToAgent: Boolean(data.exposeInlineBase64ToAgent),
-          imageOptimizationEnabled: data.imageOptimizationEnabled !== false,
-          imageOptimizationTargetBytes:
-            typeof data.imageOptimizationTargetBytes === 'number' && data.imageOptimizationTargetBytes > 0
-              ? data.imageOptimizationTargetBytes
-              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationTargetBytes,
-          imageOptimizationMaxBytes:
-            typeof data.imageOptimizationMaxBytes === 'number' && data.imageOptimizationMaxBytes > 0
-              ? data.imageOptimizationMaxBytes
-              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationMaxBytes,
-          imageOptimizationMaxDimension:
-            typeof data.imageOptimizationMaxDimension === 'number' && data.imageOptimizationMaxDimension > 0
-              ? data.imageOptimizationMaxDimension
-              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationMaxDimension,
-          imageOptimizationWebpQuality:
-            typeof data.imageOptimizationWebpQuality === 'number' && data.imageOptimizationWebpQuality > 0
-              ? data.imageOptimizationWebpQuality
-              : DEFAULT_UPLOAD_FEATURE_CONFIG.imageOptimizationWebpQuality,
         };
         setUploadConfig(nextConfig);
       })
@@ -862,7 +819,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           inlineIterations: compressed.iterations,
           inlineMinDimension: compressed.minDimension,
           localPathAvailable: hasResolvableLocalPath(item.file),
-          optimizerAttempted: false,
         },
       };
     }
@@ -912,54 +868,19 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const buildFileReferenceDescriptor = useCallback(async (
     item: StagedAttachment,
     preparation?: UploadPreparationMetadata,
-  ): Promise<UploadAttachmentDescriptor> => {
-    const originalReference = resolveFileReference(item.file);
-    const fallbackMimeType = item.file.type || 'application/octet-stream';
-
-    const descriptorBase: UploadAttachmentDescriptor = {
-      id: item.id,
-      origin: item.origin,
-      mode: 'file_reference',
-      name: item.file.name,
-      mimeType: fallbackMimeType,
-      sizeBytes: item.file.size,
-      reference: originalReference,
-      preparation,
-      policy: {
-        forwardToSubagents: true,
-      },
-    };
-
-    if (!uploadConfig.imageOptimizationEnabled || !fallbackMimeType.startsWith('image/')) {
-      return descriptorBase;
-    }
-
-    try {
-      const optimized = await optimizeFileReference(originalReference, fallbackMimeType);
-      return {
-        ...descriptorBase,
-        optimization: {
-          applied: optimized.optimized,
-          tempDerivative: optimized.optimized,
-          cleanupAfterSend: optimized.optimized,
-          original: optimized.original,
-          optimized: optimized.optimizedArtifact,
-          artifacts: optimized.artifacts ?? [
-            {
-              role: 'canonical_staged_source',
-              ...optimized.original,
-            },
-            {
-              role: 'optimized_derivative',
-              ...optimized.optimizedArtifact,
-            },
-          ],
-        },
-      };
-    } catch {
-      return descriptorBase;
-    }
-  }, [uploadConfig.imageOptimizationEnabled]);
+  ): Promise<UploadAttachmentDescriptor> => ({
+    id: item.id,
+    origin: item.origin,
+    mode: 'file_reference',
+    name: item.file.name,
+    mimeType: item.file.type || 'application/octet-stream',
+    sizeBytes: item.file.size,
+    reference: resolveFileReference(item.file),
+    preparation,
+    policy: {
+      forwardToSubagents: true,
+    },
+  }), []);
 
   const prepareInlineItem = useCallback(async (item: StagedAttachment): Promise<{
     inlineAttachment?: ImageAttachment;
@@ -1000,7 +921,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           inlineBase64Bytes,
           contextSafetyMaxBytes: uploadConfig.inlineImageContextMaxBytes,
           localPathAvailable,
-          optimizerAttempted: false,
         }),
       };
     }
@@ -1026,7 +946,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           contextSafetyMaxBytes: uploadConfig.inlineImageContextMaxBytes,
           inlineFallbackReason: 'minimum inline dimension reached; used file reference fallback',
           localPathAvailable: true,
-          optimizerAttempted: uploadConfig.imageOptimizationEnabled,
         }),
       };
     }
@@ -1047,7 +966,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     buildInlineAttachment,
     buildInlineDescriptor,
     uploadConfig.fileReferenceEnabled,
-    uploadConfig.imageOptimizationEnabled,
     uploadConfig.inlineImageAutoDowngradeToFileReference,
     uploadConfig.inlineImageContextMaxBytes,
     uploadConfig.inlineImageShrinkMinDimension,
@@ -1099,7 +1017,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
           originalMimeType: item.file.type || 'application/octet-stream',
           originalSizeBytes: item.file.size,
           localPathAvailable: hasResolvableLocalPath(item.file),
-          optimizerAttempted: uploadConfig.imageOptimizationEnabled && item.file.type.startsWith('image/'),
         });
         descriptors.push(descriptor);
       }

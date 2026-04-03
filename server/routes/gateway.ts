@@ -399,7 +399,6 @@ const uploadDescriptorSchema = z.object({
   inline: uploadInlineSchema.optional(),
   reference: uploadReferenceSchema.optional(),
   preparation: z.record(z.string(), z.unknown()).optional(),
-  optimization: z.record(z.string(), z.unknown()).optional(),
   policy: z.object({
     forwardToSubagents: z.boolean().optional(),
   }).optional(),

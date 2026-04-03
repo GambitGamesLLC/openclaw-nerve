@@ -271,22 +271,12 @@ Nerve now treats **inline image shrinking** and **file-reference optimization** 
 | `NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION` | `512` | Smallest dimension inline shrinking will fall to before blocking/downgrading. |
 | `NERVE_INLINE_IMAGE_MAX_DIMENSION` | `2048` | Starting resize ceiling for inline image shrinking. |
 | `NERVE_INLINE_IMAGE_WEBP_QUALITY` | `82` | Starting WebP quality for inline image shrinking. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED` | `true` | Enables optional temp derivatives for file-reference image uploads. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES` | `1048576` | Preferred preservation target (~1 MB) for optimized file-reference derivatives. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES` | `1310720` | Soft ceiling for optimized file-reference derivatives before the optimizer keeps stepping down. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION` | `4096` | Maximum dimension for optimized file-reference derivatives. Larger than the inline default to preserve more detail. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY` | `90` | Starting WebP quality for file-reference optimization. |
 
 ```env
 NERVE_INLINE_IMAGE_CONTEXT_MAX_BYTES=32768
 NERVE_INLINE_IMAGE_SHRINK_MIN_DIMENSION=512
 NERVE_INLINE_IMAGE_MAX_DIMENSION=2048
 NERVE_INLINE_IMAGE_WEBP_QUALITY=82
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED=true
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES=1048576
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES=1310720
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION=4096
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY=90
 ```
 
 If you want **more aggressive** optimization, lower the target/max bytes and max dimension. If you want to preserve the original staged file whenever possible, keep the target around `1 MB` or disable optimization entirely and hand subagents the canonical staged path directly.
@@ -303,7 +293,6 @@ If you want **more aggressive** optimization, lower the target/max bytes and max
 | `NERVE_VOICE_PHRASES_PATH` | `~/.nerve/voice-phrases.json` | Override location for per-language voice phrase overrides |
 | `NERVE_UPLOAD_STAGING_TEMP_DIR` | `~/.openclaw/workspace/.temp/nerve-uploads` | Canonical staging root for browser/mobile uploads. Prefer these staged file paths/references for later agent/subagent handoff. |
 | `NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS` | `24` | Maximum age before staged uploads are eligible for TTL cleanup. |
-| `NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR` | `~/.cache/openclaw/nerve/optimized-uploads` | Ephemeral optimization temp area for derived upload artifacts. Not the durable handoff contract. |
 | `NERVE_WATCH_WORKSPACE_RECURSIVE` | `false` | Enables recursive `fs.watch` for the entire workspace (legacy behavior). Disabled by default to prevent Linux inotify `ENOSPC` watcher exhaustion. |
 | `WORKSPACE_ROOT` | *(auto-detected)* | Allowed base directory for git workdir registration. Auto-derived from `git worktree list` or parent of `process.cwd()` |
 
@@ -315,7 +304,6 @@ SESSIONS_DIR=/custom/path/sessions/
 NERVE_VOICE_PHRASES_PATH=/custom/path/voice-phrases.json
 NERVE_UPLOAD_STAGING_TEMP_DIR=~/.openclaw/workspace/.temp/nerve-uploads
 NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS=24
-NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR=~/.cache/openclaw/nerve/optimized-uploads
 NERVE_WATCH_WORKSPACE_RECURSIVE=false
 ```
 

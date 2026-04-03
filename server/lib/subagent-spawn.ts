@@ -17,7 +17,6 @@ export interface ForwardableUploadAttachmentDescriptor {
     uri?: string;
   };
   preparation?: Record<string, unknown>;
-  optimization?: Record<string, unknown>;
   policy?: {
     forwardToSubagents?: boolean;
   };
@@ -50,7 +49,6 @@ export interface ForwardedServerPathDescriptor {
     uri?: string;
   };
   preparation?: Record<string, unknown>;
-  optimization?: Record<string, unknown>;
   policy?: {
     forwardToSubagents?: boolean;
   };
@@ -62,13 +60,12 @@ const FORWARDED_SERVER_PATHS_CLOSE = '</nerve-forwarded-server-paths>';
 
 function getForwardedAttachmentName(descriptor: ForwardableUploadAttachmentDescriptor): string | undefined {
   const configuredName = descriptor.name?.trim();
-  const localPath = descriptor.reference?.path?.trim();
-
-  if (descriptor.mode === 'file_reference' && descriptor.optimization?.applied === true && localPath) {
-    return path.basename(localPath);
+  if (configuredName) {
+    return configuredName;
   }
 
-  return configuredName;
+  const localPath = descriptor.reference?.path?.trim();
+  return localPath ? path.basename(localPath) : undefined;
 }
 
 export function extractUploadManifestFromTask(task: string): {
@@ -134,7 +131,6 @@ export function collectForwardedServerPathDescriptors(
         ...(descriptor.reference.uri ? { uri: descriptor.reference.uri } : {}),
       },
       ...(descriptor.preparation ? { preparation: descriptor.preparation } : {}),
-      ...(descriptor.optimization ? { optimization: descriptor.optimization } : {}),
       ...(descriptor.policy ? { policy: descriptor.policy } : {}),
     });
   }

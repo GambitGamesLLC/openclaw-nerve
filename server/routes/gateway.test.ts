@@ -340,10 +340,6 @@ describe('gateway routes', () => {
                   finalMode: 'file_reference',
                   outcome: 'file_reference_ready',
                 },
-                optimization: {
-                  applied: true,
-                  tempDerivative: true,
-                },
                 policy: { forwardToSubagents: true },
               },
             ],
@@ -357,7 +353,7 @@ describe('gateway routes', () => {
         {
           tool: 'sessions_spawn',
           args: {
-            task: `Inspect these forwarded files\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"mixed-path.webp","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${mixedAttachmentFilePath}","uri":"file://${mixedAttachmentFilePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"optimization":{"applied":true,"tempDerivative":true},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
+            task: `Inspect these forwarded files\n\n<nerve-forwarded-server-paths>{"version":1,"attachments":[{"id":"path-1","origin":"upload","mode":"file_reference","name":"capture.png","mimeType":"image/webp","sizeBytes":14,"reference":{"kind":"local_path","path":"${mixedAttachmentFilePath}","uri":"file://${mixedAttachmentFilePath}"},"preparation":{"sourceMode":"file_reference","finalMode":"file_reference","outcome":"file_reference_ready"},"policy":{"forwardToSubagents":true}}]}</nerve-forwarded-server-paths>`,
             runtime: 'subagent',
             attachments: [
               {

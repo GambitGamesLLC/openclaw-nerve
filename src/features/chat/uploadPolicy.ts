@@ -12,11 +12,6 @@ export interface UploadFeatureConfig {
   inlineImageMaxDimension: number;
   inlineImageWebpQuality: number;
   exposeInlineBase64ToAgent: boolean;
-  imageOptimizationEnabled: boolean;
-  imageOptimizationTargetBytes: number;
-  imageOptimizationMaxBytes: number;
-  imageOptimizationMaxDimension: number;
-  imageOptimizationWebpQuality: number;
 }
 
 export const DEFAULT_UPLOAD_FEATURE_CONFIG: UploadFeatureConfig = {
@@ -31,11 +26,6 @@ export const DEFAULT_UPLOAD_FEATURE_CONFIG: UploadFeatureConfig = {
   inlineImageMaxDimension: 2048,
   inlineImageWebpQuality: 82,
   exposeInlineBase64ToAgent: false,
-  imageOptimizationEnabled: true,
-  imageOptimizationTargetBytes: 1024 * 1024,
-  imageOptimizationMaxBytes: 1280 * 1024,
-  imageOptimizationMaxDimension: 4096,
-  imageOptimizationWebpQuality: 90,
 };
 
 export function getInlineAttachmentMaxBytes(config: UploadFeatureConfig): number {

@@ -93,31 +93,6 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
-function collectOptimizedCleanupPaths(uploadPayload?: OutgoingUploadPayload): string[] {
-  if (!uploadPayload) return [];
-
-  return uploadPayload.descriptors
-    .filter((descriptor) => descriptor.mode === 'file_reference')
-    .map((descriptor) => {
-      if (!descriptor.optimization?.cleanupAfterSend || !descriptor.optimization?.tempDerivative) return null;
-      return descriptor.reference?.path ?? null;
-    })
-    .filter((value): value is string => Boolean(value));
-}
-
-async function cleanupOptimizedUploadArtifacts(paths: string[]): Promise<void> {
-  if (paths.length === 0) return;
-  try {
-    await fetch('/api/upload-optimizer/cleanup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paths }),
-    });
-  } catch {
-    // Best-effort cleanup to avoid user-facing send failures.
-  }
-}
-
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { connectionState, rpc, subscribe } = useGateway();
   const { currentSession, sessions } = useSessionContext();
@@ -608,8 +583,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       msgHook.setAllMessages(prev => prev.map(confirmMsg));
       msgHook.setMessages((prev: ChatMsg[]) => prev.map(confirmMsg));
 
-      const cleanupPaths = collectOptimizedCleanupPaths(uploadPayload);
-      void cleanupOptimizedUploadArtifacts(cleanupPaths);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
 

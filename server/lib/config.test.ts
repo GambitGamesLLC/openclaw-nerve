@@ -440,16 +440,6 @@ describe('config module', () => {
           tempDir: path.join(process.env.HOME || '', '.openclaw', 'workspace', '.temp', 'nerve-uploads'),
           staleMaxAgeHours: 24,
         },
-        optimization: {
-          enabled: true,
-          tempDir: '~/.cache/openclaw/nerve/optimized-uploads',
-          targetBytes: 1024 * 1024,
-          maxBytes: 1280 * 1024,
-          maxDimension: 4096,
-          preserveTransparency: true,
-          webpQuality: 90,
-          staleMaxAgeHours: 24,
-        },
       });
     });
 
@@ -465,15 +455,8 @@ describe('config module', () => {
       process.env.NERVE_UPLOAD_EXPOSE_INLINE_BASE64_TO_AGENT = 'true';
       process.env.NERVE_INLINE_IMAGE_MAX_DIMENSION = '1536';
       process.env.NERVE_INLINE_IMAGE_WEBP_QUALITY = '76';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_ENABLED = 'true';
       process.env.NERVE_UPLOAD_STAGING_TEMP_DIR = '~/tmp/nerve-uploads';
       process.env.NERVE_UPLOAD_STAGING_STALE_MAX_AGE_HOURS = '72';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TEMP_DIR = '~/tmp/optimized';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_TARGET_BYTES = '1048576';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_BYTES = '1572864';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_MAX_DIMENSION = '3072';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_WEBP_QUALITY = '72';
-      process.env.NERVE_UPLOAD_IMAGE_OPTIMIZATION_STALE_MAX_AGE_HOURS = '48';
 
       const { config } = await importFreshConfig();
 
@@ -490,13 +473,6 @@ describe('config module', () => {
       expect(config.upload.exposeInlineBase64ToAgent).toBe(true);
       expect(config.upload.staging.tempDir).toBe('~/tmp/nerve-uploads');
       expect(config.upload.staging.staleMaxAgeHours).toBe(72);
-      expect(config.upload.optimization.enabled).toBe(true);
-      expect(config.upload.optimization.tempDir).toBe('~/tmp/optimized');
-      expect(config.upload.optimization.targetBytes).toBe(1048576);
-      expect(config.upload.optimization.maxBytes).toBe(1572864);
-      expect(config.upload.optimization.maxDimension).toBe(3072);
-      expect(config.upload.optimization.webpQuality).toBe(72);
-      expect(config.upload.optimization.staleMaxAgeHours).toBe(48);
     });
 
     it('falls back to default inline cap when env is invalid', async () => {

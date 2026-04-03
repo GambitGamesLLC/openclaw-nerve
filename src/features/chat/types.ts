@@ -47,37 +47,12 @@ export interface UploadPreparationMetadata {
   inlineMinDimension?: number;
   inlineFallbackReason?: string;
   localPathAvailable?: boolean;
-  optimizerAttempted?: boolean;
 }
 
 export interface FileUploadReference {
   kind: 'local_path';
   path: string;
   uri: string;
-}
-
-export interface UploadArtifactMetadata {
-  path: string;
-  uri: string;
-  mimeType: string;
-  sizeBytes: number;
-  width: number | null;
-  height: number | null;
-}
-
-export type UploadArtifactRole = 'canonical_staged_source' | 'optimized_derivative';
-
-export interface UploadArtifactComparisonMetadata extends UploadArtifactMetadata {
-  role: UploadArtifactRole;
-}
-
-export interface UploadOptimizationMetadata {
-  applied: boolean;
-  tempDerivative: boolean;
-  cleanupAfterSend: boolean;
-  original: UploadArtifactMetadata;
-  optimized: UploadArtifactMetadata;
-  artifacts: UploadArtifactComparisonMetadata[];
 }
 
 export interface UploadAttachmentDescriptor {
@@ -89,7 +64,6 @@ export interface UploadAttachmentDescriptor {
   sizeBytes: number;
   inline?: InlineUploadReference;
   reference?: FileUploadReference;
-  optimization?: UploadOptimizationMetadata;
   preparation?: UploadPreparationMetadata;
   policy: UploadAttachmentPolicy;
 }

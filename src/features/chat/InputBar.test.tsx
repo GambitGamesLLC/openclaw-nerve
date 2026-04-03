@@ -82,11 +82,6 @@ describe('InputBar', () => {
     inlineImageMaxDimension: number;
     inlineImageWebpQuality: number;
     exposeInlineBase64ToAgent: boolean;
-    imageOptimizationEnabled: boolean;
-    imageOptimizationTargetBytes: number;
-    imageOptimizationMaxBytes: number;
-    imageOptimizationMaxDimension: number;
-    imageOptimizationWebpQuality: number;
   };
 
   beforeEach(() => {
@@ -104,11 +99,6 @@ describe('InputBar', () => {
       inlineImageMaxDimension: 2048,
       inlineImageWebpQuality: 82,
       exposeInlineBase64ToAgent: false,
-      imageOptimizationEnabled: true,
-      imageOptimizationTargetBytes: 1_048_576,
-      imageOptimizationMaxBytes: 1_310_720,
-      imageOptimizationMaxDimension: 4096,
-      imageOptimizationWebpQuality: 90,
     };
 
     vi.mocked(compressImage).mockImplementation(async (file: File) => ({
@@ -180,54 +170,6 @@ describe('InputBar', () => {
               sizeBytes: file.size,
               originalName: file.name,
             })),
-          }),
-        } as Response;
-      }
-      if (url.includes('/api/upload-optimizer')) {
-        const payload = typeof init?.body === 'string' ? JSON.parse(init.body) as { path?: string; mimeType?: string } : {};
-        const sourcePath = payload.path || '/workspace/optimized-source.png';
-        const optimizedPath = sourcePath.replace(/\.[^/.]+$/, '.webp');
-        return {
-          ok: true,
-          json: async () => ({
-            ok: true,
-            optimized: true,
-            original: {
-              path: sourcePath,
-              uri: `file://${sourcePath}`,
-              mimeType: payload.mimeType || 'image/png',
-              sizeBytes: 2 * 1024 * 1024,
-              width: 4096,
-              height: 4096,
-            },
-            optimizedArtifact: {
-              path: optimizedPath,
-              uri: `file://${optimizedPath}`,
-              mimeType: 'image/webp',
-              sizeBytes: 350_000,
-              width: 2048,
-              height: 2048,
-            },
-            artifacts: [
-              {
-                role: 'canonical_staged_source',
-                path: sourcePath,
-                uri: `file://${sourcePath}`,
-                mimeType: payload.mimeType || 'image/png',
-                sizeBytes: 2 * 1024 * 1024,
-                width: 4096,
-                height: 4096,
-              },
-              {
-                role: 'optimized_derivative',
-                path: optimizedPath,
-                uri: `file://${optimizedPath}`,
-                mimeType: 'image/webp',
-                sizeBytes: 350_000,
-                width: 2048,
-                height: 2048,
-              },
-            ],
           }),
         } as Response;
       }
@@ -372,13 +314,6 @@ describe('InputBar', () => {
         path: '/workspace/attach-me.png',
         uri: 'file:///workspace/attach-me.png',
       },
-      optimization: {
-        applied: true,
-        optimized: {
-          path: '/workspace/attach-me.webp',
-          mimeType: 'image/webp',
-        },
-      },
     });
 
     const fetchUrls = vi.mocked(global.fetch).mock.calls.map(([input]) => String(input));
@@ -498,13 +433,6 @@ describe('InputBar', () => {
       preparation: {
         outcome: 'file_reference_ready',
       },
-      optimization: {
-        applied: true,
-        optimized: {
-          path: '/workspace/.temp/nerve-uploads/2026/03/21/1-shot.webp',
-          mimeType: 'image/webp',
-        },
-      },
     });
 
     const fetchUrls = vi.mocked(global.fetch).mock.calls.map(([input]) => String(input));
@@ -547,12 +475,6 @@ describe('InputBar', () => {
       mode: 'file_reference',
       reference: {
         path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.png',
-      },
-      optimization: {
-        applied: true,
-        optimized: {
-          path: '/workspace/.temp/nerve-uploads/2026/03/21/1-oversized-inline.webp',
-        },
       },
     });
   });

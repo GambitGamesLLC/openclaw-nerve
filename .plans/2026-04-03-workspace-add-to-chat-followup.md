@@ -1,3 +1,10 @@
+---
+plan_id: plan-2026-04-03-workspace-add-to-chat-followup
+bead_ids:
+  - nerve-je5w
+  - nerve-0k9o
+  - nerve-bwpj
+---
 # Gambit OpenClaw Nerve — workspace Add to chat follow-up
 
 **Date:** 2026-04-03  
