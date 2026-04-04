@@ -77,7 +77,6 @@ interface ComposerSnapshot {
   pathPickerEntries: TreeEntry[];
   pathPickerSelected: TreeEntry | null;
   pathPickerError: string | null;
-  pathPickerWorkspaceRoot: string;
   pathPickerCustomRoot: boolean;
 }
 
@@ -91,13 +90,13 @@ function createEmptyComposerSnapshot(): ComposerSnapshot {
     pathPickerEntries: [],
     pathPickerSelected: null,
     pathPickerError: null,
-    pathPickerWorkspaceRoot: '',
     pathPickerCustomRoot: false,
   };
 }
 
 let persistedComposerSnapshot: ComposerSnapshot = createEmptyComposerSnapshot();
 
+// eslint-disable-next-line react-refresh/only-export-components -- test helper export is intentional
 export function resetInputBarComposerSnapshotForTests() {
   persistedComposerSnapshot = createEmptyComposerSnapshot();
 }
@@ -276,7 +275,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
   const [pathPickerSelected, setPathPickerSelected] = useState<TreeEntry | null>(() => persistedComposerSnapshot.pathPickerSelected);
   const [pathPickerLoading, setPathPickerLoading] = useState(false);
   const [pathPickerError, setPathPickerError] = useState<string | null>(() => persistedComposerSnapshot.pathPickerError);
-  const [pathPickerWorkspaceRoot, setPathPickerWorkspaceRoot] = useState(() => persistedComposerSnapshot.pathPickerWorkspaceRoot);
   const [pathPickerCustomRoot, setPathPickerCustomRoot] = useState(() => persistedComposerSnapshot.pathPickerCustomRoot);
   const [sendPulse, setSendPulse] = useState(false);
   const [sendError, setSendError] = useState(false);
@@ -360,7 +358,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       pathPickerEntries,
       pathPickerSelected,
       pathPickerError,
-      pathPickerWorkspaceRoot,
       pathPickerCustomRoot,
     };
   }, [
@@ -371,7 +368,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
     pathPickerEntries,
     pathPickerError,
     pathPickerSelected,
-    pathPickerWorkspaceRoot,
     showAttachByPathDialog,
     stagedAttachments,
   ]);
@@ -752,7 +748,6 @@ export const InputBar = forwardRef<InputBarHandle, InputBarProps>(function Input
       setPathPickerEntries(payload.entries);
       setPathPickerCurrentDir(payload.root === '.' ? '' : (payload.root || dirPath));
       setPathPickerSelected(null);
-      setPathPickerWorkspaceRoot(payload.workspaceInfo.rootPath);
       setPathPickerCustomRoot(Boolean(payload.workspaceInfo.isCustomWorkspace));
     } catch (error) {
       setPathPickerError(error instanceof Error ? error.message : 'Failed to load workspace files.');
