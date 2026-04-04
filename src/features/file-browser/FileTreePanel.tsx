@@ -669,7 +669,13 @@ export function FileTreePanel({
   const menuPath = menuEntry?.path || '';
   const menuInTrash = isTrashItemPath(menuPath);
   const showRestore = menuInTrash;
-  const showAddToChat = Boolean(onAddToChat && menuEntry?.type === 'file' && !menuPath.startsWith('.trash') && menuPath !== '.trash');
+  const showAddToChat = Boolean(
+    onAddToChat
+    && menuEntry
+    && (menuEntry.type === 'file' || menuEntry.type === 'directory')
+    && !menuPath.startsWith('.trash')
+    && menuPath !== '.trash',
+  );
   const showRename = Boolean(menuEntry && menuPath !== '.trash');
   const showTrashAction = Boolean(menuEntry && !menuPath.startsWith('.trash') && menuPath !== '.trash');
 
@@ -799,7 +805,7 @@ export function FileTreePanel({
               className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted/60 flex items-center gap-2"
               onClick={() => {
                 setContextMenu(null);
-                void onAddToChat?.(menuEntry.path, 'file');
+                void onAddToChat?.(menuEntry.path, menuEntry.type === 'directory' ? 'directory' : 'file');
               }}
             >
               <Paperclip size={12} />
