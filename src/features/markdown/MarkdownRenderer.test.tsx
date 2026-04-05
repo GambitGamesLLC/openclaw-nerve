@@ -69,6 +69,30 @@ describe('MarkdownRenderer', () => {
     expect(link?.getAttribute('href')).toBe('https://example.com');
   });
 
+  it('linkifies configured inline /workspace paths', () => {
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="Open /workspace/src/App.tsx now"
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        pathLinkPrefixes={['/workspace/']}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: '/workspace/src/App.tsx' }));
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('/workspace/src/App.tsx');
+  });
+
+  it('does not linkify relative paths when only /workspace is configured', () => {
+    render(<MarkdownRenderer content="src/App.tsx" pathLinkPrefixes={['/workspace/']} onOpenWorkspacePath={vi.fn()} />);
+    expect(screen.queryByRole('link', { name: 'src/App.tsx' })).toBeNull();
+  });
+
+  it('does not linkify configured path text inside inline code', () => {
+    render(<MarkdownRenderer content="Use `/workspace/src/App.tsx` later" pathLinkPrefixes={['/workspace/']} onOpenWorkspacePath={vi.fn()} />);
+    expect(screen.queryByRole('link', { name: '/workspace/src/App.tsx' })).toBeNull();
+  });
+
   it('opens workspace links in-app when a handler is provided', () => {
     const onOpenWorkspacePath = vi.fn();
     render(<MarkdownRenderer content="[notes](docs/todo.md)" onOpenWorkspacePath={onOpenWorkspacePath} />);
