@@ -54,7 +54,9 @@ export function renderInlinePathReferences(
           className="markdown-link"
           onClick={(event) => {
             event.preventDefault();
-            void onOpenPath(candidate);
+            Promise.resolve(onOpenPath(candidate)).catch((error) => {
+              console.error('Failed to open workspace path link:', error);
+            });
           }}
         >
           {candidate}

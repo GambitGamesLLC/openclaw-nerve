@@ -49,9 +49,10 @@ function processChildren(
       });
     }
 
-    if (React.isValidElement<{ children?: React.ReactNode }>(child)) {
+    if (React.isValidElement<{ children?: React.ReactNode; node?: { tagName?: string } }>(child)) {
       const tagName = typeof child.type === 'string' ? child.type : '';
-      if (tagName === 'code' || tagName === 'pre' || tagName === 'a') {
+      const markdownTagName = child.props.node?.tagName ?? '';
+      if (tagName === 'code' || tagName === 'pre' || tagName === 'a' || markdownTagName === 'code' || markdownTagName === 'pre' || markdownTagName === 'a') {
         return child;
       }
 
