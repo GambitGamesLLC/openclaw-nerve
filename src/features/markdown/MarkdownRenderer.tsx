@@ -166,7 +166,9 @@ export function MarkdownRenderer({ content, className = '', searchQuery, suppres
             className="markdown-link"
             onClick={(event) => {
               event.preventDefault();
-              void onOpenWorkspacePath(decodeWorkspacePathLink(href));
+              Promise.resolve(onOpenWorkspacePath(decodeWorkspacePathLink(href))).catch((error) => {
+                console.error('Failed to open workspace path link:', error);
+              });
             }}
           >
             {children}

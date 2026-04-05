@@ -37,17 +37,17 @@ export function renderInlinePathReferences(
   const rendered = tokens.map((token, index) => {
     if (!token) return null;
     if (/^\s+$/.test(token)) {
-      return <React.Fragment key={`ws-${index}`}>{renderPlainText(token)}</React.Fragment>;
+      return <React.Fragment key={`ws-${index}-${token}`}>{renderPlainText(token)}</React.Fragment>;
     }
 
     const { leading, candidate, trailing } = trimCandidate(token);
     if (!isConfiguredPathCandidate(candidate, prefixes)) {
-      return <React.Fragment key={`txt-${index}`}>{renderPlainText(token)}</React.Fragment>;
+      return <React.Fragment key={`txt-${index}-${token}`}>{renderPlainText(token)}</React.Fragment>;
     }
 
     hasLink = true;
     return (
-      <React.Fragment key={`path-${index}`}>
+      <React.Fragment key={`path-${index}-${candidate}-${leading}-${trailing}`}>
         {leading ? renderPlainText(leading) : null}
         <a
           href={candidate}
