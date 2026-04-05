@@ -88,6 +88,73 @@ describe('POST /api/upload-reference/resolve', () => {
     }));
   });
 
+  it('returns canonical direct workspace references for the JSON paths array form', async () => {
+    const { workspaceRoot } = await makeHomeWorkspace();
+    const firstPath = path.join(workspaceRoot, 'docs', 'note.md');
+    const secondPath = path.join(workspaceRoot, 'docs', 'todo.txt');
+    await fs.mkdir(path.dirname(firstPath), { recursive: true });
+    await fs.writeFile(firstPath, '# hi\n', 'utf8');
+    await fs.writeFile(secondPath, 'later\n', 'utf8');
+
+    const { default: app } = await importRoute();
+    const res = await app.request('/api/upload-reference/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paths: ['docs/note.md', 'docs/todo.txt'] }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json() as {
+      ok: boolean;
+      items: Array<{
+        kind: string;
+        canonicalPath: string;
+        absolutePath: string;
+        mimeType: string;
+        sizeBytes: number;
+        originalName: string;
+      }>;
+    };
+
+    expect(json.ok).toBe(true);
+    expect(json.items).toHaveLength(2);
+    expect(json.items).toEqual([
+      expect.objectContaining({
+        kind: 'direct_workspace_reference',
+        canonicalPath: 'docs/note.md',
+        absolutePath: firstPath,
+        mimeType: 'text/markdown',
+        sizeBytes: 5,
+        originalName: 'note.md',
+      }),
+      expect.objectContaining({
+        kind: 'direct_workspace_reference',
+        canonicalPath: 'docs/todo.txt',
+        absolutePath: secondPath,
+        mimeType: 'text/plain',
+        sizeBytes: 6,
+        originalName: 'todo.txt',
+      }),
+    ]);
+  });
+
+  it('rejects unsupported content types before multipart parsing', async () => {
+    await makeHomeWorkspace();
+
+    const { default: app } = await importRoute();
+    const res = await app.request('/api/upload-reference/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: 'nope',
+    });
+
+    expect(res.status).toBe(415);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      error: 'Request must be JSON or multipart/form-data.',
+    });
+  });
+
   it('rejects symlink escapes that resolve outside the workspace root', async () => {
     const { homeDir, workspaceRoot } = await makeHomeWorkspace();
     const outsidePath = path.join(homeDir, 'outside.txt');
@@ -109,5 +176,4 @@ describe('POST /api/upload-reference/resolve', () => {
       error: 'Invalid or excluded workspace path.',
     });
   });
-
 });

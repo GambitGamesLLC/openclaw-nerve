@@ -3,6 +3,7 @@ import { rateLimitGeneral } from '../middleware/rate-limit.js';
 import {
   importExternalUploadToCanonicalReference,
   resolveDirectWorkspaceReference,
+  WorkspacePathError,
 } from '../lib/upload-reference.js';
 
 const app = new Hono();
@@ -27,8 +28,17 @@ app.post('/api/upload-reference/resolve', rateLimitGeneral, async (c) => {
       return c.json({ ok: true, items });
     }
 
-    const form = await c.req.formData();
-    const files = form.getAll('files').filter((value): value is File => value instanceof File);
+    if (!contentType.includes('multipart/form-data')) {
+      return c.json({ ok: false, error: 'Request must be JSON or multipart/form-data.' }, 415);
+    }
+
+    const form = await c.req.formData().catch(() => null);
+    if (!form) {
+      return c.json({ ok: false, error: 'Failed to parse multipart form data.' }, 400);
+    }
+
+    const files = [...form.getAll('files'), ...form.getAll('file')]
+      .filter((value): value is File => value instanceof File);
 
     if (files.length === 0) {
       return c.json({ ok: false, error: 'At least one file is required.' }, 400);
@@ -45,13 +55,13 @@ app.post('/api/upload-reference/resolve', rateLimitGeneral, async (c) => {
 
     return c.json({ ok: true, items });
   } catch (error) {
+    if (error instanceof WorkspacePathError) {
+      const status = error.code === 'NOT_A_FILE' ? 400 : 403;
+      return c.json({ ok: false, error: error.message }, status);
+    }
+
     const message = error instanceof Error ? error.message : 'Failed to resolve canonical upload reference';
-    const status = message === 'Invalid or excluded workspace path.' || message === 'Resolved attachment path is outside the workspace root.'
-      ? 403
-      : message === 'Resolved attachment path is not a file.'
-        ? 400
-        : 500;
-    return c.json({ ok: false, error: message }, status);
+    return c.json({ ok: false, error: message }, 500);
   }
 });
 

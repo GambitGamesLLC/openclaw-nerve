@@ -1,9 +1,20 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getWorkspaceRoot, resolveWorkspacePath } from './file-utils.js';
-import { stageUploadFile } from './upload-staging.js';
+import { getResolvedUploadStagingDir, stageUploadFile } from './upload-staging.js';
 
 export type CanonicalUploadReferenceKind = 'direct_workspace_reference' | 'imported_workspace_reference';
+export type WorkspacePathErrorCode = 'INVALID_PATH' | 'OUTSIDE_WORKSPACE' | 'NOT_A_FILE';
+
+export class WorkspacePathError extends Error {
+  readonly code: WorkspacePathErrorCode;
+
+  constructor(message: string, code: WorkspacePathErrorCode) {
+    super(message);
+    this.name = 'WorkspacePathError';
+    this.code = code;
+  }
+}
 
 export interface CanonicalUploadReference {
   kind: CanonicalUploadReferenceKind;
@@ -62,12 +73,12 @@ async function buildCanonicalReference(params: {
   const realAbsolutePath = await fs.realpath(params.absolutePath);
 
   if (!isWithinDir(realAbsolutePath, workspaceRoot)) {
-    throw new Error('Resolved attachment path is outside the workspace root.');
+    throw new WorkspacePathError('Resolved attachment path is outside the workspace root.', 'OUTSIDE_WORKSPACE');
   }
 
   const stat = await fs.stat(realAbsolutePath);
   if (!stat.isFile()) {
-    throw new Error('Resolved attachment path is not a file.');
+    throw new WorkspacePathError('Resolved attachment path is not a file.', 'NOT_A_FILE');
   }
 
   return {
@@ -84,7 +95,7 @@ async function buildCanonicalReference(params: {
 export async function resolveDirectWorkspaceReference(relativePath: string): Promise<CanonicalUploadReference> {
   const resolved = await resolveWorkspacePath(relativePath);
   if (!resolved) {
-    throw new Error('Invalid or excluded workspace path.');
+    throw new WorkspacePathError('Invalid or excluded workspace path.', 'INVALID_PATH');
   }
 
   return buildCanonicalReference({
@@ -99,6 +110,14 @@ export async function importExternalUploadToCanonicalReference(params: {
   mimeType?: string;
   bytes: Uint8Array;
 }): Promise<CanonicalUploadReference> {
+  const workspaceRoot = path.resolve(getWorkspaceRoot());
+  const stagingRoot = path.resolve(getResolvedUploadStagingDir());
+  const realStagingRoot = await fs.realpath(stagingRoot).catch(() => stagingRoot);
+
+  if (!isWithinDir(realStagingRoot, workspaceRoot)) {
+    throw new WorkspacePathError('Resolved attachment path is outside the workspace root.', 'OUTSIDE_WORKSPACE');
+  }
+
   const staged = await stageUploadFile(params);
 
   return buildCanonicalReference({
