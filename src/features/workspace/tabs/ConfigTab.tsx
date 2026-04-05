@@ -15,6 +15,7 @@ const FILE_OPTIONS = [
   { key: 'user', label: 'USER.md' },
   { key: 'agents', label: 'AGENTS.md' },
   { key: 'heartbeat', label: 'HEARTBEAT.md' },
+  { key: 'chatPathLinks', label: 'CHAT_PATH_LINKS.json' },
 ];
 
 /** Workspace tab displaying an editable agent config file (YAML/TOML). */
@@ -69,7 +70,9 @@ export function ConfigTab() {
 
   const handleCreate = useCallback(async () => {
     const label = FILE_OPTIONS.find(f => f.key === selectedKey)?.label || selectedKey;
-    const template = `# ${label}\n\n`;
+    const template = selectedKey === 'chatPathLinks'
+      ? '{\n  "prefixes": [\n    "/workspace/"\n  ]\n}\n'
+      : `# ${label}\n\n`;
     const success = await save(selectedKey, template);
     if (success) {
       showFeedback('success', 'File created');

@@ -20,6 +20,7 @@ import { TopBar } from '@/components/TopBar';
 import { StatusBar } from '@/components/StatusBar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ChatPanel, type ChatPanelHandle } from '@/features/chat/ChatPanel';
+import { DEFAULT_CHAT_PATH_LINKS_CONFIG, parseChatPathLinksConfig } from '@/features/chat/chatPathLinks';
 import type { TTSProvider } from '@/features/tts/useTTS';
 import type { ViewMode } from '@/features/command-palette/commands';
 import type { WorkflowShellConfigDto } from '@/features/kanban/beads';
@@ -199,6 +200,9 @@ export default function App({ onLogout }: AppProps) {
   const [requestedPlanSourceId, setRequestedPlanSourceId] = useState<string | null>(null);
   const [workspaceOpenRequest, setWorkspaceOpenRequest] = useState(0);
   const [workflowShell, setWorkflowShell] = useState<WorkflowShellConfigDto>(DEFAULT_WORKFLOW_SHELL);
+  const [chatPathLinkPrefixes, setChatPathLinkPrefixes] = useState<string[]>(
+    DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes,
+  );
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeRaw(mode);
     try { localStorage.setItem('nerve:viewMode', mode); } catch { /* ignore */ }
@@ -229,14 +233,12 @@ export default function App({ onLogout }: AppProps) {
       return;
     }
 
-    if (data.type === 'file' && (!data.binary || isImageFile(data.path))) {
-      setRevealRequest(null);
-      await openFile(data.path);
-      return;
-    }
-
     setFileBrowserCollapsed(false);
     setRevealRequest({ id: Date.now(), path: data.path, kind: data.type });
+
+    if (data.type === 'file' && (!data.binary || isImageFile(data.path))) {
+      await openFile(data.path);
+    }
   }, [openFile]);
 
   const openWorkspacePathInEditor = useCallback(async (targetPath: string) => {
@@ -408,6 +410,36 @@ export default function App({ onLogout }: AppProps) {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const res = await fetch('/api/workspace/chatPathLinks', { signal: controller.signal });
+        if (res.status === 404) {
+          setChatPathLinkPrefixes(DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes);
+          return;
+        }
+        if (!res.ok) {
+          return;
+        }
+
+        const payload = await res.json() as { ok?: boolean; content?: string };
+        if (!payload.ok || typeof payload.content !== 'string') {
+          return;
+        }
+
+        const parsed = parseChatPathLinksConfig(payload.content);
+        setChatPathLinkPrefixes(parsed.prefixes);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        console.warn('[chat-path-links] failed to load config, using defaults');
+      }
+    })();
+
+    return () => controller.abort();
+  }, []);
+
   // Handler for session changes
   const handleSessionChange = useCallback(async (key: string) => {
     setCurrentSession(key);
@@ -475,6 +507,8 @@ export default function App({ onLogout }: AppProps) {
             referencePlans={referencePlans}
             onOpenTaskReference={openTaskInBoard}
             onOpenPlanReference={(planPath) => openPlanInWorkspace(planPath, referencePlanSourceId)}
+            onOpenPathReference={openWorkspacePathInEditor}
+            pathLinkPrefixes={chatPathLinkPrefixes}
           />
         </PanelErrorBoundary>
       }

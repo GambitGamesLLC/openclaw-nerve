@@ -12,6 +12,7 @@ export interface ReferencePlanSummary {
 export interface InlineReferenceOptions {
   searchQuery?: string;
   plans?: ReferencePlanSummary[];
+  pathLinkPrefixes?: string[];
   onOpenPlanReference?: (path: string) => void;
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
@@ -46,7 +47,7 @@ function highlightText(text: string, query?: string): ReactNode {
 }
 
 function splitToken(token: string): { leading: string; core: string; trailing: string } {
-  const match = token.match(/^([("'`\[]*)(.*?)([.,:;!?\])"'`]*)$/);
+  const match = token.match(/^([("'`[]*)(.*?)([.,:;!?\])"'`]*)$/);
   if (!match) return { leading: '', core: token, trailing: '' };
   return {
     leading: match[1] || '',
@@ -66,6 +67,22 @@ function isPlanPath(candidate: string): boolean {
 function isSafeRepoPath(candidate: string): boolean {
   const normalized = normalizeRepoPath(candidate);
   return SAFE_REPO_PATH_PATTERN.test(normalized) || SAFE_REPO_FILE_NAMES.has(normalized);
+}
+
+function normalizePathLinkPrefixes(prefixes?: string[]): string[] {
+  if (!prefixes) return [];
+
+  return prefixes
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function matchPathByPrefix(candidate: string, prefixes: string[]): string | null {
+  if (!candidate || prefixes.length === 0) return null;
+
+  const matched = prefixes.find((prefix) => candidate.startsWith(prefix) && candidate.length > prefix.length);
+  return matched ? candidate : null;
 }
 
 function isBeadId(candidate: string, plans: ReferencePlanSummary[]): boolean {
@@ -102,12 +119,16 @@ export function renderInlineReferences(text: string, options: InlineReferenceOpt
   const {
     searchQuery,
     plans = [],
+    pathLinkPrefixes,
     onOpenPlanReference,
     onOpenPath,
     onOpenTask,
   } = options;
 
   if (!text) return text;
+
+  const configuredPathPrefixes = normalizePathLinkPrefixes(pathLinkPrefixes);
+  const hasConfiguredPathPrefixes = configuredPathPrefixes.length > 0;
 
   const tokens = text.split(/(\s+)/);
   const out: ReactNode[] = [];
@@ -149,19 +170,48 @@ export function renderInlineReferences(text: string, options: InlineReferenceOpt
           {highlightText(core, searchQuery)}
         </button>,
       );
-    } else if (isSafeRepoPath(core) && onOpenPath) {
-      const normalizedPath = normalizeRepoPath(core);
-      out.push(
-        <button
-          key={`path-${index}-${normalizedPath}`}
-          type="button"
-          className="inline rounded-sm border border-border/60 bg-muted/30 px-1 py-0 font-mono text-[0.92em] text-foreground hover:bg-muted/50 cursor-pointer"
-          onClick={() => onOpenPath(normalizedPath)}
-          title={`Open ${normalizedPath} inside Nerve`}
-        >
-          {highlightText(core, searchQuery)}
-        </button>,
-      );
+    } else if (onOpenPath) {
+      const matchedConfiguredPath = matchPathByPrefix(core, configuredPathPrefixes);
+      if (matchedConfiguredPath) {
+        out.push(
+          <button
+            key={`path-prefix-${index}-${matchedConfiguredPath}`}
+            type="button"
+            className="inline rounded-sm border border-border/60 bg-muted/30 px-1 py-0 font-mono text-[0.92em] text-foreground hover:bg-muted/50 cursor-pointer"
+            onClick={() => onOpenPath(matchedConfiguredPath)}
+            title={`Open ${matchedConfiguredPath} inside Nerve`}
+          >
+            {highlightText(core, searchQuery)}
+          </button>,
+        );
+      } else if (!hasConfiguredPathPrefixes && isSafeRepoPath(core)) {
+        const normalizedPath = normalizeRepoPath(core);
+        out.push(
+          <button
+            key={`path-${index}-${normalizedPath}`}
+            type="button"
+            className="inline rounded-sm border border-border/60 bg-muted/30 px-1 py-0 font-mono text-[0.92em] text-foreground hover:bg-muted/50 cursor-pointer"
+            onClick={() => onOpenPath(normalizedPath)}
+            title={`Open ${normalizedPath} inside Nerve`}
+          >
+            {highlightText(core, searchQuery)}
+          </button>,
+        );
+      } else if (isBeadId(core, plans) && onOpenTask) {
+        out.push(
+          <button
+            key={`bead-${index}-${core}`}
+            type="button"
+            className="inline rounded-sm border border-primary/25 bg-primary/10 px-1 py-0 font-mono text-[0.92em] text-primary hover:bg-primary/15 cursor-pointer"
+            onClick={() => onOpenTask(core)}
+            title={beadHoverTitle(core, plans)}
+          >
+            {highlightText(core, searchQuery)}
+          </button>,
+        );
+      } else {
+        out.push(highlightText(core, searchQuery));
+      }
     } else if (isBeadId(core, plans) && onOpenTask) {
       out.push(
         <button

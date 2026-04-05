@@ -106,6 +106,8 @@ interface MessageBubbleProps {
   referencePlans?: ReferencePlanSummary[];
   onOpenTaskReference?: (taskId: string) => void;
   onOpenPlanReference?: (path: string) => void;
+  onOpenPathReference?: (path: string) => void;
+  pathLinkPrefixes?: string[];
 }
 
 const borderClass = (role: string) => {
@@ -134,7 +136,7 @@ function RoleBadge({ role, agentName = 'Agent' }: { role: string; agentName?: st
   return <span className="text-[9px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-sm bg-muted-foreground/20 text-muted-foreground">SYSTEM</span>;
 }
 
-function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memoryKey, onToggleCollapse, onToggleMemory, firstMessageTime, searchQuery, isCurrentMatch, agentName, referencePlans = [], onOpenTaskReference, onOpenPlanReference }: MessageBubbleProps) {
+function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memoryKey, onToggleCollapse, onToggleMemory, firstMessageTime, searchQuery, isCurrentMatch, agentName, referencePlans = [], onOpenTaskReference, onOpenPlanReference, onOpenPathReference, pathLinkPrefixes }: MessageBubbleProps) {
   const isUser = msg.role === 'user';
   const isAssistant = msg.role === 'assistant';
   const isSystem = msg.role === 'system' || msg.role === 'event';
@@ -255,8 +257,10 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
                 content={msg.rawText}
                 searchQuery={searchQuery}
                 plans={referencePlans}
+                pathLinkPrefixes={pathLinkPrefixes}
                 onOpenTask={onOpenTaskReference}
                 onOpenPlanReference={onOpenPlanReference}
+                onOpenPath={onOpenPathReference}
               />
             </Suspense>
           </div>
@@ -292,8 +296,10 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
                   searchQuery={searchQuery}
                   suppressImages={isAssistant}
                   plans={referencePlans}
+                  pathLinkPrefixes={pathLinkPrefixes}
                   onOpenTask={onOpenTaskReference}
                   onOpenPlanReference={onOpenPlanReference}
+                  onOpenPath={onOpenPathReference}
                 />
               </Suspense>
             </div>
@@ -365,8 +371,10 @@ function MessageBubbleInner({ msg, index, isCollapsed, isMemoryCollapsed, memory
                   searchQuery={searchQuery}
                   suppressImages={isAssistant}
                   plans={referencePlans}
+                  pathLinkPrefixes={pathLinkPrefixes}
                   onOpenTask={onOpenTaskReference}
                   onOpenPlanReference={onOpenPlanReference}
+                  onOpenPath={onOpenPathReference}
                 />
               </Suspense>
             )}
@@ -527,7 +535,9 @@ export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
   // Reference navigation props
   if (prev.onOpenTaskReference !== next.onOpenTaskReference) return false;
   if (prev.onOpenPlanReference !== next.onOpenPlanReference) return false;
+  if (prev.onOpenPathReference !== next.onOpenPathReference) return false;
   if (prev.referencePlans !== next.referencePlans) return false;
+  if (prev.pathLinkPrefixes !== next.pathLinkPrefixes) return false;
   
   // All relevant props are equal, skip re-render
   return true;

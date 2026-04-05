@@ -42,6 +42,10 @@ interface ChatPanelProps {
   onOpenTaskReference?: (taskId: string) => void;
   /** Open a plan destination from an inline chat reference. */
   onOpenPlanReference?: (planPath: string) => void;
+  /** Open a workspace path destination from an inline chat reference. */
+  onOpenPathReference?: (workspacePath: string) => void;
+  /** Prefix rules controlling which chat tokens become path links. */
+  pathLinkPrefixes?: string[];
 }
 
 export interface ChatPanelHandle {
@@ -58,7 +62,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
   lastEventTimestamp = 0, currentToolDescription = null, activityLog = [],
   onWakeWordState, onReset, searchOpen, onSearchClose, id, agentName = 'Agent',
   loadMore, hasMore = false, onToggleFileBrowser,
-  referencePlans = [], onOpenTaskReference, onOpenPlanReference,
+  referencePlans = [], onOpenTaskReference, onOpenPlanReference, onOpenPathReference, pathLinkPrefixes,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -336,6 +340,8 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
                 referencePlans={referencePlans}
                 onOpenTaskReference={onOpenTaskReference}
                 onOpenPlanReference={onOpenPlanReference}
+                onOpenPathReference={onOpenPathReference}
+                pathLinkPrefixes={pathLinkPrefixes}
               />
             </div>
           );

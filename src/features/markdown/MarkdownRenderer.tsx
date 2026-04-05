@@ -13,6 +13,7 @@ interface MarkdownRendererProps {
   searchQuery?: string;
   suppressImages?: boolean;
   plans?: ReferencePlanSummary[];
+  pathLinkPrefixes?: string[];
   onOpenPlanReference?: (path: string) => void;
   onOpenPath?: (path: string) => void;
   onOpenTask?: (taskId: string) => void;
@@ -39,6 +40,7 @@ function processChildren(
   options: {
     searchQuery?: string;
     plans?: ReferencePlanSummary[];
+    pathLinkPrefixes?: string[];
     onOpenPlanReference?: (path: string) => void;
     onOpenPath?: (path: string) => void;
     onOpenTask?: (taskId: string) => void;
@@ -97,6 +99,7 @@ export function MarkdownRenderer({
   searchQuery,
   suppressImages,
   plans,
+  pathLinkPrefixes,
   onOpenPlanReference,
   onOpenPath,
   onOpenTask,
@@ -106,10 +109,11 @@ export function MarkdownRenderer({
   const referenceOptions = useMemo(() => ({
     searchQuery,
     plans,
+    pathLinkPrefixes,
     onOpenPlanReference,
     onOpenPath,
     onOpenTask,
-  }), [searchQuery, plans, onOpenPlanReference, onOpenPath, onOpenTask]);
+  }), [searchQuery, plans, pathLinkPrefixes, onOpenPlanReference, onOpenPath, onOpenTask]);
 
   const components = useMemo(() => ({
     // Highlight search terms in text nodes and conservatively surface inline references.

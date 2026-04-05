@@ -54,6 +54,23 @@ describe('MarkdownRenderer inline references', () => {
     expect(onOpenPlanReference).toHaveBeenCalledWith('.plans/2026-03-16-chat-links-for-beads-and-plans.md');
   });
 
+  it('respects configured prefix-based path link rules', async () => {
+    const user = userEvent.setup();
+    const onOpenPath = vi.fn();
+
+    render(
+      <MarkdownRenderer
+        content={'Open /workspace/src/App.tsx but keep src/App.tsx plain text.'}
+        onOpenPath={onOpenPath}
+        pathLinkPrefixes={['/workspace/']}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '/workspace/src/App.tsx' }));
+    expect(onOpenPath).toHaveBeenCalledWith('/workspace/src/App.tsx');
+    expect(screen.queryByRole('button', { name: 'src/App.tsx' })).not.toBeInTheDocument();
+  });
+
   it('does not aggressively autolink arbitrary hyphenated text', () => {
     render(
       <MarkdownRenderer

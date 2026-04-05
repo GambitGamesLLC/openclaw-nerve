@@ -121,6 +121,19 @@ function handleFileOpError(c: Context, err: unknown) {
   return c.json({ ok: false, error: message }, 500);
 }
 
+function normalizeWorkspaceLookupPath(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed === '/workspace' || trimmed === '/workspace/') {
+    return '.';
+  }
+
+  if (trimmed.startsWith('/workspace/')) {
+    return trimmed.slice('/workspace/'.length);
+  }
+
+  return trimmed;
+}
+
 // ── GET /api/files/tree ──────────────────────────────────────────────
 
 app.get('/api/files/tree', async (c) => {
@@ -171,7 +184,8 @@ app.get('/api/files/resolve', async (c) => {
     return c.json({ ok: false, error: 'Missing path parameter' }, 400);
   }
 
-  const resolved = await resolveWorkspacePath(targetPath);
+  const normalizedTargetPath = normalizeWorkspaceLookupPath(targetPath);
+  const resolved = await resolveWorkspacePath(normalizedTargetPath);
   if (!resolved) {
     return c.json({ ok: false, error: 'Invalid or excluded path' }, 403);
   }
