@@ -78,6 +78,32 @@ describe('MarkdownRenderer', () => {
     expect(onOpenWorkspacePath).toHaveBeenCalledWith('docs/todo.md');
   });
 
+  it('opens bare bead links in-app when a bead handler is provided', () => {
+    const onOpenBeadId = vi.fn();
+    render(<MarkdownRenderer content="[viewer](nerve-fms2)" onOpenBeadId={onOpenBeadId} />);
+
+    fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
+
+    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+  });
+
+  it('treats bare bead ids as bead links before workspace resolution', () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](nerve-fms2)"
+        onOpenBeadId={onOpenBeadId}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
+
+    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+    expect(onOpenWorkspacePath).not.toHaveBeenCalled();
+  });
+
   it('keeps external links as normal browser links when a handler is provided', () => {
     const onOpenWorkspacePath = vi.fn();
     render(<MarkdownRenderer content="[example](https://example.com)" onOpenWorkspacePath={onOpenWorkspacePath} />);

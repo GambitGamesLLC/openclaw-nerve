@@ -5,6 +5,7 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
+import { decodeBeadLinkHref, isBeadLinkHref } from '@/features/beads';
 
 interface MarkdownRendererProps {
   content: string;
@@ -12,6 +13,7 @@ interface MarkdownRendererProps {
   searchQuery?: string;
   suppressImages?: boolean;
   onOpenWorkspacePath?: (path: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 function highlightText(text: string, query: string): React.ReactNode {
@@ -89,7 +91,7 @@ function CodeBlock({ code, language, highlightedHtml }: {
 // ─── Main renderer ───────────────────────────────────────────────────────────
 
 /** Render markdown content with syntax highlighting, search-term highlighting, and inline charts. */
-export function MarkdownRenderer({ content, className = '', searchQuery, suppressImages, onOpenWorkspacePath }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className = '', searchQuery, suppressImages, onOpenWorkspacePath, onOpenBeadId }: MarkdownRendererProps) {
   // Memoize components object to avoid unnecessary ReactMarkdown re-renders.
   // Only recreated when searchQuery or suppressImages changes.
   const components = useMemo(() => ({
@@ -148,6 +150,21 @@ export function MarkdownRenderer({ content, className = '', searchQuery, suppres
         return <span>{children}</span>;
       }
 
+      if (onOpenBeadId && isBeadLinkHref(href)) {
+        return (
+          <a
+            href={href}
+            className="markdown-link"
+            onClick={(event) => {
+              event.preventDefault();
+              void onOpenBeadId(decodeBeadLinkHref(href));
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
+
       if (onOpenWorkspacePath && isWorkspacePathLink(href)) {
         return (
           <a
@@ -170,7 +187,7 @@ export function MarkdownRenderer({ content, className = '', searchQuery, suppres
       );
     },
     ...(suppressImages ? { img: () => null } : {}), // When set, images handled by extractedImages + ImageLightbox
-  }), [onOpenWorkspacePath, searchQuery, suppressImages]);
+  }), [onOpenBeadId, onOpenWorkspacePath, searchQuery, suppressImages]);
 
   return (
     <div className={`markdown-content ${className}`}>
