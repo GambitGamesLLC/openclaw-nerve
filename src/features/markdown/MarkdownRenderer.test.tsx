@@ -158,6 +158,59 @@ describe('MarkdownRenderer', () => {
     });
   });
 
+  it('opens explicit bead-scheme links in-app when a bead handler is provided', async () => {
+    const onOpenBeadId = vi.fn();
+    render(<MarkdownRenderer content="[viewer](bead:nerve-fms2)" onOpenBeadId={onOpenBeadId} />);
+
+    fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
+
+    await waitFor(() => {
+      expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+    });
+  });
+
+  it('routes explicit bead-scheme links to bead tabs before workspace resolution or browser fallback', async () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead:nerve-fms2)"
+        onOpenBeadId={onOpenBeadId}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'viewer' });
+    expect(link).toHaveAttribute('href', 'bead:nerve-fms2');
+    expect(link).not.toHaveAttribute('target', '_blank');
+
+    fireEvent.click(link);
+
+    await waitFor(() => {
+      expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+      expect(onOpenWorkspacePath).not.toHaveBeenCalled();
+    });
+  });
+
+  it('does not treat bare bead ids as bead links when a workspace handler is also present', async () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](nerve-fms2)"
+        onOpenBeadId={onOpenBeadId}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
+
+    await waitFor(() => {
+      expect(onOpenBeadId).not.toHaveBeenCalled();
+      expect(onOpenWorkspacePath).toHaveBeenCalledWith('nerve-fms2', undefined);
+    });
+  });
+
   it('preserves leading-slash workspace links for markdown documents', async () => {
     const onOpenWorkspacePath = vi.fn();
     render(
