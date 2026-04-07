@@ -25,8 +25,6 @@ const IDLE_STATES = new Set(['idle', 'done', 'error', 'final', 'aborted', 'compl
 const FULL_SESSIONS_LIMIT = 1000;
 const MAIN_SESSION_KEY = 'agent:main:main';
 const SESSIONS_SPAWNED_LIMIT = 500;
-const SUBAGENT_DISCOVERY_TIMEOUT_MS = 60_000;
-const SUBAGENT_DISCOVERY_POLL_MS = 1_000;
 
 export type SubagentCleanupMode = 'keep' | 'delete';
 
