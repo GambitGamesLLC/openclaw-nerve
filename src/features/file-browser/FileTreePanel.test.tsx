@@ -226,7 +226,7 @@ describe('FileTreePanel', () => {
       });
     });
 
-    it('does not show "Add to chat" for directories', async () => {
+    it('shows "Add to chat" for directories and calls the callback with directory kind', async () => {
       render(
         <FileTreePanel
           onOpenFile={mockOnOpenFile}
@@ -240,7 +240,13 @@ describe('FileTreePanel', () => {
       fireEvent.contextMenu(screen.getByText('src'), new MouseEvent('contextmenu', { bubbles: true }));
 
       await waitFor(() => {
-        expect(screen.queryByText('Add to chat')).not.toBeInTheDocument();
+        expect(screen.getByText('Add to chat')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Add to chat'));
+
+      await waitFor(() => {
+        expect(mockOnAddToChat).toHaveBeenCalledWith('src', 'directory');
       });
     });
   });
