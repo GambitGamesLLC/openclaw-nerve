@@ -78,16 +78,37 @@ describe('MarkdownRenderer', () => {
     expect(onOpenWorkspacePath).toHaveBeenCalledWith('docs/todo.md');
   });
 
-  it('opens bare bead links in-app when a bead handler is provided', () => {
+  it('opens explicit bead-scheme links in-app when a bead handler is provided', () => {
     const onOpenBeadId = vi.fn();
-    render(<MarkdownRenderer content="[viewer](nerve-fms2)" onOpenBeadId={onOpenBeadId} />);
+    render(<MarkdownRenderer content="[viewer](bead:nerve-fms2)" onOpenBeadId={onOpenBeadId} />);
 
     fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
 
     expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
   });
 
-  it('treats bare bead ids as bead links before workspace resolution', () => {
+  it('routes explicit bead-scheme links to bead tabs before workspace resolution or browser fallback', () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead:nerve-fms2)"
+        onOpenBeadId={onOpenBeadId}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'viewer' });
+    expect(link).toHaveAttribute('href', 'bead:nerve-fms2');
+    expect(link).not.toHaveAttribute('target', '_blank');
+
+    fireEvent.click(link);
+
+    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+    expect(onOpenWorkspacePath).not.toHaveBeenCalled();
+  });
+
+  it('does not treat bare bead ids as bead links when a workspace handler is also present', () => {
     const onOpenBeadId = vi.fn();
     const onOpenWorkspacePath = vi.fn();
     render(
@@ -100,8 +121,8 @@ describe('MarkdownRenderer', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
 
-    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
-    expect(onOpenWorkspacePath).not.toHaveBeenCalled();
+    expect(onOpenBeadId).not.toHaveBeenCalled();
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('nerve-fms2');
   });
 
   it('keeps external links as normal browser links when a handler is provided', () => {

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -65,6 +65,13 @@ function decodeWorkspacePathLink(href: string): string {
   } catch {
     return href;
   }
+}
+
+function transformMarkdownUrl(url: string): string {
+  if (isBeadLinkHref(url)) {
+    return url;
+  }
+  return defaultUrlTransform(url);
 }
 
 // ─── Code Block with actions ─────────────────────────────────────────────────
@@ -193,6 +200,7 @@ export function MarkdownRenderer({ content, className = '', searchQuery, suppres
     <div className={`markdown-content ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={transformMarkdownUrl}
         components={components}
       >
         {content}

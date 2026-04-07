@@ -12,11 +12,8 @@ export function isBeadId(value: string): boolean {
 export function isBeadLinkHref(href: string): boolean {
   if (!href) return false;
   const trimmed = href.trim();
-  if (!trimmed) return false;
-  if (trimmed.toLowerCase().startsWith(BEAD_SCHEME)) {
-    return isBeadId(trimmed.slice(BEAD_SCHEME.length));
-  }
-  return isBeadId(trimmed);
+  if (!trimmed || !trimmed.toLowerCase().startsWith(BEAD_SCHEME)) return false;
+  return isBeadId(trimmed.slice(BEAD_SCHEME.length));
 }
 
 export function decodeBeadLinkHref(href: string): string {

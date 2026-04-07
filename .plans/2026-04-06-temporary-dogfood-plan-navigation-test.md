@@ -23,14 +23,15 @@ bead_ids:
 
 ## Linked beads
 
-- Current dogfood task: [Temporary dogfood plan file bead](nerve-v8z0)
-- Dogfood validation bead: [Validate locally and prepare dogfood instructions](nerve-lpkw)
-- Implementation bead: [Reapply Plans linkage and reader workflow](nerve-t68.2)
-- Implementation bead: [Reapply kanban plan-linkage affordances](nerve-mi0.3)
-- Follow-up/upstream bead: [Open upstream issue and PR after dogfood approval](nerve-erw0)
+- Current dogfood task: [Temporary dogfood plan file bead](bead:nerve-v8z0)
+- Dogfood validation bead: [Validate locally and prepare dogfood instructions](bead:nerve-lpkw)
+- Implementation bead: [Reapply Plans linkage and reader workflow](bead:nerve-t68.2)
+- Implementation bead: [Reapply kanban plan-linkage affordances](bead:nerve-mi0.3)
+- Follow-up/upstream bead: [Open upstream issue and PR after dogfood approval](bead:nerve-erw0)
 
 ## Notes
 
 - This file intentionally lives under the repo-local `.plans/` directory, not the global OpenClaw workspace.
 - The frontmatter `bead_ids` block is included so Nerve has a compact structured list to inspect.
-- The body includes clickable markdown bead links for manual dogfood validation.
+- The body now uses explicit `bead:` links so markdown clicks route through Nerve's internal bead viewer flow during dogfood validation.
+- On `slice/bead-scheme-markdown-navigation`, the markdown renderer preserves explicit `bead:` URLs via a custom `urlTransform` so `react-markdown` does not strip the scheme before the in-app click handler runs.

@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { buildBeadTabId, decodeBeadLinkHref, isBeadId, isBeadLinkHref } from './links';
 
 describe('bead link helpers', () => {
-  it('recognizes bead ids and bead scheme links', () => {
+  it('recognizes bead ids separately from explicit bead-scheme links', () => {
     expect(isBeadId('nerve-fms2')).toBe(true);
-    expect(isBeadLinkHref('nerve-fms2')).toBe(true);
     expect(isBeadLinkHref('bead:nerve-fms2')).toBe(true);
   });
 
-  it('rejects normal file paths', () => {
+  it('rejects bare bead ids and normal file paths as markdown bead links', () => {
+    expect(isBeadLinkHref('nerve-fms2')).toBe(false);
     expect(isBeadId('.plans/demo.md')).toBe(false);
     expect(isBeadLinkHref('docs/todo.md')).toBe(false);
   });
