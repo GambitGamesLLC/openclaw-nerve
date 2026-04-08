@@ -117,6 +117,7 @@ export function TabbedContentArea({
                 onSave={onSaveFile}
                 onRetry={onRetryFile}
                 onOpenWorkspacePath={onOpenWorkspacePath}
+                onOpenBeadId={onOpenBeadId}
               />
             ) : (
               <Suspense fallback={<EditorFallback />}>
