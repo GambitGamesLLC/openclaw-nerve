@@ -73,22 +73,27 @@ The right order is: verify the deployed branch/runtime state, inspect the live p
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-08-diagnose-nerve-502-after-update-and-restore.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Final recovery state verified on the deployed branch `feature/combo-workhorse-all-unmerged-2026-04-07` at commit `77a796256ce88f362ee2ba2934571956832ed7e6` (`Fix Nerve startup TypeScript regressions`). `systemctl is-active nerve.service` is `active`, recent `journalctl -u nerve.service` output shows a clean startup through `npm run prod`, and the app is advertising `[openclaw-ui] http://127.0.0.1:3080` with successful `HEAD / 200` requests instead of crash-looping before bind. End-to-end verification now passes at both layers: `curl -I http://127.0.0.1:3080/` returns `HTTP/1.1 200 OK`, and the public Tailscale-served URL `https://derrick-surface-pro-8.tail613fcb.ts.net/` returns `HTTP/2 200`, confirming the earlier 502 is cleared.
+
+Exact root cause for future sessions: the outage was not a Tailscale Serve or systemd wiring problem. `nerve.service` was launching the deployed feature branch, but `npm run prod` runs a TypeScript build before server start, and that build was failing on two source regressions introduced in the app code: (1) `src/features/markdown/MarkdownRenderer.tsx` declared `onOpenBeadId` twice, causing `TS2300 Duplicate identifier 'onOpenBeadId'`; and (2) `src/features/beads/BeadViewerTab.tsx` required callbacks that `TabbedContentArea` passed as optional, causing `TS2322` prop-type incompatibility. Because the build failed, `server-dist/index.js` never bound `127.0.0.1:3080`, systemd kept restarting the service, and the reverse proxy surfaced the failure as HTTP 502.
+
+Exact fix for future sessions: commit `77a796256ce88f362ee2ba2934571956832ed7e6` removed the duplicate `onOpenBeadId` prop declaration in `MarkdownRenderer.tsx` and changed `BeadViewerTab` to accept the navigation callbacks as optional, guarding the related UI actions so runtime behavior still matches available capabilities. That restored `npm run build`, allowed `npm run prod` to complete its startup path, and brought the Nerve UI back behind the existing proxy without any infrastructure changes.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Restored Chip's deployed Nerve UI from a 502 outage to a healthy end-to-end service on the existing feature branch by fixing the startup-blocking TypeScript regressions, verifying local and public HTTP 200 responses, and documenting the exact failure chain plus recovery point for future incidents.
 
 **Commits:**
-- Pending
+- `77a7962` - Fix Nerve startup TypeScript regressions
+- `docs(plan): record Nerve 502 recovery verification and root cause`
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** Because `npm run prod` performs a TypeScript build before launching the server, compile-time UI regressions can present as an infrastructure-looking 502 at the proxy layer. Future outage checks should verify `journalctl -u nerve.service`, confirm whether `127.0.0.1:3080` ever binds, and treat branch drift on long-lived feature deployments as a production risk even when systemd and proxy config are otherwise correct.
 
 ---
 
