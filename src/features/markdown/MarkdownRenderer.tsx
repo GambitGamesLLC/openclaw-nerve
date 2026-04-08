@@ -5,7 +5,7 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
-import { isBeadLinkHref, parseBeadLinkHref, type BeadLinkTarget } from '@/features/beads';
+import { isBeadLinkHref, isSyntacticallyValidExplicitBeadHref, parseBeadLinkHref, type BeadLinkTarget } from '@/features/beads';
 import { renderInlinePathReferences } from './inlineReferences';
 
 interface MarkdownRendererProps {
@@ -183,7 +183,7 @@ function decodeWorkspacePathLink(href: string): string {
 }
 
 function transformMarkdownUrl(url: string): string {
-  if (isBeadLinkHref(url) || isWorkspacePathLink(url)) {
+  if (isBeadLinkHref(url) || isSyntacticallyValidExplicitBeadHref(url) || isWorkspacePathLink(url)) {
     return url;
   }
   return defaultUrlTransform(url);

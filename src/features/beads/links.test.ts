@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBeadTabId, decodeBeadLinkHref, isBeadId, isBeadLinkHref, parseBeadLinkHref } from './links';
+import { buildBeadTabId, decodeBeadLinkHref, isBeadId, isBeadLinkHref, isSyntacticallyValidExplicitBeadHref, parseBeadLinkHref } from './links';
 
 describe('bead link helpers', () => {
   it('recognizes legacy bead shorthand and explicit bead URIs', () => {
@@ -43,6 +43,11 @@ describe('bead link helpers', () => {
 
   it('rejects relative explicit bead URIs when there is no current document path', () => {
     expect(parseBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBeNull();
+  });
+
+  it('still recognizes syntactically valid explicit bead URIs before context-aware resolution', () => {
+    expect(isSyntacticallyValidExplicitBeadHref('bead://../projects/demo#nerve-fms2')).toBe(true);
+    expect(isBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBe(false);
   });
 
   it('builds distinct tab ids for explicit bead targets', () => {

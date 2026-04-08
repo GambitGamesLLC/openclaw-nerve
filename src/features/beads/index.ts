@@ -3,6 +3,7 @@ export {
   decodeBeadLinkHref,
   isBeadId,
   isBeadLinkHref,
+  isSyntacticallyValidExplicitBeadHref,
   parseBeadLinkHref,
 } from './links';
 export { BeadViewerTab } from './BeadViewerTab';
