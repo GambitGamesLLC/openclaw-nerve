@@ -29,6 +29,21 @@ export function isBeadId(value: string): boolean {
   return BEAD_ID_PATTERN.test(trimmed);
 }
 
+export function isSyntacticallyValidExplicitBeadHref(href: string): boolean {
+  if (!href) return false;
+
+  const trimmed = href.trim();
+  if (!trimmed.toLowerCase().startsWith(EXPLICIT_BEAD_SCHEME)) return false;
+
+  const rawPayload = trimmed.slice(EXPLICIT_BEAD_SCHEME.length);
+  const hashIndex = rawPayload.indexOf('#');
+  if (hashIndex <= 0 || hashIndex === rawPayload.length - 1) return false;
+
+  const rawTargetPath = decodeUriComponentOrRaw(rawPayload.slice(0, hashIndex)).trim();
+  const beadId = decodeUriComponentOrRaw(rawPayload.slice(hashIndex + 1)).trim();
+  return Boolean(rawTargetPath) && isBeadId(beadId);
+}
+
 export function isBeadLinkHref(href: string): boolean {
   return parseBeadLinkHref(href) !== null;
 }

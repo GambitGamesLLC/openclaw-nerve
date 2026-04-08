@@ -379,7 +379,7 @@ describe('MarkdownRenderer', () => {
     });
   });
 
-  it('rejects relative explicit bead links on surfaces without a current document path', () => {
+  it('preserves relative explicit bead links as anchors even before context-aware parsing is available', () => {
     const onOpenBeadId = vi.fn();
     render(
       <MarkdownRenderer
@@ -388,8 +388,37 @@ describe('MarkdownRenderer', () => {
       />,
     );
 
-    expect(screen.queryByRole('link', { name: 'viewer' })).toBeNull();
+    const link = screen.getByRole('link', { name: 'viewer' });
+    expect(link).toHaveAttribute('href', 'bead://../projects/virtra-apex-docs/.beads#virtra-apex-docs-id2');
+    expect(link).toHaveAttribute('target', '_blank');
+
+    fireEvent.click(link);
     expect(onOpenBeadId).not.toHaveBeenCalled();
+  });
+
+  it('routes relative explicit bead links in-app once current document context is available', () => {
+    const onOpenBeadId = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead://../projects/virtra-apex-docs/.beads#virtra-apex-docs-id2)"
+        currentDocumentPath="notes/bead-link-dogfood.md"
+        workspaceAgentId="main"
+        onOpenBeadId={onOpenBeadId}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'viewer' });
+    expect(link).toHaveAttribute('href', 'bead://../projects/virtra-apex-docs/.beads#virtra-apex-docs-id2');
+    expect(link).not.toHaveAttribute('target', '_blank');
+
+    fireEvent.click(link);
+
+    expect(onOpenBeadId).toHaveBeenCalledWith({
+      beadId: 'virtra-apex-docs-id2',
+      explicitTargetPath: '../projects/virtra-apex-docs/.beads',
+      currentDocumentPath: 'notes/bead-link-dogfood.md',
+      workspaceAgentId: 'main',
+    });
   });
 
   it('keeps external links as normal browser links when a handler is provided', () => {
