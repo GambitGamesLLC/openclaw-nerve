@@ -10,8 +10,16 @@ app.get('/api/beads/:id', rateLimitGeneral, async (c) => {
     return c.json({ error: 'invalid_request', details: 'bead id is required' }, 400);
   }
 
+  const targetPath = c.req.query('targetPath')?.trim() || undefined;
+  const currentDocumentPath = c.req.query('currentDocumentPath')?.trim() || undefined;
+  const workspaceAgentId = c.req.query('workspaceAgentId')?.trim() || undefined;
+
   try {
-    const bead = await getBeadDetail(beadId);
+    const bead = await getBeadDetail(beadId, {
+      targetPath,
+      currentDocumentPath,
+      workspaceAgentId,
+    });
     return c.json({ ok: true, bead });
   } catch (error) {
     if (error instanceof BeadNotFoundError) {

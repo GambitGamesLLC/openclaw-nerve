@@ -315,7 +315,7 @@ describe('MarkdownRenderer', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
 
-    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+    expect(onOpenBeadId).toHaveBeenCalledWith({ beadId: 'nerve-fms2' });
   });
 
   it('routes explicit bead-scheme links to bead tabs before workspace resolution or browser fallback', () => {
@@ -335,7 +335,7 @@ describe('MarkdownRenderer', () => {
 
     fireEvent.click(link);
 
-    expect(onOpenBeadId).toHaveBeenCalledWith('nerve-fms2');
+    expect(onOpenBeadId).toHaveBeenCalledWith({ beadId: 'nerve-fms2' });
     expect(onOpenWorkspacePath).not.toHaveBeenCalled();
   });
 
@@ -356,6 +356,40 @@ describe('MarkdownRenderer', () => {
     await waitFor(() => {
       expect(onOpenWorkspacePath).toHaveBeenCalledWith('nerve-fms2', undefined);
     });
+  });
+
+  it('passes explicit bead lookup context through for cross-context links', () => {
+    const onOpenBeadId = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead:///home/derrick/.openclaw/workspace/projects/virtra-apex-docs/.beads#virtra-apex-docs-id2)"
+        currentDocumentPath="bead-link-dogfood.md"
+        workspaceAgentId="main"
+        onOpenBeadId={onOpenBeadId}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'viewer' }));
+
+    expect(onOpenBeadId).toHaveBeenCalledWith({
+      beadId: 'virtra-apex-docs-id2',
+      explicitTargetPath: '/home/derrick/.openclaw/workspace/projects/virtra-apex-docs/.beads',
+      currentDocumentPath: 'bead-link-dogfood.md',
+      workspaceAgentId: 'main',
+    });
+  });
+
+  it('rejects relative explicit bead links on surfaces without a current document path', () => {
+    const onOpenBeadId = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead://../projects/virtra-apex-docs/.beads#virtra-apex-docs-id2)"
+        onOpenBeadId={onOpenBeadId}
+      />,
+    );
+
+    expect(screen.queryByRole('link', { name: 'viewer' })).toBeNull();
+    expect(onOpenBeadId).not.toHaveBeenCalled();
   });
 
   it('keeps external links as normal browser links when a handler is provided', () => {

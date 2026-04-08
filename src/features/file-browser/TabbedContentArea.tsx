@@ -13,7 +13,7 @@ import { ImageViewer } from './ImageViewer';
 import { MarkdownDocumentView } from './MarkdownDocumentView';
 import { isImageFile, isMarkdownFile } from './utils/fileTypes';
 import type { OpenFile } from './types';
-import { BeadViewerTab, type OpenBeadTab } from '@/features/beads';
+import { BeadViewerTab, type BeadLinkTarget, type OpenBeadTab } from '@/features/beads';
 
 // Lazy-load CodeMirror editor — keeps it out of the initial bundle
 const FileEditor = lazy(() => import('./FileEditor'));
@@ -45,7 +45,7 @@ interface TabbedContentAreaProps {
   onRetryFile: (path: string) => void;
   onReloadFile?: (path: string) => void;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
-  onOpenBeadId?: (beadId: string) => void;
+  onOpenBeadId?: (target: BeadLinkTarget) => void;
   saveToast?: SaveToast | null;
   onDismissToast?: () => void;
   /** The chat panel rendered as-is (never unmounted). */
@@ -118,6 +118,7 @@ export function TabbedContentArea({
                 onRetry={onRetryFile}
                 onOpenWorkspacePath={onOpenWorkspacePath}
                 onOpenBeadId={onOpenBeadId}
+                workspaceAgentId={workspaceAgentId}
               />
             ) : (
               <Suspense fallback={<EditorFallback />}>
@@ -142,7 +143,12 @@ export function TabbedContentArea({
             aria-labelledby={`tab-${bead.id}`}
           >
             <BeadViewerTab
-              beadId={bead.beadId}
+              beadTarget={{
+                beadId: bead.beadId,
+                explicitTargetPath: bead.explicitTargetPath,
+                currentDocumentPath: bead.currentDocumentPath,
+                workspaceAgentId: bead.workspaceAgentId,
+              }}
               onOpenBeadId={onOpenBeadId}
               onOpenWorkspacePath={onOpenWorkspacePath}
             />

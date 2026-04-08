@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { findRepoPlanByBeadId } from './plans.js';
+import { resolveAgentWorkspace } from './agent-workspace.js';
 
 const execFile = promisify(execFileCallback);
 const BD_TIMEOUT_MS = 15_000;
@@ -57,6 +58,12 @@ export interface BeadDetail {
   dependencies: BeadRelationSummary[];
   dependents: BeadRelationSummary[];
   linkedPlan: BeadLinkedPlanSummary | null;
+}
+
+export interface BeadLookupOptions {
+  targetPath?: string;
+  currentDocumentPath?: string;
+  workspaceAgentId?: string;
 }
 
 interface RawBeadRelation {
@@ -160,11 +167,42 @@ function normalizeRelations(value: unknown): BeadRelationSummary[] {
   });
 }
 
-export async function getBeadDetail(beadId: string, repoRoot = process.cwd()): Promise<BeadDetail> {
+function normalizeBeadRepoRoot(repoRoot: string): string {
+  const trimmed = repoRoot.trim();
+  if (!trimmed) return trimmed;
+  return path.basename(trimmed) === '.beads' ? path.dirname(trimmed) : trimmed;
+}
+
+export function resolveBeadLookupRepoRoot(options: BeadLookupOptions = {}): string {
+  if (!options.targetPath?.trim()) {
+    return process.cwd();
+  }
+
+  const targetPath = options.targetPath.trim();
+  if (path.isAbsolute(targetPath)) {
+    return normalizeBeadRepoRoot(path.normalize(targetPath));
+  }
+
+  const currentDocumentPath = options.currentDocumentPath?.trim();
+  if (!currentDocumentPath) {
+    throw new BeadAdapterError('Relative explicit bead URIs require a current document path');
+  }
+
+  const workspaceRoot = resolveAgentWorkspace(options.workspaceAgentId).workspaceRoot;
+  const absoluteDocumentPath = path.isAbsolute(currentDocumentPath)
+    ? currentDocumentPath
+    : path.resolve(workspaceRoot, currentDocumentPath);
+
+  return normalizeBeadRepoRoot(path.resolve(path.dirname(absoluteDocumentPath), targetPath));
+}
+
+export async function getBeadDetail(beadId: string, options: BeadLookupOptions = {}): Promise<BeadDetail> {
   const normalizedBeadId = beadId.trim();
   if (!normalizedBeadId) {
     throw new BeadNotFoundError(beadId);
   }
+
+  const repoRoot = resolveBeadLookupRepoRoot(options);
 
   let stdout = '';
   let stderr = '';

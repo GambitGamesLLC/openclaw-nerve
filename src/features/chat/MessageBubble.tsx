@@ -5,6 +5,7 @@ import { isMessageCollapsible } from './types';
 import { decodeHtmlEntities } from '@/lib/formatting';
 import { isStructuredMarkdown } from '@/lib/text/isStructuredMarkdown';
 import type { ChatMsg } from './types';
+import type { BeadLinkTarget } from '@/features/beads';
 
 // Lazy-load markdown renderer (includes highlight.js)
 const MarkdownRenderer = lazy(() => import('@/features/markdown/MarkdownRenderer').then(m => ({ default: m.MarkdownRenderer })));
@@ -45,7 +46,7 @@ interface MessageBubbleProps {
   agentName?: string;
   onOpenWorkspacePath?: (path: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
+  onOpenBeadId?: (target: BeadLinkTarget) => void | Promise<void>;
 }
 
 const borderClass = (role: string) => {

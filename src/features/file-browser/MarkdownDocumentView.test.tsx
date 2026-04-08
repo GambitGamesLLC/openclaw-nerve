@@ -12,14 +12,16 @@ vi.mock('@/features/markdown/MarkdownRenderer', () => ({
     currentDocumentPath,
     onOpenBeadId,
     onOpenWorkspacePath,
+    workspaceAgentId,
   }: {
     content: string;
     className?: string;
     currentDocumentPath?: string;
-    onOpenBeadId?: (beadId: string) => void;
+    onOpenBeadId?: (target: { beadId: string }) => void;
     onOpenWorkspacePath?: (path: string, basePath?: string) => void;
+    workspaceAgentId?: string;
   }) => {
-    markdownRendererSpy({ content, className, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath });
+    markdownRendererSpy({ content, className, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath, workspaceAgentId });
     return <div data-testid="markdown-renderer" className={className}>{content}</div>;
   },
 }));
@@ -94,6 +96,7 @@ describe('MarkdownDocumentView', () => {
         onRetry={vi.fn()}
         onOpenBeadId={onOpenBeadId}
         onOpenWorkspacePath={onOpenWorkspacePath}
+        workspaceAgentId="research"
       />,
     );
 
@@ -101,6 +104,7 @@ describe('MarkdownDocumentView', () => {
     const props = markdownRendererSpy.mock.calls.at(-1)?.[0];
     expect(props.currentDocumentPath).toBe('docs/guide.md');
     expect(props.onOpenBeadId).toBe(onOpenBeadId);
+    expect(props.workspaceAgentId).toBe('research');
 
     props.onOpenWorkspacePath?.('docs/todo.md');
     expect(onOpenWorkspacePath).toHaveBeenCalledWith('docs/todo.md', 'docs/guide.md');
