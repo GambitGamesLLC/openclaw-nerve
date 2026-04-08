@@ -4,8 +4,8 @@ import { useBeadDetail } from './useBeadDetail';
 
 interface BeadViewerTabProps {
   beadId: string;
-  onOpenBeadId: (beadId: string) => void;
-  onOpenWorkspacePath: (path: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void;
+  onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
 }
 
 function formatTimestamp(value: string | null): string | null {
@@ -24,7 +24,7 @@ function RelationList({
 }: {
   title: string;
   items: Array<{ id: string; title: string | null; status: string | null; dependencyType: string | null }>;
-  onOpenBeadId: (beadId: string) => void;
+  onOpenBeadId?: (beadId: string) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -39,8 +39,9 @@ function RelationList({
           <button
             key={item.id}
             type="button"
-            className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/60 bg-card/60 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-card"
-            onClick={() => onOpenBeadId(item.id)}
+            className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/60 bg-card/60 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-card disabled:cursor-default disabled:opacity-75"
+            onClick={() => onOpenBeadId?.(item.id)}
+            disabled={!onOpenBeadId}
           >
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -139,8 +140,9 @@ export function BeadViewerTab({ beadId, onOpenBeadId, onOpenWorkspacePath }: Bea
             </div>
             <button
               type="button"
-              className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/60 bg-card/60 px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-card"
-              onClick={() => { void onOpenWorkspacePath(bead.linkedPlan!.path); }}
+              className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/60 bg-card/60 px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-card disabled:cursor-default disabled:opacity-75"
+              onClick={() => { void onOpenWorkspacePath?.(bead.linkedPlan!.path); }}
+              disabled={!onOpenWorkspacePath}
             >
               <div className="min-w-0 space-y-1">
                 <div className="truncate text-sm font-medium text-foreground">{bead.linkedPlan.title}</div>

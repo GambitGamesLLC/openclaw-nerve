@@ -17,7 +17,6 @@ interface MarkdownRendererProps {
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
   onOpenBeadId?: (beadId: string) => void | Promise<void>;
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 interface MarkdownAstNode {
