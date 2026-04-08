@@ -72,23 +72,25 @@ This task will verify the delta between `feature/bead-viewer` and combo, roll th
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-08-roll-latest-bead-viewer-into-combo.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Verified directly on `feature/combo-workhorse-all-unmerged-2026-04-07` with a clean working tree. The combo branch contains the canonical bead-viewer roll-forward at `ad1c0dc` (`feat(beads): add bead viewer foundation`), and the specific Beads/markdown/chat/file-browser/server files touched by that roll-forward now match `feature/bead-viewer` exactly (`git diff --stat feature/bead-viewer -- <rolled file set>` returned no output). `git cherry -v feature/bead-viewer feature/combo-workhorse-all-unmerged-2026-04-07` now shows `ad1c0dc` on combo instead of the original `5501e33`, which is expected because the canonical content was carried forward under the combo commit after conflict resolution; the remaining unmatched commits in that output are unrelated combo-only work outside this bead-viewer verification scope. Dogfood readiness is confirmed for the key user-facing behavior: explicit markdown links written as `bead:<id>` are preserved by `MarkdownRenderer`, routed first to the app-level bead handler, and passed through `MarkdownDocumentView` / `App` into the in-app bead tab flow instead of browser-style external navigation. In practice, when someone clicks a `bead:nerve-xxxx` link from markdown file preview on combo, Nerve should open or focus the bead viewer tab in-app for that bead ID rather than attempting external navigation or treating it as a plain workspace path. The focused verification suite already passed during Task 2 (`6` files, `48` tests), including the markdown renderer, markdown document preview, tabbed content area, chat bubble, bead link helper, and server Beads route coverage that back this dogfood path.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Rolled the latest canonical `feature/bead-viewer` foundation into `feature/combo-workhorse-all-unmerged-2026-04-07`, documented the exact roll-forward outcome, and verified combo is ready for dogfood testing of the in-app bead viewer flow. The important user-visible outcome is that explicit `bead:` links coming from markdown file preview now resolve inside combo to the bead viewer tab flow, opening or focusing the bead in-app instead of navigating outward.
 
 **Commits:**
-- Pending
+- `608d599` - docs(plan): record combo bead-viewer roll-forward
+- `ad1c0dc` - feat(beads): add bead viewer foundation
+- docs(plan): record combo bead-viewer readiness verification (this verification update)
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** Cherry-picking the canonical foundation commit after combo had already accumulated overlapping variants was the right move: once the conflict resolution favored canonical `feature/bead-viewer` file content, the later fix commits (`1531caf`, `1de7195`) correctly collapsed to empty because their net content was already present. For verification, checking the rolled file set against the source branch is more reliable than comparing commit hashes alone on an integration branch.
 
 ---
 
-*Drafted on 2026-04-08*
+*Completed on 2026-04-08*
