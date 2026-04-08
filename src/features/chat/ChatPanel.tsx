@@ -45,6 +45,8 @@ interface ChatPanelProps {
   onOpenWorkspacePath?: (path: string) => void | Promise<void>;
   /** Configured path prefixes that should render as clickable inline path links. */
   pathLinkPrefixes?: string[];
+  /** Open a dedicated bead viewer tab. */
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 export interface ChatPanelHandle {
@@ -62,6 +64,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
   onToggleMobileTopBar, isMobileTopBarHidden = false,
   onOpenWorkspacePath,
   pathLinkPrefixes,
+  onOpenBeadId,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -337,6 +340,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
                 agentName={agentName}
                 onOpenWorkspacePath={onOpenWorkspacePath}
                 pathLinkPrefixes={pathLinkPrefixes}
+                onOpenBeadId={onOpenBeadId}
               />
             </div>
           );
