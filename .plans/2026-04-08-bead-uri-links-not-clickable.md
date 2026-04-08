@@ -1,7 +1,7 @@
 # Bead URI Links Not Clickable in Root Markdown Dogfood
 
 **Date:** 2026-04-08  
-**Status:** Draft  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -78,23 +78,23 @@ This is likely the same class of issue we previously saw with `bead:` links: mar
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-08-bead-uri-links-not-clickable.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Rolled the canonical `feature/bead-viewer` fix into combo by cherry-picking `7104d97` onto `feature/combo-workhorse-all-unmerged-2026-04-07`, producing combo commit `c2c64e9` (`Preserve explicit bead URIs during markdown rendering`). The cherry-pick applied cleanly with no conflicts, so combo now carries the exact canonical fix rather than a combo-only patch. Focused verification on combo passed via `npm test -- --run src/features/beads/links.test.ts src/features/markdown/MarkdownRenderer.test.tsx` (45 tests passed across 2 files). Expected dogfood behavior after this roll-forward: explicit relative markdown links like `bead://projects/...#<bead-id>` now survive markdown URL transform, render as clickable anchors, and still defer actual in-app bead interception/opening to the stricter context-aware parse path.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Combo now carries the canonical bead-viewer render-stage preservation fix so explicit `bead://...#...` markdown links remain clickable anchors instead of degrading to plain text. The combo branch inherits the exact canonical behavior: markdown rendering preserves syntactically valid explicit bead URIs, while actual bead opening still requires the stricter context-aware parse path.
 
 **Commits:**
-- Pending.
+- `c2c64e9` - Preserve explicit bead URIs during markdown rendering
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** For custom-scheme markdown links, render-time URL sanitization and click-time routing need different levels of strictness. Preserving syntactically valid bead URIs during markdown transform avoids losing the anchor before document-context-aware parsing has a chance to run.
 
 ---
 
-*Drafted on 2026-04-08*
+*Completed on 2026-04-08*
