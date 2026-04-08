@@ -5,8 +5,8 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
+import { decodeBeadLinkHref, isBeadLinkHref } from '@/features/beads';
 import { renderInlinePathReferences } from './inlineReferences';
-import { decodeBeadLinkHref, isBeadLinkHref } from '@/features/beads/links';
 
 interface MarkdownRendererProps {
   content: string;
@@ -15,8 +15,9 @@ interface MarkdownRendererProps {
   suppressImages?: boolean;
   currentDocumentPath?: string;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 interface MarkdownAstNode {
@@ -181,6 +182,13 @@ function decodeWorkspacePathLink(href: string): string {
   }
 }
 
+function transformMarkdownUrl(url: string): string {
+  if (isBeadLinkHref(url) || isWorkspacePathLink(url)) {
+    return url;
+  }
+  return defaultUrlTransform(url);
+}
+
 function splitWorkspaceLinkTarget(href: string): { path: string; fragment: string | null } {
   const trimmed = href.trim();
   const hashIndex = trimmed.indexOf('#');
@@ -199,13 +207,6 @@ function normalizeWorkspaceLinkTarget(href: string): string {
 
 function getWorkspaceLinkFragment(href: string): string | null {
   return splitWorkspaceLinkTarget(href).fragment;
-}
-
-function transformMarkdownUrl(url: string): string {
-  if (isBeadLinkHref(url)) {
-    return url;
-  }
-  return defaultUrlTransform(url);
 }
 
 function CodeBlock({ code, language, highlightedHtml }: {
@@ -235,8 +236,8 @@ export function MarkdownRenderer({
   suppressImages,
   currentDocumentPath,
   onOpenWorkspacePath,
-  onOpenBeadId,
   pathLinkPrefixes,
+  onOpenBeadId,
 }: MarkdownRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -390,11 +391,23 @@ export function MarkdownRenderer({
               className={mergedClassName}
               onClick={(event) => {
                 event.preventDefault();
-                Promise.resolve()
-                  .then(() => onOpenBeadId(decodeBeadLinkHref(href)))
-                  .catch((error) => {
-                    console.error('Failed to open bead link:', error);
-                  });
+                void onOpenBeadId(decodeBeadLinkHref(href));
+              }}
+            >
+              {children}
+            </a>
+          );
+        }
+
+        if (onOpenBeadId && isBeadLinkHref(href)) {
+          return (
+            <a
+              {...props}
+              href={href}
+              className={mergedClassName}
+              onClick={(event) => {
+                event.preventDefault();
+                void onOpenBeadId(decodeBeadLinkHref(href));
               }}
             >
               {children}

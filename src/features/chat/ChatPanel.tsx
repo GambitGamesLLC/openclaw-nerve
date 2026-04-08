@@ -43,15 +43,14 @@ interface ChatPanelProps {
   isMobileTopBarHidden?: boolean;
   /** Open or reveal a safe workspace path in the file explorer/editor. */
   onOpenWorkspacePath?: (path: string) => void | Promise<void>;
-  /** Open a bead/task internally in the board view. */
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
   /** Configured path prefixes that should render as clickable inline path links. */
   pathLinkPrefixes?: string[];
+  /** Open a dedicated bead viewer tab. */
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 export interface ChatPanelHandle {
   focusInput: () => void;
-  addWorkspacePath: (path: string, kind: 'file' | 'directory') => Promise<void>;
 }
 
 /** Main chat panel with message list, infinite scroll, search, and input bar. */
@@ -64,8 +63,8 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
   loadMore, hasMore = false, onToggleFileBrowser, isFileBrowserCollapsed = true,
   onToggleMobileTopBar, isMobileTopBarHidden = false,
   onOpenWorkspacePath,
-  onOpenBeadId,
   pathLinkPrefixes,
+  onOpenBeadId,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -123,10 +122,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
 
   // Expose focusInput to parent
   useImperativeHandle(ref, () => ({
-    focusInput: () => inputBarRef.current?.focus(),
-    addWorkspacePath: async (path: string, kind: 'file' | 'directory') => {
-      await inputBarRef.current?.addWorkspacePath(path, kind);
-    },
+    focusInput: () => inputBarRef.current?.focus()
   }), []);
 
   // Clean up stale messageRefs when messages change
@@ -343,8 +339,8 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
                 isCurrentMatch={isCurrentMatch}
                 agentName={agentName}
                 onOpenWorkspacePath={onOpenWorkspacePath}
-                onOpenBeadId={onOpenBeadId}
                 pathLinkPrefixes={pathLinkPrefixes}
+                onOpenBeadId={onOpenBeadId}
               />
             </div>
           );

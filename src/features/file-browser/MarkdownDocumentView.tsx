@@ -92,8 +92,8 @@ export function MarkdownDocumentView({
               content={file.content}
               className="markdown-document-content"
               currentDocumentPath={file.path}
-              onOpenWorkspacePath={(targetPath, basePath) => onOpenWorkspacePath?.(targetPath, basePath ?? file.path)}
               onOpenBeadId={onOpenBeadId}
+              onOpenWorkspacePath={(targetPath, basePath) => onOpenWorkspacePath?.(targetPath, basePath ?? file.path)}
             />
           )}
         </div>

@@ -3,27 +3,25 @@ import { describe, expect, it, vi } from 'vitest';
 import { MarkdownDocumentView } from './MarkdownDocumentView';
 import type { OpenFile } from './types';
 
+const markdownRendererSpy = vi.fn();
+
 vi.mock('@/features/markdown/MarkdownRenderer', () => ({
   MarkdownRenderer: ({
     content,
     className,
-    onOpenWorkspacePath,
+    currentDocumentPath,
     onOpenBeadId,
+    onOpenWorkspacePath,
   }: {
     content: string;
     className?: string;
-    onOpenWorkspacePath?: ((path: string, basePath?: string) => void) & { handlerId?: string };
-    onOpenBeadId?: ((beadId: string) => void) & { handlerId?: string };
-  }) => (
-    <div
-      data-testid="markdown-renderer"
-      className={className}
-      data-has-workspace-handler={onOpenWorkspacePath ? 'yes' : 'no'}
-      data-bead-handler-id={onOpenBeadId?.handlerId ?? ''}
-    >
-      {content}
-    </div>
-  ),
+    currentDocumentPath?: string;
+    onOpenBeadId?: (beadId: string) => void;
+    onOpenWorkspacePath?: (path: string, basePath?: string) => void;
+  }) => {
+    markdownRendererSpy({ content, className, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath });
+    return <div data-testid="markdown-renderer" className={className}>{content}</div>;
+  },
 }));
 
 vi.mock('./FileEditor', () => ({
@@ -84,6 +82,33 @@ describe('MarkdownDocumentView', () => {
     expect(screen.getByTestId('file-editor')).toBeInTheDocument();
   });
 
+  it('passes bead and workspace handlers through to the markdown renderer while preserving document path fallback', () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+
+    render(
+      <MarkdownDocumentView
+        file={file}
+        onContentChange={vi.fn()}
+        onSave={vi.fn()}
+        onRetry={vi.fn()}
+        onOpenBeadId={onOpenBeadId}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+      />,
+    );
+
+    expect(markdownRendererSpy).toHaveBeenCalled();
+    const props = markdownRendererSpy.mock.calls.at(-1)?.[0];
+    expect(props.currentDocumentPath).toBe('docs/guide.md');
+    expect(props.onOpenBeadId).toBe(onOpenBeadId);
+
+    props.onOpenWorkspacePath?.('docs/todo.md');
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('docs/todo.md', 'docs/guide.md');
+
+    props.onOpenWorkspacePath?.('docs/child.md', 'docs');
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('docs/child.md', 'docs');
+  });
+
   it('shows the loading state in preview mode instead of a blank markdown pane', () => {
     render(
       <MarkdownDocumentView
@@ -113,25 +138,5 @@ describe('MarkdownDocumentView', () => {
     expect(screen.getByText(/Failed to load/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalledWith('docs/guide.md');
-  });
-
-  it('forwards workspace-path and bead handlers to the markdown preview', () => {
-    const onOpenWorkspacePath = Object.assign(vi.fn(), { handlerId: 'workspace-handler' });
-    const onOpenBeadId = Object.assign(vi.fn(), { handlerId: 'bead-handler' });
-
-    render(
-      <MarkdownDocumentView
-        file={file}
-        onContentChange={vi.fn()}
-        onSave={vi.fn()}
-        onRetry={vi.fn()}
-        onOpenWorkspacePath={onOpenWorkspacePath}
-        onOpenBeadId={onOpenBeadId}
-      />,
-    );
-
-    const renderer = screen.getByTestId('markdown-renderer');
-    expect(renderer).toHaveAttribute('data-has-workspace-handler', 'yes');
-    expect(renderer).toHaveAttribute('data-bead-handler-id', 'bead-handler');
   });
 });
