@@ -1,7 +1,7 @@
 # Backport Startup Fix to Bead Viewer and Realign Combo
 
 **Date:** 2026-04-08  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -74,23 +74,24 @@ This correction task will identify whether the broken code path came from the Be
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-08-backport-startup-fix-to-bead-viewer-and-realign-combo.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Compared canonical commit `105e43455f87eec2021579f0d2c9bee6739ac238` on `feature/bead-viewer` with combo commit `77a796256ce88f362ee2ba2934571956832ed7e6` for the affected code paths and found no diff in `src/features/markdown/MarkdownRenderer.tsx` or `src/features/beads/BeadViewerTab.tsx`. That means combo is already functionally aligned with the canonical startup fix, but via its earlier combo-local commit rather than by ancestry from `feature/bead-viewer`. No additional cherry-pick was applied to combo because it would create duplicate/empty code churn and would also drag branch-specific plan history across branches. Final mapping: canonical source of truth is now `feature/bead-viewer@105e434`; combo remains semantically aligned at `feature/combo-workhorse-all-unmerged-2026-04-07@77a7962` and should pick up the canonical lineage naturally the next time combo is rebuilt/rebased/merged from the corrected Beads branch.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Restored the Nerve startup regression fix to its proper canonical home on `feature/bead-viewer`, then verified combo already contains the same code fix and therefore did not need any additional code change. The final state is truthful about both lineage and semantics: `feature/bead-viewer` now owns the canonical fix via `105e434`, while combo still contains an earlier equivalent repair at `77a7962` until a future combo rebuild/rebase absorbs the canonical branch history.
 
 **Commits:**
-- Pending.
+- `105e434` - Fix Nerve startup TypeScript regressions
+- docs(plan): record combo realignment against canonical bead-viewer startup fix
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** When a hotfix lands on an integration branch first, realignment should prefer proving semantic equivalence before forcing another cherry-pick. If the code is already identical, document the mapping and let the next branch rebuild restore ancestry cleanly instead of manufacturing extra churn.
 
 ---
 
-*Drafted on 2026-04-08*
+*Completed on 2026-04-08*
