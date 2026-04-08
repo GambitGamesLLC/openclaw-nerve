@@ -1,7 +1,7 @@
 # Finish Bead-Link Routing in Markdown Document Preview
 
 **Date:** 2026-04-08  
-**Status:** Draft  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -88,23 +88,24 @@ Combo remains integration-only and is out of scope unless a later follow-up expl
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-08-finish-bead-link-routing-in-markdown-document-preview.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Verified the corrected branch state on `feature/bead-viewer`: `HEAD` and `origin/feature/bead-viewer` are both at `1de7195` (`Fix bead link routing in markdown document preview`). Re-ran the focused verification suite and confirmed the branch still passes: `npm test -- src/features/file-browser/MarkdownDocumentView.test.tsx src/features/file-browser/TabbedContentArea.test.tsx` (6 tests passed). The expected dogfood behavior is now explicit and ready for validation: when a user clicks an explicit `bead:<id>` link from markdown document preview, `MarkdownRenderer` should resolve it in-app through `onOpenBeadId`, opening or focusing the bead viewer for that bead instead of delegating to external browser navigation. Workspace-path markdown links in the same preview surface continue to resolve through the existing workspace file path logic. The only observed warning during focused verification was the pre-existing nested-button DOM warning from the tab UI test fixture; it does not block this bead-link routing readiness check.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Closed the last file-browser routing gap on `feature/bead-viewer` so explicit `bead:` links clicked from markdown document preview stay inside the app and open or focus the bead viewer instead of falling through to external browser navigation. The markdown preview surface now forwards `onOpenBeadId` into `MarkdownRenderer`, focused tests cover the handoff, and the branch is documented as dogfood-ready for this path.
 
 **Commits:**
-- Pending
+- `1531caf` - `fix(markdown): preserve bead: links through react-markdown transform`
+- `1de7195` - `Fix bead link routing in markdown document preview`
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The renderer-level bead-link support was already in place; the failure mode came from a single missing callback handoff in the markdown document preview path. For dogfood surfaces that render markdown in multiple contexts, verification needs to cover both link preservation and end-to-end callback plumbing at each render site.
 
 ---
 
-*Drafted on 2026-04-08*
+*Completed on 2026-04-08*
