@@ -40,7 +40,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { SpawnAgentDialog } from '@/features/sessions/SpawnAgentDialog';
 import { DEFAULT_CHAT_PATH_LINKS_CONFIG, parseChatPathLinksConfig } from '@/features/chat/chatPathLinks';
 import { FileTreePanel, TabbedContentArea, useOpenFiles, type FileTreeChangeEvent } from '@/features/file-browser';
-import { type OpenBeadTab, buildBeadTabId } from '@/features/beads';
+import { type BeadLinkTarget, type OpenBeadTab, buildBeadTabId } from '@/features/beads';
 import { isImageFile } from '@/features/file-browser/utils/fileTypes';
 import { buildAgentRootSessionKey, getSessionDisplayLabel } from '@/features/sessions/sessionKeys';
 import { shouldGuardWorkspaceSwitch } from '@/features/workspace/workspaceSwitchGuard';
@@ -373,17 +373,31 @@ export default function App({ onLogout }: AppProps) {
     setViewMode('chat');
   }, [kanbanVisible, setViewMode, viewMode]);
 
-  const openBeadId = useCallback((beadId: string) => {
-    const normalizedBeadId = beadId.trim();
+  const openBeadId = useCallback((target: BeadLinkTarget) => {
+    const normalizedBeadId = target.beadId.trim();
     if (!normalizedBeadId) return;
 
-    const tabId = buildBeadTabId(normalizedBeadId);
+    const normalizedTarget: BeadLinkTarget = {
+      beadId: normalizedBeadId,
+      explicitTargetPath: target.explicitTargetPath?.trim() || undefined,
+      currentDocumentPath: target.currentDocumentPath?.trim() || undefined,
+      workspaceAgentId: target.workspaceAgentId?.trim() || workspaceAgentId,
+    };
+
+    const tabId = buildBeadTabId(normalizedTarget);
     setOpenBeads((prev) => {
       if (prev.some((bead) => bead.id === tabId)) return prev;
-      return [...prev, { id: tabId, beadId: normalizedBeadId, name: normalizedBeadId }];
+      return [...prev, {
+        id: tabId,
+        beadId: normalizedBeadId,
+        name: normalizedBeadId,
+        explicitTargetPath: normalizedTarget.explicitTargetPath,
+        currentDocumentPath: normalizedTarget.currentDocumentPath,
+        workspaceAgentId: normalizedTarget.workspaceAgentId,
+      }];
     });
     setActiveTab(tabId);
-  }, [setActiveTab]);
+  }, [setActiveTab, workspaceAgentId]);
 
   const closeWorkspaceTab = useCallback((tabId: string) => {
     if (tabId.startsWith('bead:')) {

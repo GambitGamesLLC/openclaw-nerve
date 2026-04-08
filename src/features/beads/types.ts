@@ -35,4 +35,7 @@ export interface OpenBeadTab {
   id: string;
   beadId: string;
   name: string;
+  explicitTargetPath?: string;
+  currentDocumentPath?: string;
+  workspaceAgentId?: string;
 }

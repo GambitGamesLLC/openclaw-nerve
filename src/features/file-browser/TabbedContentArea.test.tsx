@@ -8,8 +8,9 @@ const markdownDocumentViewSpy = vi.fn();
 vi.mock('./MarkdownDocumentView', () => ({
   MarkdownDocumentView: (props: {
     file: OpenFile;
-    onOpenBeadId?: (beadId: string) => void;
+    onOpenBeadId?: (target: { beadId: string }) => void;
     onOpenWorkspacePath?: (path: string, basePath?: string) => void;
+    workspaceAgentId?: string;
   }) => {
     markdownDocumentViewSpy(props);
     return <div data-testid="markdown-document-view">{props.file.path}</div>;
@@ -62,5 +63,6 @@ describe('TabbedContentArea', () => {
     expect(props.file.path).toBe('docs/guide.md');
     expect(props.onOpenBeadId).toBe(onOpenBeadId);
     expect(props.onOpenWorkspacePath).toBe(onOpenWorkspacePath);
+    expect(props.workspaceAgentId).toBe('agent-1');
   });
 });

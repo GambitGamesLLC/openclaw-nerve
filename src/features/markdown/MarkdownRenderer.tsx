@@ -5,7 +5,7 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
-import { decodeBeadLinkHref, isBeadLinkHref } from '@/features/beads';
+import { isBeadLinkHref, parseBeadLinkHref, type BeadLinkTarget } from '@/features/beads';
 import { renderInlinePathReferences } from './inlineReferences';
 
 interface MarkdownRendererProps {
@@ -16,7 +16,8 @@ interface MarkdownRendererProps {
   currentDocumentPath?: string;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
+  onOpenBeadId?: (target: BeadLinkTarget) => void | Promise<void>;
+  workspaceAgentId?: string;
 }
 
 interface MarkdownAstNode {
@@ -237,6 +238,7 @@ export function MarkdownRenderer({
   onOpenWorkspacePath,
   pathLinkPrefixes,
   onOpenBeadId,
+  workspaceAgentId,
 }: MarkdownRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -382,7 +384,8 @@ export function MarkdownRenderer({
           );
         }
 
-        if (onOpenBeadId && isBeadLinkHref(href)) {
+        const beadTarget = parseBeadLinkHref(href, { currentDocumentPath, workspaceAgentId });
+        if (onOpenBeadId && beadTarget) {
           return (
             <a
               {...props}
@@ -390,23 +393,7 @@ export function MarkdownRenderer({
               className={mergedClassName}
               onClick={(event) => {
                 event.preventDefault();
-                void onOpenBeadId(decodeBeadLinkHref(href));
-              }}
-            >
-              {children}
-            </a>
-          );
-        }
-
-        if (onOpenBeadId && isBeadLinkHref(href)) {
-          return (
-            <a
-              {...props}
-              href={href}
-              className={mergedClassName}
-              onClick={(event) => {
-                event.preventDefault();
-                void onOpenBeadId(decodeBeadLinkHref(href));
+                void onOpenBeadId(beadTarget);
               }}
             >
               {children}
@@ -455,7 +442,7 @@ export function MarkdownRenderer({
       },
       ...(suppressImages ? { img: () => null } : {}),
     };
-  }, [childOptions, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath, scrollToAnchor, suppressImages, updateLocationHash]);
+  }, [childOptions, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath, scrollToAnchor, suppressImages, updateLocationHash, workspaceAgentId]);
 
   return (
     <div ref={containerRef} className={`markdown-content ${className}`}>

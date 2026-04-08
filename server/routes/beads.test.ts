@@ -61,7 +61,40 @@ describe('beads routes', () => {
         }),
       }),
     });
-    expect(getBeadDetailMock).toHaveBeenCalledWith('nerve-fms2');
+    expect(getBeadDetailMock).toHaveBeenCalledWith('nerve-fms2', {
+      targetPath: undefined,
+      currentDocumentPath: undefined,
+      workspaceAgentId: undefined,
+    });
+  });
+
+  it('passes explicit lookup context through to the bead lookup', async () => {
+    getBeadDetailMock.mockResolvedValue({
+      id: 'virtra-apex-docs-id2',
+      title: 'Demo',
+      notes: null,
+      status: null,
+      priority: null,
+      issueType: null,
+      owner: null,
+      createdAt: null,
+      updatedAt: null,
+      closedAt: null,
+      closeReason: null,
+      dependencies: [],
+      dependents: [],
+      linkedPlan: null,
+    });
+
+    const app = await buildApp();
+    const res = await app.request('/api/beads/virtra-apex-docs-id2?targetPath=../projects/virtra-apex-docs/.beads&currentDocumentPath=bead-link-dogfood.md&workspaceAgentId=main');
+
+    expect(res.status).toBe(200);
+    expect(getBeadDetailMock).toHaveBeenCalledWith('virtra-apex-docs-id2', {
+      targetPath: '../projects/virtra-apex-docs/.beads',
+      currentDocumentPath: 'bead-link-dogfood.md',
+      workspaceAgentId: 'main',
+    });
   });
 
   it('returns 404 when the bead is missing', async () => {

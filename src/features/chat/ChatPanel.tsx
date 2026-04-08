@@ -8,6 +8,7 @@ import { useMessageSearch } from './useMessageSearch';
 import { ActivityLog, ChatHeader, ProcessingIndicator, ScrollToBottomButton, StreamingMessage, ToolGroupBlock } from './components';
 import { isMessageCollapsible } from './types';
 import type { ChatMsg, ImageAttachment, OutgoingUploadPayload } from './types';
+import type { BeadLinkTarget } from '@/features/beads';
 
 interface ChatPanelProps {
   messages: ChatMsg[];
@@ -46,7 +47,7 @@ interface ChatPanelProps {
   /** Configured path prefixes that should render as clickable inline path links. */
   pathLinkPrefixes?: string[];
   /** Open a dedicated bead viewer tab. */
-  onOpenBeadId?: (beadId: string) => void | Promise<void>;
+  onOpenBeadId?: (target: BeadLinkTarget) => void | Promise<void>;
 }
 
 export interface ChatPanelHandle {

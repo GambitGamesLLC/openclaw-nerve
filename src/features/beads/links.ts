@@ -1,5 +1,25 @@
 const BEAD_ID_PATTERN = /^[A-Za-z0-9]+-[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const BEAD_SCHEME = 'bead:';
+const LEGACY_BEAD_SCHEME = 'bead:';
+const EXPLICIT_BEAD_SCHEME = 'bead://';
+
+export interface BeadLinkTarget {
+  beadId: string;
+  explicitTargetPath?: string;
+  currentDocumentPath?: string;
+  workspaceAgentId?: string;
+}
+
+function decodeUriComponentOrRaw(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function isAbsoluteFilesystemPath(value: string): boolean {
+  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value);
+}
 
 export function isBeadId(value: string): boolean {
   const trimmed = value.trim();
@@ -10,25 +30,65 @@ export function isBeadId(value: string): boolean {
 }
 
 export function isBeadLinkHref(href: string): boolean {
-  if (!href) return false;
-  const trimmed = href.trim();
-  if (!trimmed || !trimmed.toLowerCase().startsWith(BEAD_SCHEME)) return false;
-  return isBeadId(trimmed.slice(BEAD_SCHEME.length));
+  return parseBeadLinkHref(href) !== null;
 }
 
 export function decodeBeadLinkHref(href: string): string {
-  const trimmed = href.trim();
-  const raw = trimmed.toLowerCase().startsWith(BEAD_SCHEME)
-    ? trimmed.slice(BEAD_SCHEME.length)
-    : trimmed;
-
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
+  return parseBeadLinkHref(href)?.beadId ?? href.trim();
 }
 
-export function buildBeadTabId(beadId: string): string {
-  return `bead:${beadId}`;
+export function parseBeadLinkHref(
+  href: string,
+  options: {
+    currentDocumentPath?: string;
+    workspaceAgentId?: string;
+  } = {},
+): BeadLinkTarget | null {
+  if (!href) return null;
+
+  const trimmed = href.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.toLowerCase().startsWith(EXPLICIT_BEAD_SCHEME)) {
+    const rawPayload = trimmed.slice(EXPLICIT_BEAD_SCHEME.length);
+    const hashIndex = rawPayload.indexOf('#');
+    if (hashIndex <= 0 || hashIndex === rawPayload.length - 1) return null;
+
+    const rawTargetPath = decodeUriComponentOrRaw(rawPayload.slice(0, hashIndex)).trim();
+    const beadId = decodeUriComponentOrRaw(rawPayload.slice(hashIndex + 1)).trim();
+    if (!rawTargetPath || !isBeadId(beadId)) return null;
+
+    const currentDocumentPath = options.currentDocumentPath?.trim();
+    if (!isAbsoluteFilesystemPath(rawTargetPath) && !currentDocumentPath) {
+      return null;
+    }
+
+    return {
+      beadId,
+      explicitTargetPath: rawTargetPath,
+      currentDocumentPath,
+      workspaceAgentId: options.workspaceAgentId?.trim() || undefined,
+    };
+  }
+
+  if (!trimmed.toLowerCase().startsWith(LEGACY_BEAD_SCHEME)) return null;
+
+  const beadId = decodeUriComponentOrRaw(trimmed.slice(LEGACY_BEAD_SCHEME.length)).trim();
+  if (!isBeadId(beadId)) return null;
+
+  return { beadId };
+}
+
+export function buildBeadTabId(target: BeadLinkTarget | string): string {
+  if (typeof target === 'string') {
+    return `bead:${target}`;
+  }
+
+  if (!target.explicitTargetPath) {
+    return `bead:${target.beadId}`;
+  }
+
+  const workspaceAgentId = target.workspaceAgentId?.trim() || 'main';
+  const currentDocumentPath = target.currentDocumentPath?.trim() || '';
+  return `bead://${workspaceAgentId}:${currentDocumentPath}:${target.explicitTargetPath}#${target.beadId}`;
 }

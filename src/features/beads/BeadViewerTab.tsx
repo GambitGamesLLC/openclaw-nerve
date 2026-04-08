@@ -1,10 +1,11 @@
 import { AlertTriangle, ArrowUpRight, CircleDot, FileText, GitBranch, Loader2 } from 'lucide-react';
 import { MarkdownRenderer } from '@/features/markdown/MarkdownRenderer';
 import { useBeadDetail } from './useBeadDetail';
+import type { BeadLinkTarget } from './links';
 
 interface BeadViewerTabProps {
-  beadId: string;
-  onOpenBeadId?: (beadId: string) => void;
+  beadTarget: BeadLinkTarget;
+  onOpenBeadId?: (target: BeadLinkTarget) => void;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
 }
 
@@ -24,7 +25,7 @@ function RelationList({
 }: {
   title: string;
   items: Array<{ id: string; title: string | null; status: string | null; dependencyType: string | null }>;
-  onOpenBeadId?: (beadId: string) => void;
+  onOpenBeadId?: (target: BeadLinkTarget) => void;
 }) {
   if (items.length === 0) return null;
 
@@ -40,7 +41,7 @@ function RelationList({
             key={item.id}
             type="button"
             className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/60 bg-card/60 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-card disabled:cursor-default disabled:opacity-75"
-            onClick={() => onOpenBeadId?.(item.id)}
+            onClick={() => onOpenBeadId?.({ beadId: item.id })}
             disabled={!onOpenBeadId}
           >
             <div className="min-w-0 space-y-1">
@@ -61,8 +62,8 @@ function RelationList({
   );
 }
 
-export function BeadViewerTab({ beadId, onOpenBeadId, onOpenWorkspacePath }: BeadViewerTabProps) {
-  const { bead, loading, error } = useBeadDetail(beadId);
+export function BeadViewerTab({ beadTarget, onOpenBeadId, onOpenWorkspacePath }: BeadViewerTabProps) {
+  const { bead, loading, error } = useBeadDetail(beadTarget);
 
   if (loading) {
     return (
@@ -79,7 +80,7 @@ export function BeadViewerTab({ beadId, onOpenBeadId, onOpenWorkspacePath }: Bea
         <div className="max-w-md rounded-3xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
           <div className="mb-2 flex items-center gap-2 font-medium">
             <AlertTriangle size={15} />
-            <span>Could not load bead {beadId}</span>
+            <span>Could not load bead {beadTarget.beadId}</span>
           </div>
           <p className="text-destructive/80">{error || 'Unknown error'}</p>
         </div>
