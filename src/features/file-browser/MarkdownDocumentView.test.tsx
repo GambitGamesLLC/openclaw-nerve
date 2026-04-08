@@ -4,8 +4,25 @@ import { MarkdownDocumentView } from './MarkdownDocumentView';
 import type { OpenFile } from './types';
 
 vi.mock('@/features/markdown/MarkdownRenderer', () => ({
-  MarkdownRenderer: ({ content, className }: { content: string; className?: string }) => (
-    <div data-testid="markdown-renderer" className={className}>{content}</div>
+  MarkdownRenderer: ({
+    content,
+    className,
+    onOpenWorkspacePath,
+    onOpenBeadId,
+  }: {
+    content: string;
+    className?: string;
+    onOpenWorkspacePath?: ((path: string, basePath?: string) => void) & { handlerId?: string };
+    onOpenBeadId?: ((beadId: string) => void) & { handlerId?: string };
+  }) => (
+    <div
+      data-testid="markdown-renderer"
+      className={className}
+      data-has-workspace-handler={onOpenWorkspacePath ? 'yes' : 'no'}
+      data-bead-handler-id={onOpenBeadId?.handlerId ?? ''}
+    >
+      {content}
+    </div>
   ),
 }));
 
@@ -96,5 +113,25 @@ describe('MarkdownDocumentView', () => {
     expect(screen.getByText(/Failed to load/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalledWith('docs/guide.md');
+  });
+
+  it('forwards workspace-path and bead handlers to the markdown preview', () => {
+    const onOpenWorkspacePath = Object.assign(vi.fn(), { handlerId: 'workspace-handler' });
+    const onOpenBeadId = Object.assign(vi.fn(), { handlerId: 'bead-handler' });
+
+    render(
+      <MarkdownDocumentView
+        file={file}
+        onContentChange={vi.fn()}
+        onSave={vi.fn()}
+        onRetry={vi.fn()}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        onOpenBeadId={onOpenBeadId}
+      />,
+    );
+
+    const renderer = screen.getByTestId('markdown-renderer');
+    expect(renderer).toHaveAttribute('data-has-workspace-handler', 'yes');
+    expect(renderer).toHaveAttribute('data-bead-handler-id', 'bead-handler');
   });
 });

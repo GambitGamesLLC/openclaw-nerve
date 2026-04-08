@@ -677,6 +677,7 @@ export default function App({ onLogout }: AppProps) {
       onReloadFile={reloadFile}
       onRetryFile={reloadFile}
       onOpenWorkspacePath={openWorkspacePath}
+      onOpenBeadId={openTaskInBoard}
       chatPanel={
         <PanelErrorBoundary name="Chat">
           <ChatPanel
@@ -703,6 +704,7 @@ export default function App({ onLogout }: AppProps) {
             onToggleMobileTopBar={isCompactLayout ? toggleMobileTopBar : undefined}
             isMobileTopBarHidden={isMobileTopBarHidden}
             onOpenWorkspacePath={openWorkspacePath}
+            onOpenBeadId={openTaskInBoard}
             pathLinkPrefixes={chatPathLinkPrefixes}
           />
         </PanelErrorBoundary>

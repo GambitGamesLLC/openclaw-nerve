@@ -43,6 +43,8 @@ interface ChatPanelProps {
   isMobileTopBarHidden?: boolean;
   /** Open or reveal a safe workspace path in the file explorer/editor. */
   onOpenWorkspacePath?: (path: string) => void | Promise<void>;
+  /** Open a bead/task internally in the board view. */
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
   /** Configured path prefixes that should render as clickable inline path links. */
   pathLinkPrefixes?: string[];
 }
@@ -62,6 +64,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
   loadMore, hasMore = false, onToggleFileBrowser, isFileBrowserCollapsed = true,
   onToggleMobileTopBar, isMobileTopBarHidden = false,
   onOpenWorkspacePath,
+  onOpenBeadId,
   pathLinkPrefixes,
 }, ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -340,6 +343,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
                 isCurrentMatch={isCurrentMatch}
                 agentName={agentName}
                 onOpenWorkspacePath={onOpenWorkspacePath}
+                onOpenBeadId={onOpenBeadId}
                 pathLinkPrefixes={pathLinkPrefixes}
               />
             </div>

@@ -2,8 +2,21 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 
 vi.mock('@/features/markdown/MarkdownRenderer', () => ({
-  MarkdownRenderer: ({ content, onOpenWorkspacePath }: { content: string; onOpenWorkspacePath?: ((path: string) => void) & { handlerId?: string } }) => (
-    <div data-handler-id={onOpenWorkspacePath?.handlerId ?? ''}>{content}</div>
+  MarkdownRenderer: ({
+    content,
+    onOpenWorkspacePath,
+    onOpenBeadId,
+  }: {
+    content: string;
+    onOpenWorkspacePath?: ((path: string) => void) & { handlerId?: string };
+    onOpenBeadId?: ((beadId: string) => void) & { handlerId?: string };
+  }) => (
+    <div
+      data-workspace-handler-id={onOpenWorkspacePath?.handlerId ?? ''}
+      data-bead-handler-id={onOpenBeadId?.handlerId ?? ''}
+    >
+      {content}
+    </div>
   ),
 }));
 
@@ -64,7 +77,7 @@ describe('MessageBubble', () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector('[data-handler-id="one"]')).toBeTruthy();
+      expect(container.querySelector('[data-workspace-handler-id="one"]')).toBeTruthy();
     });
 
     rerender(
@@ -80,7 +93,44 @@ describe('MessageBubble', () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector('[data-handler-id="two"]')).toBeTruthy();
+      expect(container.querySelector('[data-workspace-handler-id="two"]')).toBeTruthy();
+    });
+  });
+
+  it('re-renders when onOpenBeadId changes', async () => {
+    const handlerOne = Object.assign(() => {}, { handlerId: 'bead-one' });
+    const handlerTwo = Object.assign(() => {}, { handlerId: 'bead-two' });
+
+    const { container, rerender } = render(
+      <MessageBubble
+        msg={makeMessage({ role: 'assistant', rawText: '[viewer](bead:nerve-fms2)' })}
+        index={0}
+        isCollapsed={false}
+        isMemoryCollapsed={false}
+        onToggleCollapse={() => {}}
+        onToggleMemory={() => {}}
+        onOpenBeadId={handlerOne}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-bead-handler-id="bead-one"]')).toBeTruthy();
+    });
+
+    rerender(
+      <MessageBubble
+        msg={makeMessage({ role: 'assistant', rawText: '[viewer](bead:nerve-fms2)' })}
+        index={0}
+        isCollapsed={false}
+        isMemoryCollapsed={false}
+        onToggleCollapse={() => {}}
+        onToggleMemory={() => {}}
+        onOpenBeadId={handlerTwo}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-bead-handler-id="bead-two"]')).toBeTruthy();
     });
   });
 });

@@ -43,6 +43,7 @@ interface TabbedContentAreaProps {
   onRetryFile: (path: string) => void;
   onReloadFile?: (path: string) => void;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
   saveToast?: SaveToast | null;
   onDismissToast?: () => void;
   /** The chat panel rendered as-is (never unmounted). */
@@ -60,6 +61,7 @@ export function TabbedContentArea({
   onRetryFile,
   onReloadFile,
   onOpenWorkspacePath,
+  onOpenBeadId,
   saveToast,
   onDismissToast,
   chatPanel,
@@ -111,6 +113,7 @@ export function TabbedContentArea({
                 onSave={onSaveFile}
                 onRetry={onRetryFile}
                 onOpenWorkspacePath={onOpenWorkspacePath}
+                onOpenBeadId={onOpenBeadId}
               />
             ) : (
               <Suspense fallback={<EditorFallback />}>

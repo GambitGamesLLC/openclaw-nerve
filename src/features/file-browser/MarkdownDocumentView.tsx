@@ -10,6 +10,7 @@ interface MarkdownDocumentViewProps {
   onSave: (path: string) => void;
   onRetry: (path: string) => void;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 export function MarkdownDocumentView({
@@ -18,6 +19,7 @@ export function MarkdownDocumentView({
   onSave,
   onRetry,
   onOpenWorkspacePath,
+  onOpenBeadId,
 }: MarkdownDocumentViewProps) {
   const [mode, setMode] = useState<'preview' | 'edit'>('preview');
 
@@ -91,6 +93,7 @@ export function MarkdownDocumentView({
               className="markdown-document-content"
               currentDocumentPath={file.path}
               onOpenWorkspacePath={(targetPath, basePath) => onOpenWorkspacePath?.(targetPath, basePath ?? file.path)}
+              onOpenBeadId={onOpenBeadId}
             />
           )}
         </div>
