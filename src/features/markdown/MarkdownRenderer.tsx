@@ -17,6 +17,7 @@ interface MarkdownRendererProps {
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
   onOpenBeadId?: (beadId: string) => void | Promise<void>;
+  onOpenBeadId?: (beadId: string) => void | Promise<void>;
 }
 
 interface MarkdownAstNode {
@@ -182,7 +183,7 @@ function decodeWorkspacePathLink(href: string): string {
 }
 
 function transformMarkdownUrl(url: string): string {
-  if (isBeadLinkHref(url)) {
+  if (isBeadLinkHref(url) || isWorkspacePathLink(url)) {
     return url;
   }
   return defaultUrlTransform(url);
@@ -375,6 +376,22 @@ export function MarkdownRenderer({
               onClick={(event) => {
                 event.preventDefault();
                 scrollToAnchor(href);
+              }}
+            >
+              {children}
+            </a>
+          );
+        }
+
+        if (onOpenBeadId && isBeadLinkHref(href)) {
+          return (
+            <a
+              {...props}
+              href={href}
+              className={mergedClassName}
+              onClick={(event) => {
+                event.preventDefault();
+                void onOpenBeadId(decodeBeadLinkHref(href));
               }}
             >
               {children}
