@@ -1,7 +1,7 @@
 # Bead Links Route to External Browser Instead of Nerve
 
 **Date:** 2026-04-08  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -100,23 +100,24 @@ This plan explicitly preserves the branch discipline Derrick requested:
 - `.plans/2026-04-08-bead-links-routing-to-external-browser.md`
 - only the runtime/test files required for the proven roll-forward
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Switched to `feature/combo-workhorse-all-unmerged-2026-04-07` and cherry-picked the exact proven narrow-branch commit with provenance preserved via `git cherry-pick -x 26166bb332ba6b7d821c758d77c19d302674aa69`. The cherry-pick was clean with no conflict resolution required. Resulting combo commit: `20e2b8ca77773ae48587b9a44b30e50f08a8babc` (`fix(beads): route markdown bead links through app handlers`). Verification on combo: `npm test -- --run src/features/chat/ChatPanel.test.tsx src/features/chat/MessageBubble.test.tsx src/features/file-browser/MarkdownDocumentView.test.tsx src/features/markdown/MarkdownRenderer.test.tsx` → 4 files passed, 43 tests passed; `npm run build` → passed, including server build. Build emitted only pre-existing Vite chunk-size / dynamic-import warnings, no errors. Dogfood retest target remains `/home/derrick/.openclaw/workspace/bead-link-dogfood.md`: open the markdown in Nerve and click the explicit `bead:` links from both chat-rendered and markdown-document-preview surfaces; expected behavior is Nerve switches to Kanban and opens/selects the referenced bead instead of launching an external browser tab.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** Fixed the remaining bead-link routing gap by ensuring live markdown surfaces in chat and markdown document preview receive the app-level `onOpenBeadId` / `openTaskInBoard` handler, then rolled that proven narrow fix cleanly into the combo branch. Combo now intercepts explicit `bead:` markdown links and routes them through Nerve’s Kanban/task flow instead of falling through to external browser navigation.
 
 **Commits:**
-- Pending
+- `26166bb332ba6b7d821c758d77c19d302674aa69` - fix(beads): route markdown bead links through app handlers
+- `20e2b8ca77773ae48587b9a44b30e50f08a8babc` - fix(beads): route markdown bead links through app handlers
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The renderer-level bead-link interception was already correct; the live bug was entirely in prop wiring. Focused coverage around real render surfaces was the right guardrail, and cherry-picking the proven narrow commit kept combo free of unrelated edits.
 
 ---
 
-*Drafted on 2026-04-08*
+*Completed on 2026-04-08*
