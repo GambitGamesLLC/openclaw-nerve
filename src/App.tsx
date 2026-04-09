@@ -399,6 +399,17 @@ export default function App({ onLogout }: AppProps) {
     setActiveTab(tabId);
   }, [setActiveTab, workspaceAgentId]);
 
+  const visibleOpenBeads = useMemo(() => openBeads.filter((bead) => {
+    const beadWorkspaceAgentId = bead.workspaceAgentId?.trim() || workspaceAgentId;
+    return beadWorkspaceAgentId === workspaceAgentId;
+  }), [openBeads, workspaceAgentId]);
+
+  useEffect(() => {
+    if (!activeTab.startsWith('bead:')) return;
+    if (visibleOpenBeads.some((bead) => bead.id === activeTab)) return;
+    setActiveTab('chat');
+  }, [activeTab, setActiveTab, visibleOpenBeads]);
+
   const closeWorkspaceTab = useCallback((tabId: string) => {
     if (tabId.startsWith('bead:')) {
       setOpenBeads((prev) => prev.filter((bead) => bead.id !== tabId));
@@ -707,7 +718,7 @@ export default function App({ onLogout }: AppProps) {
     <TabbedContentArea
       activeTab={activeTab}
       openFiles={openFiles}
-      openBeads={openBeads}
+      openBeads={visibleOpenBeads}
       workspaceAgentId={workspaceAgentId}
       onSelectTab={setActiveTab}
       onCloseTab={closeWorkspaceTab}
