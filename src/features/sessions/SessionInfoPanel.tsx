@@ -80,16 +80,25 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
     closeTimer.current = setTimeout(() => setOpen(false), 150);
   }, []);
 
-  /* For cron/subagent sessions, resolve the actual model used */
+  /* Resolve actual model from source-of-truth metadata when possible */
   const [actualModel, setActualModel] = useState<string | null>(null);
   const sessionKey = getSessionKey(session);
   const sessionType = getSessionType(sessionKey);
 
   useEffect(() => {
     if (!open) return;
-    if (sessionType === 'main') return;
 
     let cancelled = false;
+    setActualModel(null);
+
+    const sessionIdFromKey = (() => {
+      const parts = sessionKey.split(':');
+      const tail = parts[parts.length - 1];
+      return /^[0-9a-f-]{36}$/.test(tail) ? tail : null;
+    })();
+    const sessionId = typeof session.id === 'string' && /^[0-9a-f-]{36}$/.test(session.id)
+      ? session.id
+      : sessionIdFromKey;
 
     if (sessionType === 'cron') {
       // Cron parent: extract jobId from key, look up cron job for payload.model
@@ -105,23 +114,18 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
           })
           .catch(() => { /* ignore */ });
       }
-    } else {
-      // Cron-run or subagent: read model from transcript
-      const parts = sessionKey.split(':');
-      const sessionId = parts[parts.length - 1];
-      if (sessionId && /^[0-9a-f-]{36}$/.test(sessionId)) {
-        fetch(`/api/sessions/${sessionId}/model`)
-          .then(r => r.json())
-          .then((data: { ok: boolean; model?: string | null; missing?: boolean }) => {
-            if (cancelled || !data.ok) return;
-            if (data.model != null) setActualModel(data.model);
-          })
-          .catch(() => { /* ignore */ });
-      }
+    } else if (sessionId) {
+      fetch(`/api/sessions/${sessionId}/model`)
+        .then(r => r.json())
+        .then((data: { ok: boolean; model?: string | null; missing?: boolean }) => {
+          if (cancelled || !data.ok) return;
+          if (data.model != null) setActualModel(data.model);
+        })
+        .catch(() => { /* ignore */ });
     }
 
     return () => { cancelled = true; };
-  }, [open, sessionKey, sessionType]);
+  }, [open, session.id, sessionKey, sessionType]);
 
   /* Cleanup timers on unmount */
   useEffect(() => {
@@ -133,7 +137,7 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
 
   /* Derived values */
   const model = actualModel ?? session.model ?? 'unknown';
-  const thinking = session.thinking ?? session.thinkingLevel;
+  const thinking = session.thinkingLevel ?? session.thinking;
   const totalTok = session.totalTokens;
   const ctxTok = session.contextTokens ?? 200_000;
   const pct = tokenPct(totalTok, ctxTok);
