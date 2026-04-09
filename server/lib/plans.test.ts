@@ -61,4 +61,20 @@ describe('listRepoPlans', () => {
       beadIds: ['nerve-4gpd'],
     });
   });
+
+  it('parses BOM-prefixed frontmatter', async () => {
+    const repoRoot = await createTempRepo();
+    await fs.writeFile(
+      path.join(repoRoot, '.plans', 'bom-plan.md'),
+      '\uFEFF---\nplan_id: plan-bom\nplan_title: BOM Plan\nbead_ids:\n  - nerve-bom1\n---\n# ignored title',
+      'utf8',
+    );
+
+    await expect(findRepoPlanByBeadId('nerve-bom1', repoRoot)).resolves.toMatchObject({
+      path: '.plans/bom-plan.md',
+      planId: 'plan-bom',
+      title: 'BOM Plan',
+      beadIds: ['nerve-bom1'],
+    });
+  });
 });

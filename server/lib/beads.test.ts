@@ -1,72 +1,106 @@
 import path from 'node:path';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const WORKSPACE_ROOT = path.resolve(path.sep, 'workspace');
+const RESEARCH_WORKSPACE_ROOT = path.resolve(path.sep, 'workspace-research');
+const REPO_ROOT = path.join(WORKSPACE_ROOT, 'repo', 'nerve');
+const OUTSIDE_REPO_ROOT = path.resolve(path.sep, 'repos', 'demo');
+const PROMISIFY_CUSTOM = Symbol.for('nodejs.util.promisify.custom');
+
+const { execFileMock, findRepoPlanByBeadIdMock, resolveAgentWorkspaceMock } = vi.hoisted(() => {
+  const execFileMock = vi.fn();
+  execFileMock[Symbol.for('nodejs.util.promisify.custom')] = vi.fn();
+
+  return {
+    execFileMock,
+    findRepoPlanByBeadIdMock: vi.fn(),
+    resolveAgentWorkspaceMock: vi.fn((agentId?: string) => ({
+      agentId: agentId?.trim() || 'main',
+      workspaceRoot: agentId?.trim() === 'research' ? RESEARCH_WORKSPACE_ROOT : WORKSPACE_ROOT,
+      memoryPath: path.join(WORKSPACE_ROOT, 'MEMORY.md'),
+      memoryDir: path.join(WORKSPACE_ROOT, 'memory'),
+    })),
+  };
+});
+
+vi.mock('node:child_process', () => ({
+  execFile: execFileMock,
+  default: {
+    execFile: execFileMock,
+  },
+}));
 
 vi.mock('./plans.js', () => ({
-  findRepoPlanByBeadId: vi.fn(),
+  findRepoPlanByBeadId: findRepoPlanByBeadIdMock,
 }));
 
 vi.mock('./agent-workspace.js', () => ({
-  resolveAgentWorkspace: vi.fn((agentId?: string) => ({
-    agentId: agentId?.trim() || 'main',
-    workspaceRoot: agentId?.trim() === 'research'
-      ? '/workspace-research'
-      : '/workspace',
-    memoryPath: '/workspace/MEMORY.md',
-    memoryDir: '/workspace/memory',
-  })),
+  resolveAgentWorkspace: resolveAgentWorkspaceMock,
 }));
 
 import { BeadValidationError, getBeadDetail, resolveBeadLookupRepoRoot } from './beads.js';
 
+function resetMocks(): void {
+  vi.restoreAllMocks();
+  execFileMock.mockReset();
+  execFileMock[PROMISIFY_CUSTOM].mockReset();
+  findRepoPlanByBeadIdMock.mockReset();
+  resolveAgentWorkspaceMock.mockClear();
+}
+
 describe('resolveBeadLookupRepoRoot', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    resetMocks();
   });
 
   it('defaults legacy lookup to process cwd', () => {
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/repo/nerve');
-    expect(resolveBeadLookupRepoRoot()).toBe('/repo/nerve');
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(REPO_ROOT);
+    expect(resolveBeadLookupRepoRoot()).toBe(REPO_ROOT);
     cwdSpy.mockRestore();
   });
 
   it('uses explicit absolute repo roots directly when they stay within the workspace', () => {
-    expect(resolveBeadLookupRepoRoot({ targetPath: '/workspace/repos/demo' })).toBe('/workspace/repos/demo');
+    expect(resolveBeadLookupRepoRoot({ targetPath: path.join(WORKSPACE_ROOT, 'repos', 'demo') })).toBe(
+      path.join(WORKSPACE_ROOT, 'repos', 'demo'),
+    );
   });
 
   it('normalizes explicit .beads targets to the owning repo root', () => {
-    expect(resolveBeadLookupRepoRoot({ targetPath: '/workspace/repos/demo/.beads' })).toBe('/workspace/repos/demo');
+    expect(resolveBeadLookupRepoRoot({ targetPath: path.join(WORKSPACE_ROOT, 'repos', 'demo', '.beads') })).toBe(
+      path.join(WORKSPACE_ROOT, 'repos', 'demo'),
+    );
   });
 
   it('rejects explicit absolute targets outside the workspace root', () => {
-    expect(() => resolveBeadLookupRepoRoot({ targetPath: '/repos/demo' })).toThrow(BeadValidationError);
+    expect(() => resolveBeadLookupRepoRoot({ targetPath: OUTSIDE_REPO_ROOT })).toThrow(BeadValidationError);
   });
 
   it('resolves relative explicit targets against the current markdown document directory', () => {
     expect(resolveBeadLookupRepoRoot({
       targetPath: '../projects/demo/.beads',
-      currentDocumentPath: 'docs/specs/links.md',
-    })).toBe(path.resolve('/workspace', 'docs/projects/demo'));
+      currentDocumentPath: path.join('docs', 'specs', 'links.md'),
+    })).toBe(path.resolve(WORKSPACE_ROOT, 'docs', 'projects', 'demo'));
   });
 
   it('uses the scoped workspace root when resolving relative explicit targets', () => {
     expect(resolveBeadLookupRepoRoot({
       targetPath: './repos/demo',
-      currentDocumentPath: 'notes/beads.md',
+      currentDocumentPath: path.join('notes', 'beads.md'),
       workspaceAgentId: 'research',
-    })).toBe(path.resolve('/workspace-research', 'notes/repos/demo'));
+    })).toBe(path.resolve(RESEARCH_WORKSPACE_ROOT, 'notes', 'repos', 'demo'));
   });
 
   it('rejects absolute current document paths outside the workspace root', () => {
     expect(() => resolveBeadLookupRepoRoot({
       targetPath: './repos/demo',
-      currentDocumentPath: '/tmp/beads.md',
+      currentDocumentPath: path.resolve(path.sep, 'tmp', 'beads.md'),
     })).toThrow(BeadValidationError);
   });
 
   it('rejects resolved repo roots that escape the workspace root', () => {
     expect(() => resolveBeadLookupRepoRoot({
       targetPath: '../../../outside-repo',
-      currentDocumentPath: 'docs/specs/links.md',
+      currentDocumentPath: path.join('docs', 'specs', 'links.md'),
     })).toThrow(BeadValidationError);
   });
 
@@ -76,7 +110,29 @@ describe('resolveBeadLookupRepoRoot', () => {
 });
 
 describe('getBeadDetail', () => {
+  beforeEach(() => {
+    resetMocks();
+  });
+
   it('rejects blank bead ids as validation errors', async () => {
     await expect(getBeadDetail('   ')).rejects.toBeInstanceOf(BeadValidationError);
+  });
+
+  it('degrades linked plan enrichment failures to a null linkedPlan result', async () => {
+    execFileMock[PROMISIFY_CUSTOM].mockResolvedValue({
+      stdout: JSON.stringify({
+        id: 'nerve-fms2',
+        title: 'Demo bead',
+        status: 'open',
+      }),
+      stderr: '',
+    });
+    findRepoPlanByBeadIdMock.mockRejectedValue(new Error('plan lookup failed'));
+
+    await expect(getBeadDetail('nerve-fms2', { targetPath: REPO_ROOT })).resolves.toMatchObject({
+      id: 'nerve-fms2',
+      title: 'Demo bead',
+      linkedPlan: null,
+    });
   });
 });
