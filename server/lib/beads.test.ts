@@ -1,3 +1,5 @@
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,7 +47,13 @@ function resetMocks(): void {
   execFileMock.mockReset();
   execFileMock[PROMISIFY_CUSTOM].mockReset();
   findRepoPlanByBeadIdMock.mockReset();
-  resolveAgentWorkspaceMock.mockClear();
+  resolveAgentWorkspaceMock.mockReset();
+  resolveAgentWorkspaceMock.mockImplementation((agentId?: string) => ({
+    agentId: agentId?.trim() || 'main',
+    workspaceRoot: agentId?.trim() === 'research' ? RESEARCH_WORKSPACE_ROOT : WORKSPACE_ROOT,
+    memoryPath: path.join(WORKSPACE_ROOT, 'MEMORY.md'),
+    memoryDir: path.join(WORKSPACE_ROOT, 'memory'),
+  }));
 }
 
 describe('resolveBeadLookupRepoRoot', () => {
@@ -87,6 +95,29 @@ describe('resolveBeadLookupRepoRoot', () => {
 
   it('rejects explicit absolute targets outside the workspace root', () => {
     expect(() => resolveBeadLookupRepoRoot({ targetPath: OUTSIDE_REPO_ROOT })).toThrow(BeadValidationError);
+  });
+
+  it('rejects explicit absolute targets whose real path escapes the workspace root through a symlink', () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'beads-symlink-'));
+    const workspaceRoot = path.join(tempRoot, 'workspace');
+    const outsideRoot = path.join(tempRoot, 'outside');
+    const linkedRepo = path.join(workspaceRoot, 'linked-repo');
+
+    mkdirSync(workspaceRoot, { recursive: true });
+    mkdirSync(path.join(outsideRoot, 'demo'), { recursive: true });
+    symlinkSync(path.join(outsideRoot, 'demo'), linkedRepo, 'dir');
+    resolveAgentWorkspaceMock.mockImplementation(() => ({
+      agentId: 'main',
+      workspaceRoot,
+      memoryPath: path.join(workspaceRoot, 'MEMORY.md'),
+      memoryDir: path.join(workspaceRoot, 'memory'),
+    }));
+
+    try {
+      expect(() => resolveBeadLookupRepoRoot({ targetPath: linkedRepo })).toThrow(BeadValidationError);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('resolves relative explicit targets against the current markdown document directory', () => {
@@ -132,7 +163,25 @@ describe('getBeadDetail', () => {
     await expect(getBeadDetail('   ')).rejects.toBeInstanceOf(BeadValidationError);
   });
 
+  it('rejects missing repo roots before spawning bd', async () => {
+    await expect(getBeadDetail('nerve-fms2', {
+      targetPath: path.join(WORKSPACE_ROOT, 'repos', 'missing-demo'),
+    })).rejects.toBeInstanceOf(BeadValidationError);
+    expect(execFileMock[PROMISIFY_CUSTOM]).not.toHaveBeenCalled();
+  });
+
   it('degrades linked plan enrichment failures to a null linkedPlan result', async () => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'beads-detail-'));
+    const workspaceRoot = path.join(tempRoot, 'workspace');
+    const repoRoot = path.join(workspaceRoot, 'repo');
+    mkdirSync(repoRoot, { recursive: true });
+    resolveAgentWorkspaceMock.mockImplementation(() => ({
+      agentId: 'main',
+      workspaceRoot,
+      memoryPath: path.join(workspaceRoot, 'MEMORY.md'),
+      memoryDir: path.join(workspaceRoot, 'memory'),
+    }));
+
     execFileMock[PROMISIFY_CUSTOM].mockResolvedValue({
       stdout: JSON.stringify({
         id: 'nerve-fms2',
@@ -143,10 +192,14 @@ describe('getBeadDetail', () => {
     });
     findRepoPlanByBeadIdMock.mockRejectedValue(new Error('plan lookup failed'));
 
-    await expect(getBeadDetail('nerve-fms2', { targetPath: REPO_ROOT })).resolves.toMatchObject({
-      id: 'nerve-fms2',
-      title: 'Demo bead',
-      linkedPlan: null,
-    });
+    try {
+      await expect(getBeadDetail('nerve-fms2', { targetPath: repoRoot })).resolves.toMatchObject({
+        id: 'nerve-fms2',
+        title: 'Demo bead',
+        linkedPlan: null,
+      });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
