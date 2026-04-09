@@ -45,6 +45,10 @@ export function isSyntacticallyValidExplicitBeadHref(href: string): boolean {
 }
 
 export function isBeadLinkHref(href: string): boolean {
+  if (isSyntacticallyValidExplicitBeadHref(href)) {
+    return true;
+  }
+
   return parseBeadLinkHref(href) !== null;
 }
 
