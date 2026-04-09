@@ -397,11 +397,6 @@ describe('SessionContext', () => {
   it('keeps a newly spawned active child session visible after the authoritative refresh omits it', async () => {
     let subagentSpawnRequested = false;
     rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
-      if (method === 'chat.send') {
-        subagentSpawnRequested = true;
-        return {};
-      }
-
       if (method === 'sessions.list') {
         if (params?.spawnedBy === 'agent:main:main') {
           return {
@@ -439,6 +434,26 @@ describe('SessionContext', () => {
       return {};
     });
 
+    globalThis.fetch = vi.fn((input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.includes('/api/sessions/spawn-subagent')) {
+        subagentSpawnRequested = true;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true, sessionKey: 'agent:main:subagent:new-child' }),
+        } as Response);
+      }
+      if (url.includes('/api/server-info')) return Promise.resolve(jsonResponse({ agentName: 'Jen' }));
+      if (url.includes('/api/agentlog')) return Promise.resolve(jsonResponse([]));
+      if (url.includes('/api/sessions/hidden')) return Promise.resolve(jsonResponse({ ok: true, sessions: [] }));
+      return Promise.resolve(jsonResponse({}));
+    }) as typeof fetch;
+
     function SpawnSubagent() {
       const { spawnSession } = useSessionContext();
       return (
@@ -473,6 +488,110 @@ describe('SessionContext', () => {
 
     expect(rpcMock).toHaveBeenCalledWith('sessions.list', { limit: 1000 });
     expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:main:main', limit: 500 });
+  });
+
+  it('includes spawned children from non-main roots when refreshing the sessions sidebar', async () => {
+    let subagentSpawnRequested = false;
+    rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'sessions.list') {
+        if (params?.spawnedBy === 'agent:reviewer:main') {
+          return {
+            sessions: subagentSpawnRequested
+              ? [
+                  { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+                  { sessionKey: 'agent:reviewer:subagent:new-child', label: 'Reviewer child', state: 'running' },
+                ]
+              : [
+                  { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+                ],
+          };
+        }
+
+        if (params?.spawnedBy === 'agent:main:main') {
+          return {
+            sessions: [
+              { sessionKey: 'agent:main:main', label: 'Main' },
+            ],
+          };
+        }
+
+        if (params?.activeMinutes === 24 * 60) {
+          return {
+            sessions: subagentSpawnRequested
+              ? [
+                  { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+                  { sessionKey: 'agent:reviewer:subagent:new-child', label: 'Reviewer child', state: 'running' },
+                ]
+              : [
+                  { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+                ],
+          };
+        }
+
+        return {
+          sessions: [
+            { sessionKey: 'agent:main:main', label: 'Main' },
+            { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+          ],
+        };
+      }
+
+      return {};
+    });
+
+    globalThis.fetch = vi.fn((input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.includes('/api/sessions/spawn-subagent')) {
+        subagentSpawnRequested = true;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ok: true, sessionKey: 'agent:reviewer:subagent:new-child' }),
+        } as Response);
+      }
+      if (url.includes('/api/server-info')) return Promise.resolve(jsonResponse({ agentName: 'Jen' }));
+      if (url.includes('/api/agentlog')) return Promise.resolve(jsonResponse([]));
+      if (url.includes('/api/sessions/hidden')) return Promise.resolve(jsonResponse({ ok: true, sessions: [] }));
+      return Promise.resolve(jsonResponse({}));
+    }) as typeof fetch;
+
+    function SpawnReviewerSubagent() {
+      const { spawnSession } = useSessionContext();
+      return (
+        <button
+          data-testid="spawn-reviewer-subagent"
+          onClick={() => spawnSession({
+            kind: 'subagent',
+            task: 'Investigate reviewer issue',
+            parentSessionKey: 'agent:reviewer:main',
+          })}
+        />
+      );
+    }
+
+    render(
+      <SessionProvider>
+        <SessionLabels />
+        <SpawnReviewerSubagent />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Reviewer')).toBeInTheDocument();
+    });
+
+    screen.getByTestId('spawn-reviewer-subagent').click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('current-session').textContent).toBe('agent:reviewer:subagent:new-child');
+      expect(screen.getByText('Reviewer child')).toBeInTheDocument();
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:reviewer:main', limit: 500 });
   });
 
   it('marks background top-level roots unread on start and pings when chat reaches a terminal event', async () => {

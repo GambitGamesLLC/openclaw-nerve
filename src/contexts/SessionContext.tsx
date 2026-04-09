@@ -220,16 +220,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const listAuthoritativeSessions = useCallback(async () => {
     if (connectionState !== 'connected') return sessionsRef.current;
     try {
-      const [res, hiddenCronSessions, spawnedRes] = await Promise.all([
+      const [res, hiddenCronSessions] = await Promise.all([
         rpc('sessions.list', { limit: FULL_SESSIONS_LIMIT }) as Promise<SessionsListResponse>,
         fetchHiddenCronSessions(24 * 60, FULL_SESSIONS_LIMIT),
-        // Keep active child sessions visible even when the full sessions.list
-        // result lags behind the recent spawn/discovery flow.
-        rpc('sessions.list', { spawnedBy: MAIN_SESSION_KEY, limit: SESSIONS_SPAWNED_LIMIT }) as Promise<SessionsListResponse>,
       ]);
-      return mergeSessionLists(
-        mergeSessionLists(res?.sessions ?? [], hiddenCronSessions),
-        spawnedRes?.sessions ?? [],
+
+      const baseSessions = mergeSessionLists(res?.sessions ?? [], hiddenCronSessions);
+      const spawnedByRoots = new Set<string>([MAIN_SESSION_KEY]);
+      for (const rootSession of getTopLevelAgentSessions(baseSessions)) {
+        spawnedByRoots.add(getSessionKey(rootSession));
+      }
+
+      // Keep active child sessions visible even when the full sessions.list
+      // result lags behind the recent spawn/discovery flow.
+      const spawnedSessionLists = await Promise.all(
+        [...spawnedByRoots].map(async (rootSessionKey) => {
+          try {
+            const spawnedRes = await rpc('sessions.list', { spawnedBy: rootSessionKey, limit: SESSIONS_SPAWNED_LIMIT }) as SessionsListResponse;
+            return spawnedRes?.sessions ?? [];
+          } catch (err) {
+            console.debug('[SessionContext] Failed to fetch spawned sessions for root:', rootSessionKey, err);
+            return [];
+          }
+        }),
+      );
+
+      return spawnedSessionLists.reduce(
+        (acc, spawnedSessions) => mergeSessionLists(acc, spawnedSessions),
+        baseSessions,
       );
     } catch (err) {
       console.debug('[SessionContext] Failed to fetch authoritative session list:', err);
