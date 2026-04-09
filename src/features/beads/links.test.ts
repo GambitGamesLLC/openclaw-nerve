@@ -55,12 +55,28 @@ describe('bead link helpers', () => {
     expect(isBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBe(true);
   });
 
-  it('builds distinct tab ids for explicit bead targets', () => {
+  it('builds distinct tab ids for relative explicit bead targets', () => {
     expect(buildBeadTabId({
       beadId: 'nerve-fms2',
       explicitTargetPath: '../projects/demo',
       currentDocumentPath: 'notes/beads.md',
       workspaceAgentId: 'research',
     })).toBe('bead://research:notes/beads.md:../projects/demo#nerve-fms2');
+  });
+
+  it('canonicalizes absolute explicit target paths in tab ids', () => {
+    expect(buildBeadTabId({
+      beadId: 'nerve-fms2',
+      explicitTargetPath: '/home/alice/work/repos/demo/.beads',
+      currentDocumentPath: 'notes/beads.md',
+      workspaceAgentId: 'research',
+    })).toBe('bead://research:notes/beads.md:/home/alice/work/repos/demo#nerve-fms2');
+
+    expect(buildBeadTabId({
+      beadId: 'nerve-fms2',
+      explicitTargetPath: '/home/alice/work/repos/demo/',
+      currentDocumentPath: 'notes/beads.md',
+      workspaceAgentId: 'research',
+    })).toBe('bead://research:notes/beads.md:/home/alice/work/repos/demo#nerve-fms2');
   });
 });

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarkdownDocumentView } from './MarkdownDocumentView';
 import type { OpenFile } from './types';
 
@@ -42,6 +42,10 @@ const file: OpenFile = {
 };
 
 describe('MarkdownDocumentView', () => {
+  beforeEach(() => {
+    markdownRendererSpy.mockClear();
+  });
+
   it('renders preview mode with light full-width gutters and no nested card', () => {
     render(
       <MarkdownDocumentView
