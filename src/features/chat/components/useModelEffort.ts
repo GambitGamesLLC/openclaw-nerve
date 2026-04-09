@@ -170,30 +170,27 @@ export function useModelEffort(): UseModelEffortReturn {
   });
   const [prevEffortSource, setPrevEffortSource] = useState<string | null>(null);
 
-  const [sessionInfoByKey, setSessionInfoByKey] = useState<Record<string, { model?: string; thinking?: string }>>({});
-
   // Resolve current session's model.
-  // Priority: resolved cache (from transcript/cron) → session.model from sessions.list
-  // → per-session info endpoint. Never fall back to global gateway model for
-  // an active selected session, otherwise cross-session metadata can leak in.
+  // Priority: resolved cache (from transcript/cron) → session.model from gateway
   const currentSessionModel = useMemo(() => {
     // Check cached resolved model first (accurate for cron/subagent sessions)
     const cached = resolvedSessionModels[currentSession];
     if (cached) return resolveModelId(cached, modelOptionsList);
 
+    // Fall back to session.model from sessions.list (correct for main, default for others)
     const s = sessions.find(sess => getSessionKey(sess) === currentSession);
-    const raw = s?.model || sessionInfoByKey[currentSession]?.model;
+    const raw = s?.model;
     if (!raw) return null;
     return resolveModelId(raw, modelOptionsList);
-  }, [sessions, currentSession, modelOptionsList, resolvedSessionModels, sessionInfoByKey]);
+  }, [sessions, currentSession, modelOptionsList, resolvedSessionModels]);
 
   // Resolve current session's thinking level
   const currentSessionThinking = useMemo(() => {
     const s = sessions.find(sess => getSessionKey(sess) === currentSession);
-    const raw = (s?.thinkingLevel || s?.thinking || sessionInfoByKey[currentSession]?.thinking)?.toLowerCase();
+    const raw = (s?.thinkingLevel || s?.thinking)?.toLowerCase();
     if (raw && EFFORT_OPTIONS.includes(raw as EffortLevel)) return raw as EffortLevel;
     return null;
-  }, [sessions, currentSession, sessionInfoByKey]);
+  }, [sessions, currentSession]);
 
   // Sync model dropdown when switching sessions (setState-during-render pattern)
   //
@@ -201,7 +198,7 @@ export function useModelEffort(): UseModelEffortReturn {
   // Handles bare model names, full provider/model refs, and cross-provider
   // mismatches (e.g. gateway says "openai-codex/gpt-5.2" but only "openai/gpt-5.2"
   // is available).
-  const rawModelSource = currentSessionModel || (!currentSession ? model : null) || '--';
+  const rawModelSource = currentSessionModel || model || '--';
   let modelSource = rawModelSource;
   if (modelSource !== '--' && !modelOptionsList.some(m => m.id === modelSource)) {
     const byLabel = modelOptionsList.find(m => m.label === modelSource);
@@ -221,13 +218,13 @@ export function useModelEffort(): UseModelEffortReturn {
     // Fix 1: Only sync from server if NOT in optimistic lock period.
     // After a manual model change we hold off on sync-back for OPTIMISTIC_LOCK_MS
     // so that stale poll data doesn't revert the dropdown.
-    if (Date.now() > modelLockUntilRef.current) {
+    if (modelSource !== '--' && Date.now() > modelLockUntilRef.current) {
       setSelectedModel(modelSource);
     }
   }
 
   // Sync effort dropdown from gateway thinking level (setState-during-render pattern)
-  const effortSource = `${currentSession}:${currentSessionThinking ?? (!currentSession ? thinking : '')}`;
+  const effortSource = `${currentSession}:${currentSessionThinking ?? thinking ?? ''}`;
   if (effortSource !== prevEffortSource) {
     setPrevEffortSource(effortSource);
     // Fix 1: Respect optimistic lock for effort changes too
@@ -236,16 +233,9 @@ export function useModelEffort(): UseModelEffortReturn {
     } else if (currentSessionThinking) {
       setSelectedEffort(currentSessionThinking);
       try { localStorage.setItem(getEffortKey(currentSession), currentSessionThinking); } catch { /* ignore */ }
-    } else if (!currentSession && thinking && thinking !== '--' && EFFORT_OPTIONS.includes(thinking as EffortLevel)) {
+    } else if (thinking && thinking !== '--' && EFFORT_OPTIONS.includes(thinking as EffortLevel)) {
       setSelectedEffort(thinking as EffortLevel);
       try { localStorage.setItem(getEffortKey(currentSession), thinking); } catch { /* ignore */ }
-    } else {
-      try {
-        const saved = localStorage.getItem(getEffortKey(currentSession)) as EffortLevel | null;
-        setSelectedEffort(saved && EFFORT_OPTIONS.includes(saved) ? saved : 'low');
-      } catch {
-        setSelectedEffort('low');
-      }
     }
   }
 
@@ -294,16 +284,6 @@ export function useModelEffort(): UseModelEffortReturn {
     (async () => {
       const sessionInfo = await fetchGatewaySessionInfo(currentSession || undefined);
       if (signal.cancelled) return;
-
-      if (currentSession && (sessionInfo?.model || sessionInfo?.thinking)) {
-        setSessionInfoByKey(prev => ({
-          ...prev,
-          [currentSession]: {
-            ...(sessionInfo?.model ? { model: sessionInfo.model } : {}),
-            ...(sessionInfo?.thinking ? { thinking: sessionInfo.thinking } : {}),
-          },
-        }));
-      }
 
       if (sessionInfo?.thinking && !currentSessionThinking) {
         const level = sessionInfo.thinking.toLowerCase() as EffortLevel;
