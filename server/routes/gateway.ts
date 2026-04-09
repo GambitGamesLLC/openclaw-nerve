@@ -284,6 +284,11 @@ app.get('/api/gateway/session-info', rateLimitGeneral, async (c) => {
       if (thinking) info.thinking = thinking.toLowerCase();
     }
     if (info.model || info.thinking) return c.json(info);
+
+    // If the client explicitly requested a session key, avoid falling back to
+    // global status values — that can leak model/effort from a different
+    // session and display incorrect metadata in the UI.
+    if (requestedSessionKey) return c.json(info);
   } catch (err) {
     console.warn(`[gateway/session-info] sessions_list failed:`, (err as Error).message);
   }

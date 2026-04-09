@@ -111,6 +111,16 @@ describe('useModelEffort', () => {
       { value: 'openrouter/xiaomi/mimo-v2-pro', label: 'xiaomi/mimo-v2-pro' },
     ]);
   });
+
+  it('does not fall back to gateway-global thinking for an active selected session', async () => {
+    const { result } = renderHook(() => useModelEffort());
+
+    await waitFor(() => {
+      expect(result.current.selectedModel).toBe('openrouter/xiaomi/mimo-v2-pro');
+    });
+
+    expect(result.current.selectedEffort).toBe('low');
+  });
 });
 
 describe('buildModelCatalogUiError', () => {
