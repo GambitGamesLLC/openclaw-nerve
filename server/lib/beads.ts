@@ -197,11 +197,17 @@ function assertPathWithinWorkspace(candidatePath: string, workspaceRoot: string,
 }
 
 export function resolveBeadLookupRepoRoot(options: BeadLookupOptions = {}): string {
+  const workspaceRoot = resolveAgentWorkspace(options.workspaceAgentId).workspaceRoot;
+
   if (!options.targetPath?.trim()) {
-    return process.cwd();
+    const cwd = process.cwd();
+    const defaultWorkspaceRoot = resolveAgentWorkspace().workspaceRoot;
+    if (!isPathWithinRoot(cwd, defaultWorkspaceRoot)) {
+      return cwd;
+    }
+    return path.resolve(workspaceRoot, path.relative(defaultWorkspaceRoot, cwd));
   }
 
-  const workspaceRoot = resolveAgentWorkspace(options.workspaceAgentId).workspaceRoot;
   const targetPath = options.targetPath.trim();
   if (path.isAbsolute(targetPath)) {
     return normalizeBeadRepoRoot(assertPathWithinWorkspace(targetPath, workspaceRoot, 'Explicit bead target path'));
