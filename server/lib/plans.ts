@@ -36,7 +36,7 @@ function parsePlanContent(content: string): {
   };
   body: string;
 } {
-  const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  const frontmatterMatch = content.match(/^(?:\uFEFF)?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!frontmatterMatch) {
     return { frontmatter: {}, body: content };
   }

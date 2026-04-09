@@ -46,13 +46,13 @@ describe('bead link helpers', () => {
     });
   });
 
-  it('rejects relative explicit bead URIs when there is no current document path', () => {
+  it('keeps context-aware parsing strict for relative explicit bead URIs without a current document path', () => {
     expect(parseBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBeNull();
   });
 
-  it('still recognizes syntactically valid explicit bead URIs before context-aware resolution', () => {
+  it('recognizes syntactically valid explicit-relative bead URIs in detection-only flows', () => {
     expect(isSyntacticallyValidExplicitBeadHref('bead://../projects/demo#nerve-fms2')).toBe(true);
-    expect(isBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBe(false);
+    expect(isBeadLinkHref('bead://../projects/demo#nerve-fms2')).toBe(true);
   });
 
   it('builds distinct tab ids for explicit bead targets', () => {

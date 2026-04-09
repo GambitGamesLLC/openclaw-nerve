@@ -116,8 +116,8 @@ function getPreferredLocalBinDirs(): string[] {
 }
 
 function buildRuntimePath(basePath?: string): string {
-  const segments = [...getPreferredLocalBinDirs(), ...(basePath || '').split(':').filter(Boolean)];
-  return [...new Set(segments)].join(':');
+  const segments = [...getPreferredLocalBinDirs(), ...(basePath || '').split(path.delimiter).filter(Boolean)];
+  return [...new Set(segments)].join(path.delimiter);
 }
 
 function resolveBdBin(): string {
@@ -274,18 +274,23 @@ export async function getBeadDetail(beadId: string, options: BeadLookupOptions =
     throw new BeadNotFoundError(normalizedBeadId);
   }
 
-  const linkedPlan = await findRepoPlanByBeadId(normalizedBeadId, repoRoot);
-  const workspaceRoot = resolveAgentWorkspace(options.workspaceAgentId).workspaceRoot;
-  const linkedPlanWorkspacePath = linkedPlan
-    ? (() => {
+  let linkedPlan: Awaited<ReturnType<typeof findRepoPlanByBeadId>> = null;
+  let linkedPlanWorkspacePath: string | null = null;
+
+  try {
+    linkedPlan = await findRepoPlanByBeadId(normalizedBeadId, repoRoot);
+    if (linkedPlan) {
+      const workspaceRoot = resolveAgentWorkspace(options.workspaceAgentId).workspaceRoot;
       const absoluteLinkedPlanPath = path.resolve(repoRoot, linkedPlan.path);
-      if (!isPathWithinRoot(absoluteLinkedPlanPath, workspaceRoot)) {
-        return null;
+      if (isPathWithinRoot(absoluteLinkedPlanPath, workspaceRoot)) {
+        const relativePath = path.relative(workspaceRoot, absoluteLinkedPlanPath).split(path.sep).join('/');
+        linkedPlanWorkspacePath = relativePath && relativePath !== '.' ? relativePath : null;
       }
-      const relativePath = path.relative(workspaceRoot, absoluteLinkedPlanPath).split(path.sep).join('/');
-      return relativePath && relativePath !== '.' ? relativePath : null;
-    })()
-    : null;
+    }
+  } catch {
+    linkedPlan = null;
+    linkedPlanWorkspacePath = null;
+  }
 
   return {
     id: normalizeString(raw.id) ?? normalizedBeadId,
