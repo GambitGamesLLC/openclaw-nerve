@@ -5,7 +5,7 @@ import { hljs } from '@/lib/highlight';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { escapeRegex } from '@/lib/constants';
 import { CodeBlockActions } from './CodeBlockActions';
-import { isBeadLinkHref, isSyntacticallyValidExplicitBeadHref, parseBeadLinkHref, type BeadLinkTarget } from '@/features/beads';
+import { parseBeadLinkHref, type BeadLinkTarget } from '@/features/beads';
 import { renderInlinePathReferences } from './inlineReferences';
 
 interface MarkdownRendererProps {
@@ -182,8 +182,30 @@ function decodeWorkspacePathLink(href: string): string {
   }
 }
 
-function transformMarkdownUrl(url: string): string {
-  if (isBeadLinkHref(url) || isSyntacticallyValidExplicitBeadHref(url) || isWorkspacePathLink(url)) {
+function canHandleBeadLink(
+  url: string,
+  options: {
+    currentDocumentPath?: string;
+    workspaceAgentId?: string;
+    onOpenBeadId?: MarkdownRendererProps['onOpenBeadId'];
+  } = {},
+): boolean {
+  if (!options.onOpenBeadId) return false;
+  return parseBeadLinkHref(url, {
+    currentDocumentPath: options.currentDocumentPath,
+    workspaceAgentId: options.workspaceAgentId,
+  }) !== null;
+}
+
+function transformMarkdownUrl(
+  url: string,
+  options: {
+    currentDocumentPath?: string;
+    workspaceAgentId?: string;
+    onOpenBeadId?: MarkdownRendererProps['onOpenBeadId'];
+  } = {},
+): string {
+  if (canHandleBeadLink(url, options) || isWorkspacePathLink(url)) {
     return url;
   }
   return defaultUrlTransform(url);
@@ -450,7 +472,15 @@ export function MarkdownRenderer({
 
   return (
     <div ref={containerRef} className={`markdown-content ${className}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkStableHeadingIds]} urlTransform={transformMarkdownUrl} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkStableHeadingIds]}
+        urlTransform={(url) => transformMarkdownUrl(url, {
+          currentDocumentPath,
+          workspaceAgentId,
+          onOpenBeadId,
+        })}
+        components={components}
+      >
         {content}
       </ReactMarkdown>
     </div>

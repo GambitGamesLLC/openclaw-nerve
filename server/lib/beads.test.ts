@@ -53,9 +53,23 @@ describe('resolveBeadLookupRepoRoot', () => {
     resetMocks();
   });
 
-  it('defaults legacy lookup to process cwd', () => {
+  it('defaults legacy lookup to process cwd for the main workspace', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(REPO_ROOT);
     expect(resolveBeadLookupRepoRoot()).toBe(REPO_ROOT);
+    cwdSpy.mockRestore();
+  });
+
+  it('maps the default repo root into the requested workspace when workspaceAgentId is provided', () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(REPO_ROOT);
+    expect(resolveBeadLookupRepoRoot({ workspaceAgentId: 'research' })).toBe(
+      path.join(RESEARCH_WORKSPACE_ROOT, 'repo', 'nerve'),
+    );
+    cwdSpy.mockRestore();
+  });
+
+  it('falls back to process cwd when the default repo root is outside the default workspace', () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(OUTSIDE_REPO_ROOT);
+    expect(resolveBeadLookupRepoRoot({ workspaceAgentId: 'research' })).toBe(OUTSIDE_REPO_ROOT);
     cwdSpy.mockRestore();
   });
 

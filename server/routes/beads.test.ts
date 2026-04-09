@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 
 const getBeadDetailMock = vi.fn();
+class MockBeadNotFoundError extends Error {}
+class MockBeadAdapterError extends Error {}
+class MockBeadValidationError extends Error {}
 
 vi.mock('../lib/beads.js', () => ({
   getBeadDetail: (...args: unknown[]) => getBeadDetailMock(...args),
-  BeadNotFoundError: class BeadNotFoundError extends Error {},
-  BeadAdapterError: class BeadAdapterError extends Error {},
-  BeadValidationError: class BeadValidationError extends Error {},
+  BeadNotFoundError: MockBeadNotFoundError,
+  BeadAdapterError: MockBeadAdapterError,
+  BeadValidationError: MockBeadValidationError,
 }));
 
 describe('beads routes', () => {
@@ -99,8 +102,7 @@ describe('beads routes', () => {
   });
 
   it('returns 400 when the lookup request context is invalid', async () => {
-    const { BeadValidationError } = await import('../lib/beads.js');
-    getBeadDetailMock.mockRejectedValue(new BeadValidationError('Relative explicit bead URIs require a current document path'));
+    getBeadDetailMock.mockRejectedValue(new MockBeadValidationError('Relative explicit bead URIs require a current document path'));
 
     const app = await buildApp();
     const res = await app.request('/api/beads/nerve-fms2');
@@ -113,8 +115,7 @@ describe('beads routes', () => {
   });
 
   it('returns 404 when the bead is missing', async () => {
-    const { BeadNotFoundError } = await import('../lib/beads.js');
-    getBeadDetailMock.mockRejectedValue(new BeadNotFoundError('nerve-miss'));
+    getBeadDetailMock.mockRejectedValue(new MockBeadNotFoundError('nerve-miss'));
 
     const app = await buildApp();
     const res = await app.request('/api/beads/nerve-miss');
@@ -127,8 +128,7 @@ describe('beads routes', () => {
   });
 
   it('returns 502 when the bd adapter fails', async () => {
-    const { BeadAdapterError } = await import('../lib/beads.js');
-    getBeadDetailMock.mockRejectedValue(new BeadAdapterError('bd failed'));
+    getBeadDetailMock.mockRejectedValue(new MockBeadAdapterError('bd failed'));
 
     const app = await buildApp();
     const res = await app.request('/api/beads/nerve-fms2');
