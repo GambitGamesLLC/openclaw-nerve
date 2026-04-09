@@ -65,6 +65,7 @@ function RelationList({
 
 export function BeadViewerTab({ beadTarget, onOpenBeadId, onOpenWorkspacePath }: BeadViewerTabProps) {
   const { bead, loading, error } = useBeadDetail(beadTarget);
+  const linkedPlan = bead?.linkedPlan ?? null;
 
   const openBeadWithContext = useCallback((target: BeadLinkTarget) => {
     if (!onOpenBeadId) return;
@@ -77,10 +78,10 @@ export function BeadViewerTab({ beadTarget, onOpenBeadId, onOpenWorkspacePath }:
   }, [beadTarget.currentDocumentPath, beadTarget.explicitTargetPath, beadTarget.workspaceAgentId, onOpenBeadId]);
 
   const openLinkedPlan = useCallback(async () => {
-    if (!onOpenWorkspacePath || !bead?.linkedPlan) return;
-    const planPath = bead.linkedPlan.workspacePath ?? bead.linkedPlan.path;
+    if (!onOpenWorkspacePath || !linkedPlan) return;
+    const planPath = linkedPlan.workspacePath ?? linkedPlan.path;
     await onOpenWorkspacePath(planPath);
-  }, [bead?.linkedPlan, onOpenWorkspacePath]);
+  }, [linkedPlan, onOpenWorkspacePath]);
 
   if (loading) {
     return (
