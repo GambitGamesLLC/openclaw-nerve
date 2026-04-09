@@ -419,7 +419,7 @@ describe('MarkdownRenderer', () => {
     });
   });
 
-  it('preserves relative explicit bead links as anchors even before context-aware parsing is available', () => {
+  it('does not preserve relative explicit bead links when this renderer lacks the context to open them', () => {
     const onOpenBeadId = vi.fn();
     render(
       <MarkdownRenderer
@@ -428,12 +428,22 @@ describe('MarkdownRenderer', () => {
       />,
     );
 
-    const link = screen.getByRole('link', { name: 'viewer' });
-    expect(link).toHaveAttribute('href', 'bead://../projects/virtra-apex-docs/.beads#virtra-apex-docs-id2');
-    expect(link).toHaveAttribute('target', '_blank');
-
-    fireEvent.click(link);
+    expect(screen.queryByRole('link', { name: 'viewer' })).toBeNull();
+    expect(screen.getByText('viewer').tagName).toBe('SPAN');
     expect(onOpenBeadId).not.toHaveBeenCalled();
+  });
+
+  it('preserves explicit bead links when this renderer instance can open them', () => {
+    render(
+      <MarkdownRenderer
+        content="[viewer](bead:///home/derrick/.openclaw/workspace/projects/virtra-apex-docs/.beads#virtra-apex-docs-id2)"
+        onOpenBeadId={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByRole('link', { name: 'viewer' });
+    expect(link).toHaveAttribute('href', 'bead:///home/derrick/.openclaw/workspace/projects/virtra-apex-docs/.beads#virtra-apex-docs-id2');
+    expect(link).not.toHaveAttribute('target', '_blank');
   });
 
   it('routes relative explicit bead links in-app once current document context is available', async () => {
