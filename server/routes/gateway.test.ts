@@ -514,6 +514,36 @@ describe('gateway routes', () => {
       expect(invokedCalls.some(c => c.tool === 'sessions_list')).toBe(true);
     });
 
+    it('does not fall back to global status when an explicit sessionKey is missing from sessions_list', async () => {
+      setDefaults();
+      const invokedCalls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+      invokeGatewayImpl = (tool: string, args: Record<string, unknown>) => {
+        invokedCalls.push({ tool, args });
+        if (tool === 'sessions_list') {
+          return {
+            sessions: [{
+              sessionKey: 'agent:main:main',
+              model: 'openai/gpt-5',
+              thinking: 'high',
+            }],
+          };
+        }
+        if (tool === 'session_status') {
+          return {
+            model: 'anthropic/claude-opus-4',
+            thinking: 'low',
+          };
+        }
+        return {};
+      };
+      const app = buildApp();
+      const res = await app.request('/api/gateway/session-info?sessionKey=agent:main:subagent:not-found');
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as Record<string, unknown>;
+      expect(json).toEqual({});
+      expect(invokedCalls.some(c => c.tool === 'session_status')).toBe(false);
+    });
+
     it('falls back to the first top-level root when main is absent', async () => {
       setDefaults();
       invokeGatewayImpl = (tool: string) => {
