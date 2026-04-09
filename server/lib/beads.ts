@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process';
-import { accessSync, constants } from 'node:fs';
+import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -181,10 +181,24 @@ function normalizeBeadRepoRoot(repoRoot: string): string {
   return path.basename(trimmed) === '.beads' ? path.dirname(trimmed) : trimmed;
 }
 
+function resolveExistingRealPath(candidatePath: string): string | null {
+  try {
+    return realpathSync.native(candidatePath);
+  } catch {
+    return null;
+  }
+}
+
 function isPathWithinRoot(candidatePath: string, rootPath: string): boolean {
   const normalizedCandidate = path.resolve(candidatePath);
   const normalizedRoot = path.resolve(rootPath);
-  const relative = path.relative(normalizedRoot, normalizedCandidate);
+
+  const candidateRealPath = resolveExistingRealPath(normalizedCandidate);
+  const rootRealPath = resolveExistingRealPath(normalizedRoot);
+
+  const containmentCandidate = candidateRealPath ?? normalizedCandidate;
+  const containmentRoot = rootRealPath ?? normalizedRoot;
+  const relative = path.relative(containmentRoot, containmentCandidate);
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
@@ -194,6 +208,21 @@ function assertPathWithinWorkspace(candidatePath: string, workspaceRoot: string,
     throw new BeadValidationError(`${label} must stay within the workspace root`);
   }
   return normalizedCandidate;
+}
+
+function assertRepoRootReadableDirectory(repoRoot: string): string {
+  const normalizedRepoRoot = path.resolve(repoRoot);
+  try {
+    if (!statSync(normalizedRepoRoot).isDirectory()) {
+      throw new BeadValidationError('Resolved bead repo root must be an existing directory');
+    }
+  } catch (error) {
+    if (error instanceof BeadValidationError) {
+      throw error;
+    }
+    throw new BeadValidationError('Resolved bead repo root must be an existing directory');
+  }
+  return normalizedRepoRoot;
 }
 
 export function resolveBeadLookupRepoRoot(options: BeadLookupOptions = {}): string {
@@ -236,7 +265,7 @@ export async function getBeadDetail(beadId: string, options: BeadLookupOptions =
     throw new BeadValidationError('Bead id is required');
   }
 
-  const repoRoot = resolveBeadLookupRepoRoot(options);
+  const repoRoot = assertRepoRootReadableDirectory(resolveBeadLookupRepoRoot(options));
 
   let stdout = '';
   let stderr = '';

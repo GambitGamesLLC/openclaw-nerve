@@ -21,6 +21,18 @@ function isAbsoluteFilesystemPath(value: string): boolean {
   return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value);
 }
 
+function normalizeBeadRepoRoot(targetPath: string): string {
+  const trimmed = targetPath.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.endsWith('/.beads') || trimmed.endsWith('\\.beads')
+    ? trimmed.slice(0, -'.beads'.length)
+    : trimmed;
+}
+
+function canonicalizeAbsoluteExplicitTargetPath(targetPath: string): string {
+  return normalizeBeadRepoRoot(targetPath).replace(/\\+/g, '/').replace(/\/$/, '');
+}
+
 export function isBeadId(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed || trimmed.includes('/') || trimmed.includes('.') || trimmed.includes('#') || trimmed.includes('?')) {
@@ -110,5 +122,8 @@ export function buildBeadTabId(target: BeadLinkTarget | string): string {
   }
 
   const currentDocumentPath = target.currentDocumentPath?.trim() || '';
-  return `bead://${workspaceAgentId}:${currentDocumentPath}:${target.explicitTargetPath}#${target.beadId}`;
+  const explicitTargetPath = isAbsoluteFilesystemPath(target.explicitTargetPath)
+    ? canonicalizeAbsoluteExplicitTargetPath(target.explicitTargetPath)
+    : target.explicitTargetPath;
+  return `bead://${workspaceAgentId}:${currentDocumentPath}:${explicitTargetPath}#${target.beadId}`;
 }
