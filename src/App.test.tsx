@@ -224,11 +224,13 @@ vi.mock('@/features/command-palette/commands', () => ({
 vi.mock('@/features/file-browser', () => ({
   useOpenFiles: useOpenFilesMock,
   FileTreePanel: () => <div data-testid="file-tree-panel" />,
-  TabbedContentArea: ({ workspaceAgentId, onSaveFile, onReloadFile, saveToast }: {
+  TabbedContentArea: ({ workspaceAgentId, onSaveFile, onReloadFile, saveToast, openBeads, onOpenBeadId }: {
     workspaceAgentId: string;
     onSaveFile: (path: string) => void;
     onReloadFile?: (path: string) => void;
     saveToast?: { path: string; type: 'conflict' } | null;
+    openBeads?: Array<{ id: string; beadId: string }>;
+    onOpenBeadId?: (target: { beadId: string }) => void;
   }) => {
     tabRenderSnapshots.push({
       workspaceAgentId,
@@ -240,6 +242,8 @@ vi.mock('@/features/file-browser', () => ({
       <div>
         <div data-testid="workspace-agent">{workspaceAgentId}</div>
         <button type="button" onClick={() => onSaveFile('shared.md')}>Save shared.md</button>
+        <button type="button" onClick={() => onOpenBeadId?.({ beadId: 'nerve-fms2' })}>Open bead viewer</button>
+        <div data-testid="open-beads">{(openBeads ?? []).map((bead) => bead.beadId).join(',')}</div>
         {saveToast && (
           <div>
             <span>File changed externally.</span>
@@ -278,7 +282,9 @@ vi.mock('@/components/ConfirmDialog', () => ({
 }));
 
 vi.mock('@/features/chat/ChatPanel', () => ({
-  ChatPanel: () => null,
+  ChatPanel: ({ onOpenBeadId }: { onOpenBeadId?: (target: { beadId: string; workspaceAgentId?: string }) => void }) => (
+    <button type="button" onClick={() => onOpenBeadId?.({ beadId: 'nerve-fms2' })}>Open bead viewer</button>
+  ),
 }));
 
 vi.mock('@/components/ResizablePanels', () => ({
@@ -473,6 +479,50 @@ describe('App save toast workspace scoping', () => {
     expect(screen.getByTestId('workspace-agent')).toHaveTextContent('alpha');
     expect(screen.queryByText('File changed externally.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Reload' })).not.toBeInTheDocument();
+  });
+});
+
+describe('App bead tab workspace scoping', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionContext.currentSession = 'agent:alpha:main';
+    sessionContext.setCurrentSession.mockReset();
+    dirtyStateByAgent.alpha = false;
+    dirtyStateByAgent.bravo = false;
+    tabRenderSnapshots.length = 0;
+
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  });
+
+  it('shows bead tabs only for the active workspace and drops them immediately on workspace switch', () => {
+    const { rerender } = render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open bead viewer' }));
+    expect(screen.getByTestId('open-beads')).toHaveTextContent('nerve-fms2');
+
+    sessionContext.currentSession = 'agent:bravo:main';
+    rerender(<App />);
+
+    expect(screen.getByTestId('workspace-agent')).toHaveTextContent('bravo');
+    expect(screen.getByTestId('open-beads')).toHaveTextContent('');
+
+    sessionContext.currentSession = 'agent:alpha:main';
+    rerender(<App />);
+
+    expect(screen.getByTestId('workspace-agent')).toHaveTextContent('alpha');
+    expect(screen.getByTestId('open-beads')).toHaveTextContent('nerve-fms2');
   });
 });
 
