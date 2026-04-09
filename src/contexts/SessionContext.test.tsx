@@ -397,11 +397,6 @@ describe('SessionContext', () => {
   it('keeps a newly spawned active child session visible after the authoritative refresh omits it', async () => {
     let subagentSpawnRequested = false;
     rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
-      if (method === 'chat.send') {
-        subagentSpawnRequested = true;
-        return {};
-      }
-
       if (method === 'sessions.list') {
         if (params?.spawnedBy === 'agent:main:main') {
           return {
@@ -438,6 +433,23 @@ describe('SessionContext', () => {
 
       return {};
     });
+
+    globalThis.fetch = vi.fn((input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.includes('/api/sessions/spawn-subagent')) {
+        subagentSpawnRequested = true;
+        return Promise.resolve(jsonResponse({ ok: true, sessionKey: 'agent:main:subagent:new-child' }));
+      }
+      if (url.includes('/api/server-info')) return Promise.resolve(jsonResponse({ agentName: 'Jen' }));
+      if (url.includes('/api/agentlog')) return Promise.resolve(jsonResponse([]));
+      if (url.includes('/api/sessions/hidden')) return Promise.resolve(jsonResponse({ ok: true, sessions: [] }));
+      return Promise.resolve(jsonResponse({}));
+    }) as typeof fetch;
 
     function SpawnSubagent() {
       const { spawnSession } = useSessionContext();
@@ -478,11 +490,6 @@ describe('SessionContext', () => {
   it('includes spawned children from non-main roots when refreshing the sessions sidebar', async () => {
     let subagentSpawnRequested = false;
     rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
-      if (method === 'chat.send') {
-        subagentSpawnRequested = true;
-        return {};
-      }
-
       if (method === 'sessions.list') {
         if (params?.spawnedBy === 'agent:reviewer:main') {
           return {
@@ -528,6 +535,23 @@ describe('SessionContext', () => {
 
       return {};
     });
+
+    globalThis.fetch = vi.fn((input: string | URL | Request) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.includes('/api/sessions/spawn-subagent')) {
+        subagentSpawnRequested = true;
+        return Promise.resolve(jsonResponse({ ok: true, sessionKey: 'agent:reviewer:subagent:new-child' }));
+      }
+      if (url.includes('/api/server-info')) return Promise.resolve(jsonResponse({ agentName: 'Jen' }));
+      if (url.includes('/api/agentlog')) return Promise.resolve(jsonResponse([]));
+      if (url.includes('/api/sessions/hidden')) return Promise.resolve(jsonResponse({ ok: true, sessions: [] }));
+      return Promise.resolve(jsonResponse({}));
+    }) as typeof fetch;
 
     function SpawnReviewerSubagent() {
       const { spawnSession } = useSessionContext();
