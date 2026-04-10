@@ -337,9 +337,18 @@ export function MarkdownRenderer({
           }
         }
 
+        const inlineContent = inline
+          ? renderInlinePathReferences(codeString, {
+            prefixes: pathLinkPrefixes,
+            onOpenPath: onOpenWorkspacePath
+              ? (path: string) => onOpenWorkspacePath(path, currentDocumentPath)
+              : undefined,
+          })
+          : children;
+
         return (
           <code className={codeClassName} {...props}>
-            {children}
+            {inlineContent}
           </code>
         );
       },
