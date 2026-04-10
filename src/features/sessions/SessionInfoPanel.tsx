@@ -81,7 +81,7 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
   }, []);
 
   /* Resolve actual model from source-of-truth metadata when possible */
-  const [actualModelState, setActualModelState] = useState<{ sessionKey: string; model: string | null } | null>(null);
+  const [actualModel, setActualModel] = useState<string | null>(null);
   const sessionKey = getSessionKey(session);
   const sessionType = getSessionType(sessionKey);
 
@@ -89,6 +89,7 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
     if (!open) return;
 
     let cancelled = false;
+    setActualModel(null);
 
     const sessionIdFromKey = (() => {
       const parts = sessionKey.split(':');
@@ -109,7 +110,7 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
             if (cancelled || !data.ok) return;
             const jobs = data.result?.jobs || data.result?.details?.jobs || [];
             const job = jobs.find(j => j.id === jobIdMatch[1]);
-            if (job?.payload?.model) setActualModelState({ sessionKey, model: job.payload.model });
+            if (job?.payload?.model) setActualModel(job.payload.model);
           })
           .catch(() => { /* ignore */ });
       }
@@ -118,7 +119,7 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
         .then(r => r.json())
         .then((data: { ok: boolean; model?: string | null; missing?: boolean }) => {
           if (cancelled || !data.ok) return;
-          if (data.model != null) setActualModelState({ sessionKey, model: data.model });
+          if (data.model != null) setActualModel(data.model);
         })
         .catch(() => { /* ignore */ });
     }
@@ -135,7 +136,6 @@ export const SessionInfoPanel = memo(function SessionInfoPanel({
   }, []);
 
   /* Derived values */
-  const actualModel = actualModelState?.sessionKey === sessionKey ? actualModelState.model : null;
   const model = actualModel ?? session.model ?? 'unknown';
   const thinking = session.thinkingLevel ?? session.thinking;
   const totalTok = session.totalTokens;
