@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createChatPathLinksTemplate } from '../../src/features/chat/chatPathLinksConfig.js';
+import { createChatPathLinksTemplate } from '../lib/chat-path-links-config.js';
 
 describe('workspace routes', () => {
   let homeDir: string;
