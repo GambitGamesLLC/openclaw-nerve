@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigTab } from './ConfigTab';
+import { createChatPathLinksTemplate } from '@/features/chat/chatPathLinks';
 
 type FetchResponse = {
   ok: boolean;
@@ -22,6 +23,10 @@ describe('ConfigTab', () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -71,6 +76,42 @@ describe('ConfigTab', () => {
     await waitFor(() => {
       expect(screen.getByRole('textbox')).toHaveValue('alpha soul draft');
     });
+  });
+
+  it('creates CHAT_PATH_LINKS.json with the shared template', async () => {
+    const user = userEvent.setup();
+    const expectedTemplate = createChatPathLinksTemplate();
+
+    globalThis.fetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+
+      if (!init?.method && url === '/api/workspace/soul?agentId=alpha') {
+        return Promise.resolve(jsonResponse({ ok: true, content: 'alpha soul' }));
+      }
+      if (!init?.method && url === '/api/workspace/chatPathLinks?agentId=alpha') {
+        return Promise.resolve(jsonResponse({ ok: false, error: 'File not found' }, { ok: false, status: 404 }));
+      }
+      if (init?.method === 'PUT' && url === '/api/workspace/chatPathLinks') {
+        expect(init.body).toBe(JSON.stringify({ content: expectedTemplate, agentId: 'alpha' }));
+        return Promise.resolve(jsonResponse({ ok: true }));
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof globalThis.fetch;
+
+    render(<ConfigTab agentId="alpha" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('alpha soul')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /select config file/i }));
+    await user.click(await screen.findByRole('option', { name: 'CHAT_PATH_LINKS.json' }));
+
+    expect(await screen.findByText('File does not exist yet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /create chat_path_links\.json/i }));
+
+    expect(await screen.findByText('File created')).toBeInTheDocument();
   });
 
   it('shows a cron capability warning when the gateway is missing cron access', async () => {
