@@ -19,7 +19,7 @@ import { rateLimitGeneral } from '../middleware/rate-limit.js';
 import { InvalidAgentIdError, resolveAgentWorkspace } from '../lib/agent-workspace.js';
 import { isWorkspaceLocal } from '../lib/workspace-detect.js';
 import { gatewayFilesList, gatewayFilesGet, gatewayFilesSet } from '../lib/gateway-rpc.js';
-import { createChatPathLinksTemplate } from '../../src/features/chat/chatPathLinksConfig.js';
+import { createChatPathLinksTemplate } from '../lib/chat-path-links-config.js';
 
 const app = new Hono();
 
