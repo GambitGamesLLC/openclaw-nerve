@@ -8,6 +8,7 @@ import { InlineSelect } from '@/components/ui/InlineSelect';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceFile } from '../hooks/useWorkspaceFile';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { createChatPathLinksTemplate } from '@/features/chat/chatPathLinks';
 import { getWorkspaceStorageKey } from '../workspaceScope';
 import { clearPersistedDraft, readPersistedDraft, writePersistedDraft } from '../persistedDrafts';
 
@@ -152,7 +153,7 @@ export function ConfigTab({ agentId, cronWarning = null }: ConfigTabProps) {
   const handleCreate = useCallback(async () => {
     const label = FILE_OPTIONS.find(f => f.key === selectedKey)?.label || selectedKey;
     const template = selectedKey === 'chatPathLinks'
-      ? '{\n  "prefixes": [\n    "/workspace/"\n  ]\n}\n'
+      ? createChatPathLinksTemplate()
       : `# ${label}\n\n`;
     const result = await save(selectedKey, template);
     if (result === 'saved') {
