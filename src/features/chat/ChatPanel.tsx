@@ -52,6 +52,7 @@ interface ChatPanelProps {
 
 export interface ChatPanelHandle {
   focusInput: () => void;
+  addWorkspacePath: (path: string, kind: 'file' | 'directory') => Promise<void>;
 }
 
 /** Main chat panel with message list, infinite scroll, search, and input bar. */
@@ -123,7 +124,10 @@ export const ChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function Ch
 
   // Expose focusInput to parent
   useImperativeHandle(ref, () => ({
-    focusInput: () => inputBarRef.current?.focus()
+    focusInput: () => inputBarRef.current?.focus(),
+    addWorkspacePath: async (path: string, kind: 'file' | 'directory') => {
+      await inputBarRef.current?.addWorkspacePath(path, kind);
+    },
   }), []);
 
   // Clean up stale messageRefs when messages change

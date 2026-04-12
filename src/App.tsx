@@ -970,6 +970,7 @@ export default function App({ onLogout }: AppProps) {
               <FileTreePanel
                 workspaceAgentId={workspaceAgentId}
                 onOpenFile={openFile}
+                onAddToChat={(path, kind) => chatPanelRef.current?.addWorkspacePath(path, kind)}
                 lastChangedEvent={lastChangedEvent}
                 revealRequest={revealRequest}
                 onRemapOpenPaths={remapOpenPaths}
@@ -996,6 +997,7 @@ export default function App({ onLogout }: AppProps) {
                   <FileTreePanel
                     workspaceAgentId={workspaceAgentId}
                     onOpenFile={openFile}
+                    onAddToChat={(path, kind) => chatPanelRef.current?.addWorkspacePath(path, kind)}
                     lastChangedEvent={lastChangedEvent}
                     revealRequest={revealRequest}
                     onRemapOpenPaths={remapOpenPaths}
