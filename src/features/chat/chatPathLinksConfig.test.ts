@@ -21,6 +21,34 @@ describe('chatPathLinksConfig', () => {
     ]);
   });
 
+  it('derives Windows-aware defaults from the actual workspace root', () => {
+    const config = createDefaultChatPathLinksConfig({
+      platform: 'win32',
+      username: 'derrick',
+      workspaceRoot: 'D:\\Users\\derrick\\.openclaw\\workspace-research',
+    });
+
+    expect(config.prefixes).toEqual([
+      '/workspace/',
+      'D:/Users/derrick/.openclaw/workspace-research/',
+      'D:/Users/derrick/.openclaw/workspace/',
+      'D:/Users/derrick/workspace/',
+    ]);
+  });
+
+  it('falls back to conventional Windows home defaults when only username is available', () => {
+    const config = createDefaultChatPathLinksConfig({
+      platform: 'windows',
+      username: 'derrick',
+    });
+
+    expect(config.prefixes).toEqual([
+      '/workspace/',
+      'C:/Users/derrick/.openclaw/workspace/',
+      'C:/Users/derrick/workspace/',
+    ]);
+  });
+
   it('normalizes, dedupes, and falls back when parsing', () => {
     expect(parseChatPathLinksConfig('{"prefixes":[" /workspace ","/workspace/","","  "]}')).toEqual({
       prefixes: ['/workspace/'],

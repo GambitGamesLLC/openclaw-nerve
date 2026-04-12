@@ -15,6 +15,10 @@ function withTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
 }
 
+function stripTrailingSlash(value: string): string {
+  return value.replace(/\/$/, '');
+}
+
 function normalizePrefixPath(value: string): string {
   const trimmed = value.trim().replaceAll('\\', '/');
   if (!trimmed) return '';
@@ -35,8 +39,30 @@ function dedupePrefixes(prefixes: string[]): string[] {
   return result;
 }
 
+function inferHomeDirFromWorkspaceRoot(workspaceRoot?: string): string | null {
+  if (!workspaceRoot) return null;
+
+  const normalizedWorkspaceRoot = stripTrailingSlash(normalizePrefixPath(workspaceRoot));
+  if (!normalizedWorkspaceRoot) return null;
+
+  const openclawMatch = normalizedWorkspaceRoot.match(/^(.*)\/\.openclaw\/workspace(?:-[^/]+)?$/);
+  if (openclawMatch?.[1]) {
+    return openclawMatch[1];
+  }
+
+  const workspaceMatch = normalizedWorkspaceRoot.match(/^(.*)\/workspace(?:-[^/]+)?$/);
+  if (workspaceMatch?.[1]) {
+    return workspaceMatch[1];
+  }
+
+  return null;
+}
+
 function inferHomeDir(context: ChatPathLinksSeedContext): string | null {
-  if (context.homeDir) return normalizePrefixPath(context.homeDir).replace(/\/$/, '');
+  if (context.homeDir) return stripTrailingSlash(normalizePrefixPath(context.homeDir));
+
+  const workspaceRootHome = inferHomeDirFromWorkspaceRoot(context.workspaceRoot);
+  if (workspaceRootHome) return workspaceRootHome;
 
   const username = context.username?.trim();
   if (!username) return null;
@@ -47,6 +73,9 @@ function inferHomeDir(context: ChatPathLinksSeedContext): string | null {
   }
   if (platform === 'linux') {
     return `/home/${username}`;
+  }
+  if (platform === 'win32' || platform === 'windows') {
+    return `C:/Users/${username}`;
   }
 
   return null;
