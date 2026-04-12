@@ -23,6 +23,7 @@ describe('ConfigTab', () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    localStorage.clear();
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
@@ -31,6 +32,7 @@ describe('ConfigTab', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 
