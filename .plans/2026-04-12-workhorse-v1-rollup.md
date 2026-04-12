@@ -305,6 +305,112 @@ Final verification state:
 
 ---
 
+### Task 10: Audit remaining `.temp` worktrees and classify removal safety
+
+**Bead ID:** `nerve-wi5b`  
+**SubAgent:** `primary`
+**Prompt:** Investigate the remaining `.temp/...` git worktrees for `gambit-openclaw-nerve`. For each one, determine branch/commit, whether it is a registered worktree, likely purpose from branch naming and plan/memory history, and whether it appears safe to remove locally now. Prefer evidence-backed classification and note any item that looks like it still has unique local value.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+
+**Status:** ✅ Complete
+
+**Results:** Audited all remaining registered `.temp/...` worktrees from `git worktree list --porcelain`, cross-checking each checkout’s `git status --short --branch`, branch/HEAD state, commit subject, ancestry vs `workhorse-v1` / `upstream/master`, and relevant plan/memory notes.
+
+Per-item classification:
+- `.temp/gambit-openclaw-nerve-bead-scheme-nav`
+  - **Type:** real registered git worktree (listed by `git worktree list`)
+  - **Branch / commit:** `slice/bead-scheme-markdown-navigation` @ `8c2c37e` (`fix(markdown): preserve bead: links through react-markdown transform`)
+  - **Recoverable purpose:** narrow Beads markdown-link fix lane from the 2026-04-06 / 2026-04-07 bead-link dogfood work; memory explicitly ties this branch to the `bead:` / `bead://` navigation investigation
+  - **Evidence notes:** clean worktree; commit is preserved on local+remote branch, but **not** contained by `upstream/master` or `workhorse-v1`
+  - **Removal safety:** **Safe to remove locally now** if Derrick only wants to clean disk/worktree state. The branch tip is preserved, but this lane still looks like an unmerged canonical branch rather than throwaway history.
+- `.temp/gambit-openclaw-nerve-issue-228`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `slice/issue-228-canonical-attachment-contract` @ `4595bc1` (`Validate upload staging path before writes`)
+  - **Recoverable purpose:** old issue/PR `#228/#229` canonical attachment-contract lane documented in 2026-04-03 / 2026-04-04 memory
+  - **Evidence notes:** clean worktree; branch shows `ahead 2, behind 7` vs `upstream/master`; commit is already contained by `workhorse-v1` and preserved on `origin/slice/issue-228-canonical-attachment-contract`
+  - **Removal safety:** **Safe to remove locally now.** No local-only changes surfaced.
+- `.temp/gambit-openclaw-nerve-issue-230`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `slice/composer-single-primary-paperclip` @ `d3dea62` (`fix(chat): resolve InputBar lint errors`)
+  - **Recoverable purpose:** old paperclip/composer lane in the attachment-flow stack, documented in 2026-04-04 memory as part of the chain feeding later add-to-chat work
+  - **Evidence notes:** clean worktree; commit is contained by `workhorse-v1` and preserved on `origin/slice/composer-single-primary-paperclip`
+  - **Removal safety:** **Safe to remove locally now.** No unique local value detected.
+- `.temp/gambit-openclaw-nerve-issue-232`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `slice/workspace-file-add-to-chat` @ `0215573` (`Add workspace file tree add-to-chat action`)
+  - **Recoverable purpose:** current draft upstream PR `#233`, also explicitly recorded in this plan’s rollup tasks
+  - **Evidence notes:** clean worktree; commit is contained by `workhorse-v1` and preserved on `origin/slice/workspace-file-add-to-chat`
+  - **Removal safety:** **Safe to remove locally now.** The branch itself still matters, but this local checkout does not appear to hold unique state.
+- `.temp/gambit-openclaw-nerve-issue-234`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `slice/workspace-directory-context` @ `8a5d0b4` (`Allow adding workspace directories to chat`)
+  - **Recoverable purpose:** current draft upstream PR `#235`, stacked directly on `slice/workspace-file-add-to-chat` per both memory and this plan’s Task 1 audit
+  - **Evidence notes:** clean worktree; commit is contained by `workhorse-v1` and preserved on `origin/slice/workspace-directory-context`
+  - **Removal safety:** **Safe to remove locally now.** No local-only changes surfaced.
+- `.temp/gambit-openclaw-nerve-sv1`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `slice/nerve-sv1-sessions-subagent-visibility` @ `93e155a` (`fix(sessions): include spawned children from all root agents`)
+  - **Recoverable purpose:** upstream PR `#226` sessions/subagent visibility lane documented in 2026-04-02 memory and in this rollup plan
+  - **Evidence notes:** clean worktree tracking `origin/slice/nerve-sv1-sessions-subagent-visibility`; commit is contained by `workhorse-v1`
+  - **Removal safety:** **Safe to remove locally now.** Branch is preserved and no unique local changes were found.
+- `.temp/nerve-upstream-master-f0dbe68`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** detached HEAD @ `f0dbe68` (`fix(chat): preserve uploaded user images across history reconciliation (#220)`)
+  - **Recoverable purpose:** scratch clean checkout pinned to the 2026-04-02 `upstream/master` baseline used during early sessions-visibility / bug-triage work
+  - **Evidence notes:** unlike the branch-backed worktrees above, this checkout has an untracked file: `src/contexts/SessionContext.subagent-visibility-gap.temp.test.tsx`; the base commit is now fully contained by `upstream/master`, `workhorse`, and `workhorse-v1`
+  - **Removal safety:** **Keep / review before removing.** The registered worktree itself is disposable, but the untracked temp test is local-only value until consciously discarded or copied elsewhere.
+- `.temp/nerve-upstream-master-next-candidate`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** detached HEAD @ `f0dbe68` (`fix(chat): preserve uploaded user images across history reconciliation (#220)`)
+  - **Recoverable purpose:** another old clean-upstream scratch checkout, likely used for “next candidate” exploration / triage around early April before a stronger lane was chosen
+  - **Evidence notes:** has untracked file `src/hooks/useWebSocket.reconnect-auth-failure.temp.test.ts`; base commit is already contained by `upstream/master`, `workhorse`, and `workhorse-v1`
+  - **Removal safety:** **Keep / review before removing.** Same reason as above: the checkout is not important, but the untracked temp test looks like unique local-only scratch value.
+- `.temp/nerve-workhorse-clean-2026-04-09`
+  - **Type:** real registered git worktree
+  - **Branch / commit:** `staging/workhorse-clean-2026-04-09` @ `a3fecfc` (`Tighten final bead lookup follow-ups`)
+  - **Recoverable purpose:** a dated staging/cleanup integration branch from the 2026-04-09 workhorse refresh period; naming and branch shape suggest it was a clean staging candidate before the later `workhorse-v1` reset
+  - **Evidence notes:** clean worktree tracking `origin/staging/workhorse-clean-2026-04-09`; not contained by `upstream/master` or `workhorse-v1`, but preserved on the local+remote staging branch and still reachable from `workhorse`
+  - **Removal safety:** **Safe to remove locally now.** No local-only edits surfaced, and it appears superseded by the newer `workhorse-v1` rollout.
+
+Summary evidence note: every remaining `.temp/...` item is a real registered worktree. Seven look clean and locally disposable because their value is preserved by branch refs and/or inclusion in `workhorse-v1`. The only items that clearly need human review before deletion are the two detached old-`upstream/master` scratch worktrees, because both contain untracked `.temp.test.ts(x)` files that may still hold unique local-only experiment value.
+
+---
+
+### Task 11: Remove remaining `.temp` worktrees and detached scratch baselines
+
+**Bead ID:** `nerve-si6j`  
+**SubAgent:** `primary`
+**Prompt:** Remove the remaining `.temp/...` worktrees now that Derrick has confirmed the two detached upstream-master scratch worktrees and their temp test files are disposable. Use `git worktree remove` for all registered `.temp` worktrees, verify the final `git worktree list`, and record exactly what was removed.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+- local `.temp/...` worktree directories / git worktree metadata
+
+**Status:** ✅ Complete
+
+**Results:** Removed all remaining registered `.temp/...` worktrees:
+- `.temp/gambit-openclaw-nerve-bead-scheme-nav`
+- `.temp/gambit-openclaw-nerve-issue-228`
+- `.temp/gambit-openclaw-nerve-issue-230`
+- `.temp/gambit-openclaw-nerve-issue-232`
+- `.temp/gambit-openclaw-nerve-issue-234`
+- `.temp/gambit-openclaw-nerve-sv1`
+- `.temp/nerve-upstream-master-f0dbe68`
+- `.temp/nerve-upstream-master-next-candidate`
+- `.temp/nerve-workhorse-clean-2026-04-09`
+
+Removal notes:
+- Most were removed cleanly with normal `git worktree remove` semantics.
+- The detached upstream-master scratch worktree `nerve-upstream-master-f0dbe68` refused a non-force removal because it still contained disposable untracked temp-test files, matching the prior audit. After Derrick confirmed those files were junk, the remaining `.temp` worktrees were removed with force.
+
+Verification:
+- `git worktree list --porcelain` now shows only the main checkout on `workhorse-v1`
+- current `git status --short` shows only the modified plan file `.plans/2026-04-12-workhorse-v1-rollup.md`
+
+---
+
 ## Final Results
 
 **Status:** ✅ Complete
