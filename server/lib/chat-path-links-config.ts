@@ -7,4 +7,4 @@ export {
   stringifyChatPathLinksConfig,
   type ChatPathLinksConfig,
   type ChatPathLinksSeedContext,
-} from './chatPathLinksConfig';
+} from '../../src/features/chat/chatPathLinksConfig.js';
