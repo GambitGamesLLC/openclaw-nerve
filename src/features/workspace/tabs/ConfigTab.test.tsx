@@ -78,9 +78,14 @@ describe('ConfigTab', () => {
     });
   });
 
-  it('creates CHAT_PATH_LINKS.json with the shared template', async () => {
+  it('creates CHAT_PATH_LINKS.json with the shared template seeded from browser/workspace context', async () => {
     const user = userEvent.setup();
-    const expectedTemplate = createChatPathLinksTemplate();
+    let putBody: string | undefined;
+
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'Linux x86_64',
+    });
 
     globalThis.fetch = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
@@ -91,8 +96,18 @@ describe('ConfigTab', () => {
       if (!init?.method && url === '/api/workspace/chatPathLinks?agentId=alpha') {
         return Promise.resolve(jsonResponse({ ok: false, error: 'File not found' }, { ok: false, status: 404 }));
       }
+      if (!init?.method && url === '/api/files/tree?depth=1&agentId=alpha') {
+        return Promise.resolve(jsonResponse({
+          ok: true,
+          entries: [],
+          workspaceInfo: {
+            isCustomWorkspace: false,
+            rootPath: '/home/derrick/.openclaw/workspace',
+          },
+        }));
+      }
       if (init?.method === 'PUT' && url === '/api/workspace/chatPathLinks') {
-        expect(init.body).toBe(JSON.stringify({ content: expectedTemplate, agentId: 'alpha' }));
+        putBody = String(init.body);
         return Promise.resolve(jsonResponse({ ok: true }));
       }
 
@@ -112,6 +127,15 @@ describe('ConfigTab', () => {
     await user.click(screen.getByRole('button', { name: /create chat_path_links\.json/i }));
 
     expect(await screen.findByText('File created')).toBeInTheDocument();
+    expect(putBody).toBeDefined();
+
+    expect(putBody).toBe(JSON.stringify({
+      content: createChatPathLinksTemplate({
+        platform: 'linux',
+        workspaceRoot: '/home/derrick/.openclaw/workspace',
+      }),
+      agentId: 'alpha',
+    }));
   });
 
   it('shows a cron capability warning when the gateway is missing cron access', async () => {
