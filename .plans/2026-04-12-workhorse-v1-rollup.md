@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — workhorse-v1 rollup
 
 **Date:** 2026-04-12  
-**Status:** In Progress  
+**Status:** Complete  
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -122,9 +122,21 @@ Notes:
 - `.plans/2026-04-12-workhorse-v1-rollup.md`
 - `~/.openclaw/.env`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Ran practical repo-local integration validation in the clean `.worktrees/workhorse-v1-rollup` checkout after installing dependencies with `npm ci`.
+
+Exact commands and outcomes:
+- `npm ci` → ✅ passed in ~12s; installed dependencies successfully. Postinstall emitted the normal reminder that local Nerve setup can be completed with `npm run setup`. `npm audit` summary reported 13 existing vulnerabilities (3 moderate, 10 high), but install completed successfully.
+- `npm run build` → ✅ passed. TypeScript, Vite production build, and server build all completed successfully. Vite emitted non-fatal warnings about large chunks and about some modules being both statically and dynamically imported; no build failure occurred.
+- `npm test -- --run` → ✅ passed. Vitest finished with `129 passed` test files and `1712 passed` tests in about `40.22s`.
+
+Deploy handoff update:
+- Updated `~/.openclaw/.env` from `NERVE_DEPLOY_BRANCH=workhorse` to `NERVE_DEPLOY_BRANCH=workhorse-v1`.
+
+Readiness note:
+- Validation passed, so this branch is ready for Derrick’s manual local rollout flow.
+- Per task constraints, I did **not** run `update.sh` or `restore.sh`.
 
 ---
 
@@ -137,22 +149,95 @@ Notes:
 **Files Created/Deleted/Modified:**
 - `.plans/2026-04-12-workhorse-v1-rollup.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** `workhorse-v1` is now the clean rollup branch rooted at `upstream/master` commit `a5f7973eedd218a124759b27fe2c58d5c096b5eb`, with all nine currently open Gambit upstream lanes merged in this order:
+1. `#226` — `slice/nerve-sv1-sessions-subagent-visibility`
+2. `#257` — `bug/default-model-effort`
+3. `#265` — `fix/upload-config-capability`
+4. `#267` — `feature/local-chat-links-self-heal-and-defaults`
+5. `#253` — `feature/beads-view-ui`
+6. `#264` — `bugfix/workspace-inline-reference-slice`
+7. `#246` — `slice/hidden-workspace-entries-toggle`
+8. `#233` — `slice/workspace-file-add-to-chat` (draft)
+9. `#235` — `slice/workspace-directory-context` (draft)
+
+Validation summary recorded for handoff:
+- `npm ci` ✅
+- `npm run build` ✅
+- `npm test -- --run` ✅ (`129` files / `1712` tests passed)
+- Build emitted warnings only; no failing validation remains documented from this pass.
+
+Deploy target summary:
+- `~/.openclaw/.env` now points deploys at `workhorse-v1` via `NERVE_DEPLOY_BRANCH=workhorse-v1`.
+
+Derrick’s exact next manual steps:
+1. Run `~/.openclaw/workspace/scripts/update.sh`
+2. Run `~/.openclaw/workspace/scripts/restore.sh`
+3. Dogfood the resulting local Nerve deployment on `workhorse-v1`
+
+Recommended cleanup / retirement follow-up after dogfooding succeeds:
+1. Confirm the old `workhorse` branch/worktree is no longer needed.
+2. Archive or delete the legacy `workhorse` worktree only after confirming there is no uncommitted state worth preserving.
+3. Remove the temporary rollup / scratch worktrees that are now superseded (`.worktrees/workhorse-v1-rollup`, old issue-specific `.temp/...` worktrees, and other stale integration scratch trees) only after verifying no remaining branch depends on them.
+4. Keep `workhorse-v1` as the active combined dogfood branch until upstream PR state changes require a new rollup.
+
+---
+
+### Task 6: Bring dirty `workhorse` plan docs forward and retire the rollup worktree
+
+**Bead ID:** `nerve-kprv`  
+**SubAgent:** `coder`
+**Prompt:** Copy the relevant dirty/untracked `.plans/` files from the current main-checkout `workhorse` into the `workhorse-v1` branch so the new dogfood branch carries forward the active planning history. Then commit the plan/doc state on `workhorse-v1`, retire the temporary `workhorse-v1` rollup worktree, and leave the repo ready for the main checkout to switch onto `workhorse-v1` cleanly without losing those plans.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-08-cut-clean-beads-view-ui-branch-and-package-upstream.md`
+- `.plans/2026-04-08-diagnose-root-workspace-bead-not-found.md`
+- `.plans/2026-04-08-stress-test-bead-viewer-and-package-upstream.md`
+- `.plans/2026-04-09-audit-open-prs-and-refresh-combo-branch.md`
+- `.plans/2026-04-09-final-post-rewrite-coderabbit-cleanup.md`
+- `.plans/2026-04-09-remove-plans-from-pr-253-history.md`
+- `.plans/2026-04-10-bug2-issue-pr-followthrough.md`
+- `.plans/2026-04-10-chat-path-links-endpoint-diagnosis.md`
+- `.plans/2026-04-10-link-dogfood-not-live-diagnosis.md`
+- `.plans/2026-04-10-nerve-502-startup-diagnosis.md`
+- `.plans/2026-04-10-workspace-add-to-chat-disabled-diagnosis.md`
+- `.plans/2026-04-10-workspace-add-to-chat-upload-config-fix.md`
+- `.plans/2026-04-10-workspace-link-canonical-path-tightening.md`
+- `.plans/2026-04-10-workspace-link-pattern-broadening.md`
+- `.plans/2026-04-10-workspace-link-wrapper-followups.md`
+- `.plans/2026-04-11-chat-link-hardening-lane.md`
+- `.plans/2026-04-11-workhorse-packaging-and-chat-links-hardening.md`
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+
+**Status:** ✅ Complete
+
+**Results:** Carried the active dirty plan state from the main-checkout `workhorse` tree into `workhorse-v1` by copying the sixteen untracked top-level `.plans/*.md` files plus the modified `.plans/2026-04-11-workhorse-packaging-and-chat-links-hardening.md` file into the clean `workhorse-v1` rollup worktree. I intentionally did **not** overwrite `.plans/2026-04-12-workhorse-v1-rollup.md` from the dirty main checkout because that copy was stale relative to the rollup worktree’s already-completed task record; instead I updated the authoritative `workhorse-v1` copy in place with this Task 6 handoff.
+
+Committed the carry-forward on `workhorse-v1` with message `docs: carry workhorse plans into workhorse-v1`. This preserved the dirty `workhorse` planning history on the new branch without touching the old `workhorse` branch itself and left the main checkout still on `workhorse` so Derrick can switch it later once ready.
 
 ---
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**What We Built:** Pending.
+**What We Built:** A fresh `workhorse-v1` integration branch from current `upstream/master`, containing all nine currently open Gambit-owned upstream PR branches, validated locally with a full install/build/test pass, wired into local deploy configuration by changing `~/.openclaw/.env` to target `workhorse-v1`, and now carrying forward the dirty active `.plans/` history from the old `workhorse` checkout.
 
 **Commits:**
-- Pending
+- `03ce4c6` - Merge branch `slice/nerve-sv1-sessions-subagent-visibility` into `workhorse-v1`
+- `9437dd5` - Merge branch `bug/default-model-effort` into `workhorse-v1`
+- `4219fea` - Merge branch `fix/upload-config-capability` into `workhorse-v1`
+- `ef01129` - Merge branch `feature/local-chat-links-self-heal-and-defaults` into `workhorse-v1`
+- `8d45ae5` - Merge branch `feature/beads-view-ui` into `workhorse-v1`
+- `9b77578` - Merge branch `bugfix/workspace-inline-reference-slice` into `workhorse-v1`
+- `4d82186` - Merge branch `slice/hidden-workspace-entries-toggle` into `workhorse-v1`
+- `3bd0184` - Merge branch `slice/workspace-file-add-to-chat` into `workhorse-v1`
+- `77b8407` - Merge branch `slice/workspace-directory-context` into `workhorse-v1`
+- `02d9069` - docs: record workhorse-v1 rollup merge results
+- final workhorse-v1 docs carry-forward commit — `docs: carry workhorse plans into workhorse-v1`
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** Using a dedicated clean worktree for the rollup avoided contaminating the existing dirty `workhorse` checkout and made it straightforward to validate the combined branch in isolation before repointing deployment. Copying the dirty plan set forward before retiring the temporary worktree also preserved local planning history without forcing an early branch switch in the main checkout.
 
 ---
 

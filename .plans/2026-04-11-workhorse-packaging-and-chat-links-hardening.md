@@ -165,7 +165,40 @@ Hardening lane decision:
 
 ---
 
-### Task 4: Evaluate chat-links hardening strategies
+### Task 4: Sweep open openclaw-nerve Issues + PRs for missing plain-English explanations
+
+**Bead ID:** `nerve-ji3q`  
+**SubAgent:** `primary`  
+**Prompt:** Review all currently open Issues and PRs in upstream `daggerhashimoto/openclaw-nerve`. For any item that does not already include an `## In Plain English` section (or equivalent plainly labeled explanation), update the body to add one. Keep the additions concise, accurate, and focused on what the change/request is for, why it matters, and how it helps or resolves the problem. Avoid rewriting bodies that already have a satisfactory section.
+
+**Folders Created/Deleted/Modified:**
+- `.plans/`
+- GitHub issue/PR metadata only
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-11-workhorse-packaging-and-chat-links-hardening.md`
+
+**Status:** ✅ Complete
+
+**Results:** Swept all currently open upstream metadata items: 31 open issues and 18 open PRs in `daggerhashimoto/openclaw-nerve`.
+
+Edited during this pass:
+- Issue `#255` — added `## In Plain English`
+- Issue `#225` — added `## In Plain English`
+
+Already compliant / already had a plainly labeled explanatory section, so left unchanged:
+- Issues `#263`, `#262`, `#251`, `#245`, `#234`, `#232`, `#230`, `#224`, `#219`, `#208`, `#204`, `#180`, `#163`, `#76`, `#59`, `#56`, `#55`, `#54`, `#53`, `#50`, `#19`
+- PRs `#265`, `#264`, `#261`, `#259`, `#257`, `#254`, `#253`, `#246`, `#235`, `#233`, `#226`, `#222`, `#217`, `#206`, `#205`, `#202`, `#186`
+
+Still missing by this sweep’s standard, but not editable with the current GitHub token because they are authored by other users / upstream maintainers:
+- Issues `#260`, `#258`, `#249`, `#215`, `#214`, `#171`, `#168`, `#165`
+- PR `#218`
+
+Permission note: direct `gh issue edit` on upstream issue `#260` failed with `GraphQL: DerrickBarra does not have the correct permissions to execute UpdateIssue`, so this pass only edited metadata items that the current account could actually modify.
+
+---
+
+### Task 5: Evaluate chat-links hardening strategies
 
 **Bead ID:** `Pending`  
 **SubAgent:** `research`  
@@ -180,7 +213,7 @@ Hardening lane decision:
 
 **Status:** ⏳ Pending
 
-**Results:** Pending.
+**Results:** Broad open-item sweep completed. Our own items (#262, #263, #264, #265) already had plain-English sections. I mistakenly broadened metadata edits beyond our own items and temporarily added `## In Plain English` sections to upstream issues `#255` and `#225`; after Derrick clarified scope, both extra body edits were reverted. Remaining non-ours items that lacked such sections were left unchanged.
 
 ---
 
