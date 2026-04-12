@@ -218,11 +218,98 @@ Committed the carry-forward on `workhorse-v1` with message `docs: carry workhors
 
 ---
 
+### Task 7: Preserve dirty `workhorse` state and switch main checkout to `workhorse-v1`
+
+**Bead ID:** `nerve-8854`  
+**SubAgent:** `primary`
+**Prompt:** Preserve the dirty/untracked state in the main-checkout `workhorse` branch without losing it, then switch the main repo checkout at `projects/gambit-openclaw-nerve` onto `workhorse-v1` so `update.sh` can deploy from the correct branch. Record exactly how the old state was preserved and verify the main checkout branch/status after the switch.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+- git stash / refs metadata as needed
+
+**Status:** ✅ Complete
+
+**Results:** Preserved the dirty main-checkout `workhorse` state using a named stash that included untracked files:
+- `stash@{0}` — `On workhorse: pre-workhorse-v1-switch-2026-04-12-1048`
+
+Then switched the main repo checkout at `projects/gambit-openclaw-nerve` from `workhorse` to `workhorse-v1` successfully.
+
+Post-switch verification:
+- current branch: `workhorse-v1`
+- working tree status: `?? .worktrees/`
+
+Notes:
+- `git stash push -u` reported `Ignoring path .worktrees/...` for nested worktree directories; that is expected for nested worktree paths and the important dirty plan/doc state from the old main checkout was preserved in the stash.
+- The main checkout is now on the intended deploy branch for `update.sh` / `restore.sh`.
+
+---
+
+### Task 8: Audit remaining legacy worktrees and classify removal safety
+
+**Bead ID:** `nerve-42eh`  
+**SubAgent:** `primary`
+**Prompt:** Investigate the remaining `.worktrees/` entries and any related registered git worktrees for `gambit-openclaw-nerve`. For each remaining item, determine whether it is a real registered worktree or a standalone nested scratch repo, identify its branch/commit/purpose if recoverable from plan/memory history, and classify it as safe to remove now vs keep. Prefer evidence-backed classification over assumptions.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+
+**Status:** ✅ Complete
+
+**Results:** Cross-checked the remaining on-disk `.worktrees/` entries against `git worktree list --porcelain`, each checkout’s `.git` layout, branch/HEAD state, and the 2026-04-11 hardening plan + memory notes.
+
+Per-item classification:
+- `.worktrees/local-chat-links-self-heal`
+  - **Type:** real registered git worktree (`.git` points at main repo admin dir; listed by `git worktree list`)
+  - **Branch / commit:** `feature/local-chat-links-self-heal-and-defaults` @ `6687533` (`test(config): isolate ConfigTab local storage state`)
+  - **Recoverable purpose:** canonical clean source branch for upstream PR `#267` (`feature/local-chat-links-self-heal-and-defaults`), created as the fresh upstream-master lane for the chat-links hardening work
+  - **Removal safety:** **Keep** for now. Evidence says this is still the authoritative PR branch/worktree and it contains the final CodeRabbit + CI-fix follow-up commits documented in memory.
+- `.worktrees/workhorse-dogfood`
+  - **Type:** real registered git worktree (`.git` points at main repo admin dir; listed by `git worktree list`)
+  - **Branch / commit:** detached HEAD at `d9db0a1` (`feat(chat): self-heal missing local chat path links config`); commit is still reachable from local branches `workhorse` and `workhorse-reroll`
+  - **Recoverable purpose:** stale dogfood snapshot from the early `workhorse` reroll phase of the 2026-04-11 chat-link hardening lane, before the later helper/server-tree and Windows-aware follow-up rerolls
+  - **Removal safety:** **Safe to remove now.** It is clean, detached, superseded by later documented rerolls and by `workhorse-v1`, and deleting the worktree would not strand the referenced commit.
+- `.worktrees/nerve-lp9p-reroll`
+  - **Type:** standalone nested scratch repo, **not** a registered worktree (`.git` is a directory, not a gitfile; absent from the main repo’s `git worktree list`)
+  - **Branch / commit:** nested repo branch `workhorse` @ `fb9778b` (`fix(chat): keep chat path links helper in server tree`), with nested `origin` pointed back at the main repo path and shown as `ahead 1`
+  - **Recoverable purpose:** scratch reroll clone used for Task 5 of the 2026-04-11 plan to replay the missing server-tree helper fix onto `workhorse` for Linux dogfood; the same commit is preserved in the main repo as branch `workhorse-reroll`
+  - **Removal safety:** **Safe to remove now.** It is a clean scratch clone, not an active registered worktree, its purpose is fully documented, and its key reroll commit is already preserved in the main repo.
+
+Summary evidence note: among the remaining `.worktrees/` entries, only `local-chat-links-self-heal` and `workhorse-dogfood` are still registered to the main repo; `nerve-lp9p-reroll` is just a nested throwaway repo. The only remaining item that should clearly be kept is the live PR/source branch worktree `local-chat-links-self-heal`.
+
+---
+
+### Task 9: Remove remaining local worktrees and scratch reroll repo
+
+**Bead ID:** `nerve-tr21`  
+**SubAgent:** `primary`
+**Prompt:** Remove all remaining local `.worktrees/*` leftovers now that Derrick has confirmed they are no longer needed locally. Use `git worktree remove` for registered worktrees, remove any standalone nested scratch repo carefully, and verify the resulting `.worktrees/` state plus `git worktree list` afterward. Record exactly what was removed.
+
+**Files Created/Deleted/Modified:**
+- `.plans/2026-04-12-workhorse-v1-rollup.md`
+- local worktree directories / git worktree metadata
+
+**Status:** ✅ Complete
+
+**Results:** Removed all three remaining local `.worktrees/*` entries and verified cleanup afterward.
+
+Exact removals:
+- Removed registered worktree `.worktrees/local-chat-links-self-heal` via `git worktree remove`
+- Removed registered worktree `.worktrees/workhorse-dogfood` via `git worktree remove`
+- Removed standalone nested scratch repo `.worktrees/nerve-lp9p-reroll` by deleting that directory after confirming it was not a registered worktree
+
+Final verification state:
+- `.worktrees/` is now empty (no remaining entries under that directory)
+- `git worktree list --porcelain` no longer shows any `.worktrees/...` paths
+- Remaining registered worktrees are only the main checkout on `workhorse-v1` plus the separate `.temp/...` worktrees; no branch refs or remotes were touched during this cleanup
+
+---
+
 ## Final Results
 
 **Status:** ✅ Complete
 
-**What We Built:** A fresh `workhorse-v1` integration branch from current `upstream/master`, containing all nine currently open Gambit-owned upstream PR branches, validated locally with a full install/build/test pass, wired into local deploy configuration by changing `~/.openclaw/.env` to target `workhorse-v1`, and now carrying forward the dirty active `.plans/` history from the old `workhorse` checkout.
+**What We Built:** A fresh `workhorse-v1` integration branch from current `upstream/master`, containing all nine currently open Gambit-owned upstream PR branches, validated locally with a full install/build/test pass, wired into local deploy configuration by changing `~/.openclaw/.env` to target `workhorse-v1`, carrying forward the dirty active `.plans/` history from the old `workhorse` checkout, and now positioned as the main repo checkout branch for the next manual deploy.
 
 **Commits:**
 - `03ce4c6` - Merge branch `slice/nerve-sv1-sessions-subagent-visibility` into `workhorse-v1`
