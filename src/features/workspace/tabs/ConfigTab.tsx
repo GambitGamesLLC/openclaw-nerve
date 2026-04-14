@@ -10,6 +10,7 @@ import { useWorkspaceFile } from '../hooks/useWorkspaceFile';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getWorkspaceStorageKey } from '../workspaceScope';
 import { clearPersistedDraft, readPersistedDraft, writePersistedDraft } from '../persistedDrafts';
+import { createChatPathLinksTemplate } from '@/features/chat/chatPathLinks';
 
 const FILE_OPTIONS = [
   { key: 'soul', label: 'SOUL.md' },
@@ -152,7 +153,7 @@ export function ConfigTab({ agentId, cronWarning = null }: ConfigTabProps) {
   const handleCreate = useCallback(async () => {
     const label = FILE_OPTIONS.find(f => f.key === selectedKey)?.label || selectedKey;
     const template = selectedKey === 'chatPathLinks'
-      ? '{\n  "prefixes": [\n    "/workspace/"\n  ]\n}\n'
+      ? createChatPathLinksTemplate()
       : `# ${label}\n\n`;
     const result = await save(selectedKey, template);
     if (result === 'saved') {

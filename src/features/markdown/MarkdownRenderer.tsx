@@ -15,6 +15,7 @@ interface MarkdownRendererProps {
   currentDocumentPath?: string;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
   pathLinkPrefixes?: string[];
+  pathLinkAliases?: Record<string, string>;
 }
 
 interface MarkdownAstNode {
@@ -129,16 +130,18 @@ function processChildren(
   options: {
     searchQuery?: string;
     pathLinkPrefixes?: string[];
+    pathLinkAliases?: Record<string, string>;
     onOpenWorkspacePath?: (path: string) => void | Promise<void>;
   } = {},
 ): React.ReactNode {
-  const { searchQuery, pathLinkPrefixes, onOpenWorkspacePath } = options;
+  const { searchQuery, pathLinkPrefixes, pathLinkAliases, onOpenWorkspacePath } = options;
   const renderPlainText = (text: string) => highlightText(text, searchQuery ?? '');
 
   return React.Children.map(children, (child) => {
     if (typeof child === 'string') {
       return renderInlinePathReferences(child, {
         prefixes: pathLinkPrefixes,
+        aliases: pathLinkAliases,
         onOpenPath: onOpenWorkspacePath,
         renderPlainText,
       });
@@ -227,16 +230,18 @@ export function MarkdownRenderer({
   currentDocumentPath,
   onOpenWorkspacePath,
   pathLinkPrefixes,
+  pathLinkAliases,
 }: MarkdownRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const childOptions = useMemo(() => ({
     searchQuery,
     pathLinkPrefixes,
+    pathLinkAliases,
     onOpenWorkspacePath: onOpenWorkspacePath
       ? (path: string) => onOpenWorkspacePath(path, currentDocumentPath)
       : undefined,
-  }), [searchQuery, pathLinkPrefixes, onOpenWorkspacePath, currentDocumentPath]);
+  }), [searchQuery, pathLinkPrefixes, pathLinkAliases, onOpenWorkspacePath, currentDocumentPath]);
 
   const scrollToAnchorId = useCallback((anchorId: string, behavior: ScrollBehavior = 'smooth') => {
     const root = containerRef.current;
