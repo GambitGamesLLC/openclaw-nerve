@@ -141,7 +141,7 @@ export function renderInlinePathReferences(
   } = {},
 ): React.ReactNode {
   const { prefixes = [], aliases = {}, onOpenPath, renderPlainText = (value: string) => value } = options;
-  if (!text || prefixes.length === 0 || !onOpenPath) {
+  if (!text || (!onOpenPath) || (prefixes.length === 0 && Object.keys(aliases).length === 0)) {
     return renderPlainText(text);
   }
 

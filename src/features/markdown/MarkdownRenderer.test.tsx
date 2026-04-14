@@ -98,6 +98,36 @@ describe('MarkdownRenderer', () => {
     expect(onOpenWorkspacePath).toHaveBeenCalledWith('/workspace/projects/openclaw-nerve/src/App.tsx', undefined);
   });
 
+  it('linkifies alias-only configs by normalizing rewritten targets to canonical workspace paths', () => {
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="Open projects/openclaw-nerve/src/App.tsx now"
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        pathLinkPrefixes={[]}
+        pathLinkAliases={{ 'projects/': '/workspace/projects/' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'projects/openclaw-nerve/src/App.tsx' }));
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('/workspace/projects/openclaw-nerve/src/App.tsx', undefined);
+  });
+
+  it('supports alias-only configs that rewrite file workspace urls to canonical workspace paths', () => {
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="Open shortcut/openclaw-nerve/src/App.tsx now"
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        pathLinkPrefixes={[]}
+        pathLinkAliases={{ 'shortcut/': 'file:///workspace/projects/' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'shortcut/openclaw-nerve/src/App.tsx' }));
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('/workspace/projects/openclaw-nerve/src/App.tsx', undefined);
+  });
+
   it('supports wrapped alias shorthand without widening interior-token matching', () => {
     const onOpenWorkspacePath = vi.fn();
     render(
