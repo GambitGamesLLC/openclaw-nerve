@@ -340,6 +340,9 @@ export default function App({ onLogout }: AppProps) {
   const [chatPathLinkPrefixes, setChatPathLinkPrefixes] = useState<string[]>(
     DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes,
   );
+  const [chatPathLinkAliases, setChatPathLinkAliases] = useState<Record<string, string>>(
+    DEFAULT_CHAT_PATH_LINKS_CONFIG.aliases,
+  );
 
   useEffect(() => {
     const params = new URLSearchParams({ agentId: workspaceAgentId });
@@ -349,19 +352,23 @@ export default function App({ onLogout }: AppProps) {
       .then(async (res) => {
         if (res.status === 404) {
           setChatPathLinkPrefixes(DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes);
+          setChatPathLinkAliases(DEFAULT_CHAT_PATH_LINKS_CONFIG.aliases);
           return;
         }
         const data = await res.json() as { ok: boolean; content?: string };
         if (!data.ok || !data.content) {
           setChatPathLinkPrefixes(DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes);
+          setChatPathLinkAliases(DEFAULT_CHAT_PATH_LINKS_CONFIG.aliases);
           return;
         }
         const parsed = parseChatPathLinksConfig(data.content);
         setChatPathLinkPrefixes(parsed.prefixes);
+        setChatPathLinkAliases(parsed.aliases);
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           setChatPathLinkPrefixes(DEFAULT_CHAT_PATH_LINKS_CONFIG.prefixes);
+          setChatPathLinkAliases(DEFAULT_CHAT_PATH_LINKS_CONFIG.aliases);
         }
       });
 
@@ -757,6 +764,7 @@ export default function App({ onLogout }: AppProps) {
             isMobileTopBarHidden={isMobileTopBarHidden}
             onOpenWorkspacePath={openWorkspacePath}
             pathLinkPrefixes={chatPathLinkPrefixes}
+            pathLinkAliases={chatPathLinkAliases}
             onOpenBeadId={openBeadId}
           />
         </PanelErrorBoundary>
