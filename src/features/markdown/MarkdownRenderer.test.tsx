@@ -114,6 +114,24 @@ describe('MarkdownRenderer', () => {
     expect(screen.queryByRole('link', { name: 'projects/nope.md' })).toBeNull();
   });
 
+  it('prefers the longest matching alias prefix when aliases overlap', () => {
+    const onOpenWorkspacePath = vi.fn();
+    render(
+      <MarkdownRenderer
+        content="Open projects/openclaw-nerve/src/App.tsx now"
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        pathLinkPrefixes={['/workspace/']}
+        pathLinkAliases={{
+          'projects/': '/workspace/projects-generic/',
+          'projects/openclaw-nerve/': '/workspace/projects/openclaw-nerve/',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'projects/openclaw-nerve/src/App.tsx' }));
+    expect(onOpenWorkspacePath).toHaveBeenCalledWith('/workspace/projects/openclaw-nerve/src/App.tsx', undefined);
+  });
+
   it('does not recurse through alias-to-alias chains', () => {
     render(
       <MarkdownRenderer

@@ -32,14 +32,14 @@ function decodeWorkspaceCandidate(value: string): string {
 }
 
 function rewriteAliasPrefix(candidate: string, aliases: Record<string, string>): string {
-  for (const [aliasPrefix, targetPrefix] of Object.entries(aliases)) {
-    if (!aliasPrefix || !targetPrefix) continue;
-    if (!candidate.startsWith(aliasPrefix)) continue;
+  const matchingAlias = Object.entries(aliases)
+    .filter(([aliasPrefix, targetPrefix]) => aliasPrefix && targetPrefix && candidate.startsWith(aliasPrefix))
+    .sort(([leftAlias], [rightAlias]) => rightAlias.length - leftAlias.length)[0];
 
-    return `${targetPrefix}${candidate.slice(aliasPrefix.length)}`;
-  }
+  if (!matchingAlias) return candidate;
 
-  return candidate;
+  const [aliasPrefix, targetPrefix] = matchingAlias;
+  return `${targetPrefix}${candidate.slice(aliasPrefix.length)}`;
 }
 
 function normalizeWorkspaceCandidate(
