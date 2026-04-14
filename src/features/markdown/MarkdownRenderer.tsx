@@ -514,7 +514,7 @@ export function MarkdownRenderer({
       },
       ...(suppressImages ? { img: () => null } : {}),
     };
-  }, [childOptions, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath, scrollToAnchor, suppressImages, updateLocationHash, workspaceAgentId]);
+  }, [childOptions, currentDocumentPath, onOpenBeadId, onOpenWorkspacePath, pathLinkPrefixes, scrollToAnchor, suppressImages, updateLocationHash, workspaceAgentId]);
 
   return (
     <div ref={containerRef} className={`markdown-content ${className}`}>
