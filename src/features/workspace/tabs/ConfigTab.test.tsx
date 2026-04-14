@@ -23,6 +23,7 @@ describe('ConfigTab', () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    localStorage.clear();
   });
 
   afterEach(() => {
