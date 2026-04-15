@@ -232,9 +232,9 @@ export function resolveBeadLookupRepoRoot(options: BeadLookupOptions = {}): stri
     const cwd = process.cwd();
     const defaultWorkspaceRoot = resolveAgentWorkspace().workspaceRoot;
     if (!isPathWithinRoot(cwd, defaultWorkspaceRoot)) {
-      return cwd;
+      return options.workspaceAgentId ? normalizeBeadRepoRoot(workspaceRoot) : cwd;
     }
-    return path.resolve(workspaceRoot, path.relative(defaultWorkspaceRoot, cwd));
+    return normalizeBeadRepoRoot(path.resolve(workspaceRoot, path.relative(defaultWorkspaceRoot, cwd)));
   }
 
   const targetPath = options.targetPath.trim();

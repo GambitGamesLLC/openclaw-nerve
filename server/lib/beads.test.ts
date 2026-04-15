@@ -75,9 +75,9 @@ describe('resolveBeadLookupRepoRoot', () => {
     cwdSpy.mockRestore();
   });
 
-  it('falls back to process cwd when the default repo root is outside the default workspace', () => {
+  it('anchors shorthand lookup to the requested workspace when cwd is outside the default workspace', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(OUTSIDE_REPO_ROOT);
-    expect(resolveBeadLookupRepoRoot({ workspaceAgentId: 'research' })).toBe(OUTSIDE_REPO_ROOT);
+    expect(resolveBeadLookupRepoRoot({ workspaceAgentId: 'research' })).toBe(RESEARCH_WORKSPACE_ROOT);
     cwdSpy.mockRestore();
   });
 

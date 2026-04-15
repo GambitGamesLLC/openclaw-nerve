@@ -32,9 +32,11 @@ export function useBeadDetail(target: BeadLinkTarget): UseBeadDetailState {
   const requestKey = `${target.beadId}${suffix}`;
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
-    void fetch(`/api/beads/${encodeURIComponent(target.beadId)}${suffix}`)
+    void fetch(`/api/beads/${encodeURIComponent(target.beadId)}${suffix}`, {
+      signal: controller.signal,
+    })
       .then(async (res) => {
         const data = await res.json().catch(() => null) as {
           ok?: boolean;
@@ -43,7 +45,7 @@ export function useBeadDetail(target: BeadLinkTarget): UseBeadDetailState {
           error?: string;
         } | null;
 
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
 
         if (!res.ok || !data?.ok || !data.bead) {
           setState({
@@ -56,13 +58,14 @@ export function useBeadDetail(target: BeadLinkTarget): UseBeadDetailState {
 
         setState({ bead: data.bead, error: null, requestKey });
       })
-      .catch(() => {
-        if (cancelled) return;
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         setState({ bead: null, error: 'Network error', requestKey });
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [requestKey, suffix, target.beadId]);
 
