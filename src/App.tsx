@@ -737,6 +737,7 @@ export default function App({ onLogout }: AppProps) {
       onRetryFile={reloadFile}
       onOpenWorkspacePath={openWorkspacePath}
       onOpenBeadId={openBeadId}
+      pathLinkPrefixes={chatPathLinkPrefixes}
       chatPanel={
         <PanelErrorBoundary name="Chat">
           <ChatPanel

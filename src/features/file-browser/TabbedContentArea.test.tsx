@@ -4,6 +4,7 @@ import { TabbedContentArea } from './TabbedContentArea';
 import type { OpenFile } from './types';
 
 const markdownDocumentViewSpy = vi.fn();
+const beadViewerTabSpy = vi.fn();
 
 vi.mock('./MarkdownDocumentView', () => ({
   MarkdownDocumentView: (props: {
@@ -23,6 +24,18 @@ vi.mock('./ImageViewer', () => ({
 
 vi.mock('./FileEditor', () => ({
   default: () => <div data-testid="file-editor" />,
+}));
+
+vi.mock('@/features/beads', () => ({
+  BeadViewerTab: (props: {
+    beadTarget: { beadId: string; workspaceAgentId?: string };
+    onOpenBeadId?: (target: { beadId: string }) => void;
+    onOpenWorkspacePath?: (path: string, basePath?: string) => void;
+    pathLinkPrefixes?: string[];
+  }) => {
+    beadViewerTabSpy(props);
+    return <div data-testid="bead-viewer-tab">{props.beadTarget.beadId}</div>;
+  },
 }));
 
 const file: OpenFile = {
@@ -64,5 +77,40 @@ describe('TabbedContentArea', () => {
     expect(props.onOpenBeadId).toBe(onOpenBeadId);
     expect(props.onOpenWorkspacePath).toBe(onOpenWorkspacePath);
     expect(props.workspaceAgentId).toBe('agent-1');
+  });
+
+  it('passes chat path link prefixes into bead viewer tabs', () => {
+    const onOpenBeadId = vi.fn();
+    const onOpenWorkspacePath = vi.fn();
+
+    render(
+      <TabbedContentArea
+        activeTab="bead:nerve-4gpd"
+        openFiles={[]}
+        openBeads={[{ id: 'bead:nerve-4gpd', beadId: 'nerve-4gpd', name: 'nerve-4gpd', workspaceAgentId: 'agent-1' }]}
+        workspaceAgentId="agent-1"
+        onSelectTab={vi.fn()}
+        onCloseTab={vi.fn()}
+        onContentChange={vi.fn()}
+        onSaveFile={vi.fn()}
+        onRetryFile={vi.fn()}
+        onOpenWorkspacePath={onOpenWorkspacePath}
+        onOpenBeadId={onOpenBeadId}
+        pathLinkPrefixes={['/workspace/', '~/workspace/']}
+        chatPanel={<div>chat</div>}
+      />,
+    );
+
+    expect(beadViewerTabSpy).toHaveBeenCalled();
+    const props = beadViewerTabSpy.mock.calls.at(-1)?.[0];
+    expect(props.beadTarget).toEqual({
+      beadId: 'nerve-4gpd',
+      explicitTargetPath: undefined,
+      currentDocumentPath: undefined,
+      workspaceAgentId: 'agent-1',
+    });
+    expect(props.onOpenBeadId).toBe(onOpenBeadId);
+    expect(props.onOpenWorkspacePath).toBe(onOpenWorkspacePath);
+    expect(props.pathLinkPrefixes).toEqual(['/workspace/', '~/workspace/']);
   });
 });

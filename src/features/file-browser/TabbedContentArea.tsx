@@ -46,6 +46,7 @@ interface TabbedContentAreaProps {
   onReloadFile?: (path: string) => void;
   onOpenWorkspacePath?: (path: string, basePath?: string) => void | Promise<void>;
   onOpenBeadId?: (target: BeadLinkTarget) => void;
+  pathLinkPrefixes?: string[];
   saveToast?: SaveToast | null;
   onDismissToast?: () => void;
   /** The chat panel rendered as-is (never unmounted). */
@@ -65,6 +66,7 @@ export function TabbedContentArea({
   onReloadFile,
   onOpenWorkspacePath,
   onOpenBeadId,
+  pathLinkPrefixes,
   saveToast,
   onDismissToast,
   chatPanel,
@@ -151,6 +153,7 @@ export function TabbedContentArea({
               }}
               onOpenBeadId={onOpenBeadId}
               onOpenWorkspacePath={onOpenWorkspacePath}
+              pathLinkPrefixes={pathLinkPrefixes}
             />
           </div>
         ))}
