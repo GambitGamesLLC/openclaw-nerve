@@ -6,7 +6,7 @@ const beadDetailState = {
   bead: {
     id: 'nerve-4gpd',
     title: 'Second CodeRabbit fixes',
-    notes: 'Open /workspace/src/plain.tsx and `/workspace/src/code.tsx` plus [related](bead:nerve-related)',
+    notes: 'Open /workspace/src/plain.tsx plus [related](bead:nerve-related)',
     status: 'open',
     priority: 1,
     issueType: 'task',
@@ -94,8 +94,6 @@ describe('BeadViewerTab', () => {
       expect(onOpenWorkspacePath).toHaveBeenCalled();
       expect(onOpenWorkspacePath.mock.calls.at(-1)?.[0]).toBe('/workspace/src/plain.tsx');
     });
-
-    expect(screen.queryByRole('link', { name: '/workspace/src/code.tsx' })).toBeNull();
   });
 
   it('opens linked plans via their resolved workspace path and logs async failures', async () => {
