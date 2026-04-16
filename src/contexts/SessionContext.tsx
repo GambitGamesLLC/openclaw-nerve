@@ -72,8 +72,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [eventEntries, setEventEntries] = useState<EventEntry[]>([]);
   const [agentStatus, setAgentStatus] = useState<Record<string, GranularAgentState>>({});
   const [agentName, setAgentName] = useState('Agent');
-  const [rootIdentityNames, setRootIdentityNames] = useState<Record<string, string>>({});
-  const [rootIdentityMisses, setRootIdentityMisses] = useState<Record<string, true>>({});
+  const [defaultAgentWorkspaceRoot, setDefaultAgentWorkspaceRoot] = useState<string | null>(null);
   const [unreadSessionKeys, setUnreadSessionKeys] = useState<Set<string>>(new Set());
   const unreadSessionKeysRef = useRef(unreadSessionKeys);
   const soundEnabledRef = useRef(soundEnabled);
@@ -157,10 +156,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const res = await fetch('/api/server-info', { signal: controller.signal });
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await res.json() as { agentName?: string; defaultAgentWorkspaceRoot?: string | null };
         if (data.agentName) {
           setAgentName(data.agentName);
         }
+        setDefaultAgentWorkspaceRoot(
+          typeof data.defaultAgentWorkspaceRoot === 'string' && data.defaultAgentWorkspaceRoot.trim()
+            ? data.defaultAgentWorkspaceRoot
+            : null,
+        );
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
           // silent fail - use default
@@ -858,8 +862,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // Register agent in config (ignore if already registered)
       const agentId = getRootAgentId(sessionKey);
       const registrationName = getAgentRegistrationName(rootName, sessionKey);
+      const workspacePath = defaultAgentWorkspaceRoot
+        ? `${defaultAgentWorkspaceRoot.replace(/\/+$/, '')}/${agentId}`
+        : `~/.openclaw/workspace-${agentId}`;
       try {
-        await rpc('agents.create', { name: registrationName, workspace: `~/.openclaw/workspace-${agentId}` });
+        await rpc('agents.create', { name: registrationName, workspace: workspacePath });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (!msg.includes('already exists')) throw err;
@@ -914,7 +921,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     await refreshSessions();
     setCurrentSession(data.sessionKey);
-  }, [listAuthoritativeSessions, rpc, refreshSessions, setCurrentSession]);
+  }, [defaultAgentWorkspaceRoot, listAuthoritativeSessions, rpc, refreshSessions, setCurrentSession]);
 
   const renameSession = useCallback(async (sessionKey: string, label: string) => {
     await rpc('sessions.patch', { key: sessionKey, label });
