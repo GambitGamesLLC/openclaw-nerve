@@ -9,6 +9,13 @@ vi.mock('./hooks/useFileTree', () => ({
   useFileTree: vi.fn(),
 }));
 
+// Mock settings context
+vi.mock('@/contexts/SettingsContext', () => ({
+  useSettings: () => ({
+    showHiddenWorkspaceEntries: false,
+  }),
+}));
+
 // Mock the ConfirmDialog component
 vi.mock('../../components/ConfirmDialog', () => ({
   ConfirmDialog: ({ open, title, message, onConfirm, onCancel }: {
@@ -222,7 +229,7 @@ describe('FileTreePanel', () => {
       });
     });
 
-    it('shows an error toast when add to chat fails', async () => {
+    it('shows an error toast when file add to chat fails', async () => {
       mockOnAddToChat.mockRejectedValueOnce(new Error('Failed to add file to chat'));
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -248,22 +255,30 @@ describe('FileTreePanel', () => {
       expect(mockOnAddToChat).toHaveBeenCalledWith('package.json', 'file', 'agent-a');
     });
 
-    it('does not show "Add to chat" for directories', async () => {
+    it('shows "Add to chat" for directories even when file references are disabled, and calls the callback with directory kind', async () => {
       render(
         <FileTreePanel
+          workspaceAgentId="agent-a"
           onOpenFile={mockOnOpenFile}
           onAddToChat={mockOnAddToChat}
-          addToChatEnabled={true}
+          addToChatEnabled={false}
           onRemapOpenPaths={mockOnRemapOpenPaths}
           onCloseOpenPaths={mockOnCloseOpenPaths}
           collapsed={false}
+          onCollapseChange={vi.fn()}
         />
       );
 
       fireEvent.contextMenu(screen.getByText('src'), new MouseEvent('contextmenu', { bubbles: true }));
 
       await waitFor(() => {
-        expect(screen.queryByText('Add to chat')).not.toBeInTheDocument();
+        expect(screen.getByText('Add to chat')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Add to chat'));
+
+      await waitFor(() => {
+        expect(mockOnAddToChat).toHaveBeenCalledWith('src', 'directory', 'agent-a');
       });
     });
 

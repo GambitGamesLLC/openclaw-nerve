@@ -10,6 +10,7 @@ import { PanelLeftClose, RefreshCw, Pencil, Trash2, RotateCcw, X, Paperclip } fr
 import { FileTreeNode } from './FileTreeNode';
 import { useFileTree } from './hooks/useFileTree';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useSettings } from '@/contexts/SettingsContext';
 import type { TreeEntry } from './types';
 
 const MIN_WIDTH = 160;
@@ -111,10 +112,11 @@ export function FileTreePanel({
   onCollapseChange,
   collapsed,
 }: FileTreePanelProps) {
+  const { showHiddenWorkspaceEntries } = useSettings();
   const {
     entries, loading, error, expandedPaths, selectedPath,
     loadingPaths, workspaceInfo, toggleDirectory, selectFile, refresh, handleFileChange, revealPath,
-  } = useFileTree(workspaceAgentId);
+  } = useFileTree(workspaceAgentId, showHiddenWorkspaceEntries);
 
   // React to external file changes. Sequence keeps repeated same-path events distinct,
   // and agentId prevents a stale event from one workspace from replaying in another.
@@ -671,7 +673,16 @@ export function FileTreePanel({
   const menuPath = menuEntry?.path || '';
   const menuInTrash = isTrashItemPath(menuPath);
   const showRestore = menuInTrash;
-  const showAddToChat = Boolean(addToChatEnabled && onAddToChat && menuEntry?.type === 'file' && !menuPath.startsWith('.trash') && menuPath !== '.trash');
+  const showAddToChat = Boolean(
+    onAddToChat
+    && menuEntry
+    && !menuPath.startsWith('.trash')
+    && menuPath !== '.trash'
+    && (
+      menuEntry.type === 'directory'
+      || (menuEntry.type === 'file' && addToChatEnabled)
+    ),
+  );
   const showRename = Boolean(menuEntry && menuPath !== '.trash');
   const showTrashAction = Boolean(menuEntry && !menuPath.startsWith('.trash') && menuPath !== '.trash');
 
@@ -801,10 +812,14 @@ export function FileTreePanel({
               className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted/60 flex items-center gap-2"
               onClick={() => {
                 setContextMenu(null);
+                const itemKind = menuEntry.type === 'directory' ? 'directory' : 'file';
                 void Promise
-                  .resolve(onAddToChat?.(menuEntry.path, 'file', workspaceAgentId))
+                  .resolve(onAddToChat?.(menuEntry.path, itemKind, workspaceAgentId))
                   .catch((error: unknown) => {
-                    const message = error instanceof Error ? error.message : 'Failed to add file to chat';
+                    const fallbackMessage = itemKind === 'directory'
+                      ? 'Failed to add directory to chat'
+                      : 'Failed to add file to chat';
+                    const message = error instanceof Error ? error.message : fallbackMessage;
                     console.error('[FileTreePanel] add-to-chat failed:', error);
                     showToastForAgent(workspaceAgentId, { type: 'error', message }, 4500);
                   });
