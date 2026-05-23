@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — local Nerve bead regression investigation
 
 **Date:** 2026-04-15  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -68,8 +68,7 @@ Recommended next action: open a narrow fix/verification lane on `workhorse-v1` t
 
 **Status:** ✅ Complete
 
-**What We Built:** A diagnosis proving Chip’s local bead-opening failure comes from a stale/misaligned backend build/start state, not from the two recent bead-view UI commits.
-
+**What We Built:** Historical recorded outcome: A diagnosis proving Chip’s local bead-opening failure comes from a stale/misaligned backend build/start state, not from the two recent bead-view UI commits. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Reference Check:** `REF-03` disproved as direct backend cause (those commits only touched `src/` UI files). `REF-04` remains consistent: Byte can pass while Chip fails because Chip’s local runtime is serving stale root `server-dist` backend artifacts.
 
 **Commits:**

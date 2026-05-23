@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — CHAT_PATH_LINKS alias mapping
 
 **Date:** 2026-04-14  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -89,8 +89,7 @@ This feature was implemented on a fresh upstream-master branch, independently au
 
 **Status:** ✅ Complete
 
-**What We Built:** Alias-mapping support for `CHAT_PATH_LINKS.json`, validated on a fresh upstream branch and in `workhorse-v1` dogfood, then packaged upstream as Issue `#269` and PR `#270`.
-
+**What We Built:** Historical recorded outcome: Alias-mapping support for `CHAT_PATH_LINKS.json`, validated on a fresh upstream branch and in `workhorse-v1` dogfood, then packaged upstream as Issue `#269` and PR `#270`. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Reference Check:** Verified against the implemented parser, matcher, and dogfood behavior. Packaged scope preserved exact lane boundaries: `CHAT_PATH_LINKS.json` supports `prefixes` plus `aliases`; aliases map shorthand prefixes like `projects/` to canonical `/workspace/...` prefixes; built-in `workspace/...` behavior remains product behavior; no bespoke alias UI was included, only raw template/editor parity.
 
 **Commits:**

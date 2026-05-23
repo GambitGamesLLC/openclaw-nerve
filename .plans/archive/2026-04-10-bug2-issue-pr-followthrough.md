@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — Bug 2 Issue + PR follow-through
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -148,10 +148,9 @@ The Issue/PR text correctly described the bug, clean branch lineage, and validat
 
 ## Final Results
 
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
-**What We Built:** Task 1 is complete: the Bug 2 closeout state is verified, the clean upstream packaging branch is confirmed as `bug/default-model-effort`, and the equivalent two-commit integration state is confirmed on `workhorse`.
-
+**What We Built:** Historical recorded outcome: Task 1 is complete: the Bug 2 closeout state is verified, the clean upstream packaging branch is confirmed as `bug/default-model-effort`, and the equivalent two-commit integration state is confirmed on `workhorse`. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Commits:**
 - `69f5944` - Fix Bug 2 default model/effort inheritance display
 - `89fce6d` - Fix spawn dialog inherited primary model option

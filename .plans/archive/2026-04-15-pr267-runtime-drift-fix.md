@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — PR 267 runtime drift fix
 
 **Date:** 2026-04-15  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -99,8 +99,7 @@ The root cause appears tied to our existing open PR `#267` lane. That branch int
 
 **Status:** ✅ Complete
 
-**What We Built:** Fixed the PR `#267` runtime/build drift on the canonical branch, independently audited it, then rolled that exact fix into `workhorse-v1` so clean builds once again emit a startable rooted `server-dist/*` backend with no nested `server-dist/server/*` drift.
-
+**What We Built:** Historical recorded outcome: Fixed the PR `#267` runtime/build drift on the canonical branch, independently audited it, then rolled that exact fix into `workhorse-v1` so clean builds once again emit a startable rooted `server-dist/*` backend with no nested `server-dist/server/*` drift. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Reference Check:** `REF-02` satisfied by reproducing and clearing the build-layout bug, `REF-04` satisfied by fixing the owning PR lane in place first, and `REF-01` satisfied by carrying the audited fix onto `workhorse-v1` for parity retest. `REF-03` remained context only; no runtime hacks or manual file copying were used.
 
 **Commits:**

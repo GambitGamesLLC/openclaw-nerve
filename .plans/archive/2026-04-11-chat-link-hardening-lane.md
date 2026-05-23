@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — chat link hardening lane
 
 **Date:** 2026-04-11  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -100,13 +100,7 @@ Remote/gateway behavior was intentionally left unchanged.
 
 **Status:** ✅ Complete
 
-**What We Built:**
-- one shared chat-path-links config helper
-- local runtime self-heal for missing `CHAT_PATH_LINKS.json`
-- warning log on regeneration
-- unified `ConfigTab` template creation
-- focused regression coverage and successful build validation
-
+**What We Built:** Historical recorded outcome: - one shared chat-path-links config helper - local runtime self-heal for missing `CHAT_PATH_LINKS.json` - warning log on regeneration - unified `ConfigTab` template creation - focused regression coverage and successful build validation This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Files Touched:**
 - `.plans/2026-04-11-chat-link-hardening-lane.md`
 - `server/routes/workspace.ts`

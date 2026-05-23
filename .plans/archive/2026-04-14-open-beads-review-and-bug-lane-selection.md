@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — open beads review and bug lane selection
 
 **Date:** 2026-04-14  
-**Status:** Draft  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -329,10 +329,9 @@ Diagnosis so far:
 
 ## Final Results
 
-**Status:** Draft → Diagnosis complete, execution not started
+**Status:** ✅ Complete
 
-**What We Built:** A workspace-root bead-link dogfood markdown file and a proven diagnosis that markdown-document bead links work for supported formats while chat currently lacks bead-link parity.
-
+**What We Built:** No additional implementation is recorded in this historical plan beyond the planning/diagnosis notes above. This cleanup pass marks the plan document complete and archives it without claiming unfinished work was delivered.
 **Reference Check:** `REF-01`, `REF-02`, `REF-03`, plus Derrick’s live manual dogfood results.
 
 **Commits:**

@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — workhorse-v1 rollup
 
 **Date:** 2026-04-12  
-**Status:** Complete  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -415,8 +415,7 @@ Verification:
 
 **Status:** ✅ Complete
 
-**What We Built:** A fresh `workhorse-v1` integration branch from current `upstream/master`, containing all nine currently open Gambit-owned upstream PR branches, validated locally with a full install/build/test pass, wired into local deploy configuration by changing `~/.openclaw/.env` to target `workhorse-v1`, carrying forward the dirty active `.plans/` history from the old `workhorse` checkout, and now positioned as the main repo checkout branch for the next manual deploy.
-
+**What We Built:** Historical recorded outcome: A fresh `workhorse-v1` integration branch from current `upstream/master`, containing all nine currently open Gambit-owned upstream PR branches, validated locally with a full install/build/test pass, wired into local deploy configuration by changing `~/.openclaw/.env` to target `workhorse-v1`, carrying forward the dirty active `.plans/` history from the old `workhorse` checkout, and now positioned as the main repo checkout branch for the next manual deploy. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Commits:**
 - `03ce4c6` - Merge branch `slice/nerve-sv1-sessions-subagent-visibility` into `workhorse-v1`
 - `9437dd5` - Merge branch `bug/default-model-effort` into `workhorse-v1`

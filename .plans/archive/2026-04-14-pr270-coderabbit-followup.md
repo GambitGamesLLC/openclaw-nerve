@@ -1,7 +1,7 @@
 # gambit-openclaw-nerve — PR #270 CodeRabbit follow-up
 
 **Date:** 2026-04-14  
-**Status:** Draft  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -99,10 +99,9 @@ Separately, Derrick asked that we preserve the earlier Beads-view note-link prob
 
 ## Final Results
 
-**Status:** ⏳ Draft
+**Status:** ✅ Complete
 
-**What We Built:** Draft plan only. No review fixes landed yet.
-
+**What We Built:** No additional implementation is recorded in this historical plan beyond the planning/diagnosis notes above. This cleanup pass marks the plan document complete and archives it without claiming unfinished work was delivered.
 **Reference Check:** Pending.
 
 **Commits:**

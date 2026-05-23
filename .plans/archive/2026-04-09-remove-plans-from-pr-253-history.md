@@ -1,7 +1,7 @@
 # Remove `.plans` Artifacts from PR #253 History
 
 **Date:** 2026-04-09  
-**Status:** In Progress  
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -204,10 +204,9 @@ Plan-file handling note:
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** The rewritten `feature/beads-view-ui` branch was successfully revalidated and safely force-pushed to the PR branch. PR `#253` now points at the cleaned 7-commit stack and no longer shows any `.plans/` contamination in its diff. The remaining blockers are external PR state only: refreshed CI/CodeRabbit checks are still pending and the PR still requires review approval.
-
+**What We Built:** Historical recorded outcome: The rewritten `feature/beads-view-ui` branch was successfully revalidated and safely force-pushed to the PR branch. PR `#253` now points at the cleaned 7-commit stack and no longer shows any `.plans/` contamination in its diff. The remaining blockers are external PR state only: refreshed CI/CodeRabbit checks are still pending and the PR still requires review approval. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Commits:**
 - `94b9ea1` - feat(beads): transplant bead viewer UI from canonical branch
 - `cd4e751` - fix(beads): avoid sync effect reset in bead detail hook

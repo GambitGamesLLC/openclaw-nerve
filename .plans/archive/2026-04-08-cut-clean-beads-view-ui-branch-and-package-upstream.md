@@ -1,7 +1,7 @@
 # Cut Clean `feature/beads-view-ui` Branch and Package Upstream
 
 **Date:** 2026-04-08
-**Status:** In Progress
+**Status:** Complete
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -246,8 +246,7 @@ This run should therefore build a new clean branch, verify its diff is limited t
 
 **Status:** ✅ Complete
 
-**What We Built:** Cut a clean upstream-facing `feature/beads-view-ui` branch, fixed the Beads-specific lint blocker, re-ran validation, then opened upstream Issue `#251` and PR `#252` for the Beads viewer UI plus explicit `bead://<path>#<bead-id>` support while preserving legacy same-context `bead:<id>` compatibility.
-
+**What We Built:** Historical recorded outcome: Cut a clean upstream-facing `feature/beads-view-ui` branch, fixed the Beads-specific lint blocker, re-ran validation, then opened upstream Issue `#251` and PR `#252` for the Beads viewer UI plus explicit `bead://<path>#<bead-id>` support while preserving legacy same-context `bead:<id>` compatibility. This cleanup pass marks the plan document complete and archives it; no additional implementation is claimed beyond that recorded state.
 **Commits:**
 - `63bf93b` - feat(beads): transplant bead viewer UI from canonical branch
 - `56a1ed7` - fix(beads): avoid sync effect reset in bead detail hook
