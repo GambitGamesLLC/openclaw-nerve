@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — PR 267 runtime drift fix
 
 **Date:** 2026-04-15  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -97,7 +99,9 @@ The root cause appears tied to our existing open PR `#267` lane. That branch int
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Fixed the PR `#267` runtime/build drift on the canonical branch, independently audited it, then rolled that exact fix into `workhorse-v1` so clean builds once again emit a startable rooted `server-dist/*` backend with no nested `server-dist/server/*` drift.
 
@@ -111,4 +115,4 @@ The root cause appears tied to our existing open PR `#267` lane. That branch int
 
 ---
 
-*Completed on 2026-04-15*
+*Completed on 2026-05-26*

@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — chat link hardening lane
 
 **Date:** 2026-04-11  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -98,7 +100,9 @@ Remote/gateway behavior was intentionally left unchanged.
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:**
 - one shared chat-path-links config helper
@@ -300,3 +304,5 @@ Packaging/frame used upstream:
 ---
 
 *Updated on 2026-04-11*
+
+*Completed on 2026-05-26*

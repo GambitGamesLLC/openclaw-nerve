@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — tighten workspace link matching to canonical paths only
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -152,7 +154,9 @@ Readiness/handoff notes:
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Tightened workspace-rooted inline matching so only full recognized workspace-rooted tokens linkify, while real host-local absolute paths rooted under `/home/derrick/.openclaw/workspace/...` still normalize to canonical `/workspace/...` targets. The validated canonical follow-up was then rolled cleanly into `workhorse` for the next dogfood pass.
 
@@ -165,3 +169,5 @@ Readiness/handoff notes:
 ---
 
 *Created on 2026-04-10*
+
+*Completed on 2026-05-26*

@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — workspace link wrapper + file URI follow-ups
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -137,7 +139,9 @@ Readiness state: `workhorse` is ready for manual dogfood of wrapped and file-URI
 
 ## Final Results
 
-**Status:** ✅ Ready for manual dogfood
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Rolled the validated wrapper + `file:///workspace/...` inline-link follow-up from the canonical clean branch into `workhorse`, preserving full-token click/render behavior for wrapped workspace paths and file URIs while still normalizing the opened target to the inner `/workspace/...` path.
 
@@ -150,3 +154,5 @@ Readiness state: `workhorse` is ready for manual dogfood of wrapped and file-URI
 ---
 
 *Created on 2026-04-10*
+
+*Completed on 2026-05-26*

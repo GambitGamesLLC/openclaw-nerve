@@ -1,7 +1,9 @@
 # Cut Clean `feature/beads-view-ui` Branch and Package Upstream
 
 **Date:** 2026-04-08
-**Status:** In Progress
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -244,7 +246,9 @@ This run should therefore build a new clean branch, verify its diff is limited t
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Cut a clean upstream-facing `feature/beads-view-ui` branch, fixed the Beads-specific lint blocker, re-ran validation, then opened upstream Issue `#251` and PR `#252` for the Beads viewer UI plus explicit `bead://<path>#<bead-id>` support while preserving legacy same-context `bead:<id>` compatibility.
 
@@ -256,4 +260,4 @@ This run should therefore build a new clean branch, verify its diff is limited t
 
 ---
 
-*Completed on 2026-04-08*
+*Completed on 2026-05-26*

@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — open beads review and bug lane selection
 
 **Date:** 2026-04-14  
-**Status:** Draft  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -329,7 +331,9 @@ Diagnosis so far:
 
 ## Final Results
 
-**Status:** Draft → Diagnosis complete, execution not started
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** A workspace-root bead-link dogfood markdown file and a proven diagnosis that markdown-document bead links work for supported formats while chat currently lacks bead-link parity.
 
@@ -339,3 +343,5 @@ Diagnosis so far:
 - None yet.
 
 **Lessons Learned:** The key question is no longer whether the Bead resolver works at all; it does in markdown documents. The open question is where chat rendering diverges and whether we should also tighten assistant-output rules so chat replies emit proper bead-compatible markdown links instead of bare IDs.
+
+*Completed on 2026-05-26*

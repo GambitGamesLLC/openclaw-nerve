@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — restore workspace file Add to chat upload-config plumbing
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -128,7 +130,9 @@ Dogfood handoff after Derrick runs `update.sh` and `restore.sh` manually:
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Restored the missing `/api/upload-config` capability endpoint on a clean branch, replayed that narrow fix into `workhorse`, and revalidated the exact upload-config + composer path needed for workspace file `Add to chat` dogfooding.
 
@@ -142,3 +146,5 @@ Dogfood handoff after Derrick runs `update.sh` and `restore.sh` manually:
 
 *Created on 2026-04-10*
 *Updated on 2026-04-10*
+
+*Completed on 2026-05-26*

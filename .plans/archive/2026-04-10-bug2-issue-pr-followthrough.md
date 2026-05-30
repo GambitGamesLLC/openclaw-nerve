@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — Bug 2 Issue + PR follow-through
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -148,7 +150,9 @@ The Issue/PR text correctly described the bug, clean branch lineage, and validat
 
 ## Final Results
 
-**Status:** 🔄 In Progress
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Task 1 is complete: the Bug 2 closeout state is verified, the clean upstream packaging branch is confirmed as `bug/default-model-effort`, and the equivalent two-commit integration state is confirmed on `workhorse`.
 
@@ -163,3 +167,5 @@ The Issue/PR text correctly described the bug, clean branch lineage, and validat
 ---
 
 *Updated on 2026-04-10*
+
+*Completed on 2026-05-26*

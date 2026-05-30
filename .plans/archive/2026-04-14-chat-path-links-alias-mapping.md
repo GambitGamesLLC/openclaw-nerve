@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — CHAT_PATH_LINKS alias mapping
 
 **Date:** 2026-04-14  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -87,7 +89,9 @@ This feature was implemented on a fresh upstream-master branch, independently au
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Alias-mapping support for `CHAT_PATH_LINKS.json`, validated on a fresh upstream branch and in `workhorse-v1` dogfood, then packaged upstream as Issue `#269` and PR `#270`.
 
@@ -97,4 +101,4 @@ This feature was implemented on a fresh upstream-master branch, independently au
 - `085b524` - Add CHAT_PATH_LINKS alias mapping
 - `d912164` - Add CHAT_PATH_LINKS alias mapping (workhorse-v1 cherry-pick)
 
-*Completed on 2026-04-14*
+*Completed on 2026-05-26*

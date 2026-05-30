@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — bead viewer note-links parity lane
 
 **Date:** 2026-04-15  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -198,7 +200,9 @@ Precise live dogfood flow for Derrick in Nerve:
 
 ## Final Results
 
-**Status:** ⏳ Draft
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Diagnostic contract complete. Live branch ownership check confirms PR `#253` / `feature/beads-view-ui` is still open and unmerged upstream, so this parity fix should currently land on that existing source branch rather than a fresh branch.
 
@@ -211,4 +215,4 @@ Precise live dogfood flow for Derrick in Nerve:
 
 ---
 
-*Completed on 2026-04-15*
+*Completed on 2026-05-26*

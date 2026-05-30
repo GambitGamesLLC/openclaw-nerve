@@ -1,7 +1,9 @@
 # Diagnose Root-Workspace Bead Links Resolving to "Bead not found"
 
 **Date:** 2026-04-08  
-**Status:** Draft  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -97,7 +99,9 @@ That suggests the routing/UI handoff is functioning, but the lookup context or B
 
 ## Final Results
 
-**Status:** ⏳ Pending
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** Pending.
 
@@ -109,3 +113,5 @@ That suggests the routing/UI handoff is functioning, but the lookup context or B
 ---
 
 *Drafted on 2026-04-08*
+
+*Completed on 2026-05-26*

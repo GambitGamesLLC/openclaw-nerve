@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — broaden workspace link matching
 
 **Date:** 2026-04-10  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -148,7 +150,9 @@ So this plan is now in repair mode. The completed ownership and implementation w
 
 ## Final Results
 
-**Status:** ✅ Complete — ready for dogfood on `workhorse`
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** The embedded `/workspace/...` linkification fix now exists in the correct two-step provenance chain: canonical clean source commit `36cca92` on `bugfix/workspace-inline-reference-slice`, then downstream integration onto `workhorse` as cherry-pick `4e3c8fb`. The resulting `workhorse` branch is ready for local dogfood with only the intended narrow product-file delta plus the separate untracked plan workspace.
 
@@ -160,4 +164,4 @@ So this plan is now in repair mode. The completed ownership and implementation w
 
 ---
 
-*Completed on 2026-04-10*
+*Completed on 2026-05-26*

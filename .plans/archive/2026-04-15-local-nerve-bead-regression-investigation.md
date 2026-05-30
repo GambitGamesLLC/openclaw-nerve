@@ -1,7 +1,9 @@
 # gambit-openclaw-nerve — local Nerve bead regression investigation
 
 **Date:** 2026-04-15  
-**Status:** In Progress  
+**Status:** Complete (stale archived 2026-05-26)
+**Last Updated:** 2026-05-26 21:44 EDT
+**Blocked Reason:** Archived as stale during bulk plan cleanup per Derrick request.
 **Agent:** Chip 🐱‍💻
 
 ---
@@ -66,7 +68,9 @@ Recommended next action: open a narrow fix/verification lane on `workhorse-v1` t
 
 ## Final Results
 
-**Status:** ✅ Complete
+**Archived Note:** Archived as stale on 2026-05-26 during bulk cleanup per Derrick request.
+
+**Status:** ❌ Stale / Archived
 
 **What We Built:** A diagnosis proving Chip’s local bead-opening failure comes from a stale/misaligned backend build/start state, not from the two recent bead-view UI commits.
 
@@ -79,4 +83,4 @@ Recommended next action: open a narrow fix/verification lane on `workhorse-v1` t
 
 ---
 
-*Completed on 2026-04-15*
+*Completed on 2026-05-26*
