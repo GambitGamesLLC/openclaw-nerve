@@ -110,6 +110,6 @@ Derrick retested after pulling and updating `workhorse-v3`, fully closing and re
 **Commits:**
 - `d683045` - Preserve live assistant messages around tools
 - `470598b` - Record live chat preservation commit
-- `Pending` - Preserve agent assistant stream messages
+- `7938864` - Preserve agent assistant stream messages
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
