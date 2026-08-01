@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-01  
 **Status:** In Progress
-**Last Updated:** 2026-08-01 14:54 EDT
-**Blocked Reason:** None  
+**Last Updated:** 2026-08-01 15:17 EDT
+**Blocked Reason:** Awaiting Derrick to run `update.sh` and manually retest the latest `workhorse-v3` canary fix  
 **Agent:** cookie
 
 ---
@@ -184,7 +184,7 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 **Status:** ✅ Complete
 
-**Results:** Session history inspection showed the midpoint canary is not persisted as a normal assistant message; it exists in Codex local JSONL as `phase:"commentary"` and is mirrored to Nerve as transient chat stream text. Added `buildLiveAssistantStreamMessage()` and materialized the active `run.bufferText` into a provisional assistant bubble when an `agent_tool_start` follows a chat delta. Added a ChatContext regression for `chat_started -> chat_delta(midpoint) -> agent_tool_start` and pure helper tests. Validation passed: `npm test -- src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations --run` (6 files / 136 tests), `npm run lint`, `npm run build`, and `git diff --check`. Full suite repeated one unrelated `src/features/kanban/CreateTaskDialog.test.tsx` suite-order/timing failure; that file passed standalone (`4 passed`) after the failure.
+**Results:** Session history inspection showed the midpoint canary is not persisted as a normal assistant message; it exists in Codex local JSONL as `phase:"commentary"` and is mirrored to Nerve as transient chat stream text. Added `buildLiveAssistantStreamMessage()` and materialized the active `run.bufferText` into a provisional assistant bubble when an `agent_tool_start` follows a chat delta. Added a ChatContext regression for `chat_started -> chat_delta(midpoint) -> agent_tool_start` and pure helper tests. Committed and pushed `bb7b4e9` (`Materialize buffered chat commentary before tools`) to `origin/workhorse-v3`. Validation passed: `npm test -- src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations --run` (6 files / 136 tests), `npm run lint`, `npm run build`, and `git diff --check`. Full suite repeated one unrelated `src/features/kanban/CreateTaskDialog.test.tsx` suite-order/timing failure; that file passed standalone (`4 passed`) after the failure. Manual retest is pending after Derrick runs `update.sh`.
 
 ---
 
@@ -196,7 +196,7 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 **Reference Check:** Matches Derrick's report: no-anchor recovery preserves existing scrollback, visible reply + post-reply tools stays non-intermediate, and true intermediate/pre-tool narration remains supported.
 
-**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits. Latest buffered-commentary fix is pending commit/push.
+**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits through `bb7b4e9` (`Materialize buffered chat commentary before tools`).
 
 **Lessons Learned:** The regression came from two presentation/recovery interactions: broad intermediate retagging changed visible message style, and recovered-tail identity/fallback could fail to anchor then replace existing transcript state.
 
