@@ -5,7 +5,7 @@
  * history loading, and message merge/dedup utilities.
  */
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { loadChatHistory } from '@/features/chat/operations';
+import { loadChatHistory, mergeRecoveredTail } from '@/features/chat/operations';
 import { generateMsgId } from '@/features/chat/types';
 import type { ChatMsg } from '@/features/chat/types';
 
@@ -88,6 +88,12 @@ export function patchThinkingDuration(messages: ChatMsg[], durationMs: number): 
   return messages;
 }
 
+export function mergeLoadedHistoryPreservingLiveStreams(existing: ChatMsg[], loaded: ChatMsg[]): ChatMsg[] {
+  return existing.some(msg => msg.liveAssistantStream)
+    ? mergeRecoveredTail(existing, loaded)
+    : loaded;
+}
+
 // ─── Hook ───────────────────────────────────────────────────────────────────────
 
 interface UseChatMessagesDeps {
@@ -129,7 +135,9 @@ export function useChatMessages({ rpc, currentSessionRef }: UseChatMessagesDeps)
     const sk = session || currentSessionRef.current;
     try {
       const result = await loadChatHistory({ rpc, sessionKey: sk, limit: 500 });
-      applyMessageWindow(result, true);
+      const hasLiveAssistantStreams = allMessagesRef.current.some(msg => msg.liveAssistantStream);
+      const merged = mergeLoadedHistoryPreservingLiveStreams(allMessagesRef.current, result);
+      applyMessageWindow(merged, !hasLiveAssistantStreams);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       allMessagesRef.current = [];

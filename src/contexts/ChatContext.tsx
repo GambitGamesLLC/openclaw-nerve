@@ -49,7 +49,12 @@ import { generateMsgId } from '@/features/chat/types';
 import type { ImageAttachment, ChatMsg, OutgoingUploadPayload } from '@/features/chat/types';
 import type { RecoveryReason, RunState } from '@/features/chat/operations';
 
-import { useChatMessages, mergeFinalMessages, patchThinkingDuration } from '@/hooks/useChatMessages';
+import {
+  useChatMessages,
+  mergeFinalMessages,
+  patchThinkingDuration,
+  mergeLoadedHistoryPreservingLiveStreams,
+} from '@/hooks/useChatMessages';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { useChatRecovery } from '@/hooks/useChatRecovery';
 import { useChatTTS } from '@/hooks/useChatTTS';
@@ -255,7 +260,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           result[result.length - 1]?.rawText === prev[prev.length - 1]?.rawText &&
           result[result.length - 1]?.role === prev[prev.length - 1]?.role
         ) return;
-        applyMessageWindow(result, false);
+        applyMessageWindow(mergeLoadedHistoryPreservingLiveStreams(prev, result), false);
       } catch { /* best-effort */ } finally {
         subagentPollInFlightRef.current = false;
       }

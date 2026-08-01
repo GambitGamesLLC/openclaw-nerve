@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-01  
 **Status:** Complete  
-**Last Updated:** 2026-08-01 14:32 EDT
+**Last Updated:** 2026-08-01 14:45 EDT
 **Blocked Reason:** None  
 **Agent:** cookie
 
@@ -24,6 +24,8 @@ Derrick retested after pulling and updating `workhorse-v3`, fully closing and re
 
 Derrick retested again after the agent stream fix and saw the canary briefly appear, then disappear. That narrowed the next issue to delayed tool-result history recovery: the live bubble was successfully created, but recovered history could anchor before it and replace the suffix before that assistant stream message had persisted into transcript history.
 
+Derrick retested after the recovery-preservation fix and saw the midpoint canary survive long enough to appear above the final response, then disappear as the final response rendered. That narrowed the issue further to direct history refresh paths that bypass recovered-tail merging and replace the current message window outright.
+
 ---
 
 ## REFERENCES
@@ -34,6 +36,7 @@ Derrick retested again after the agent stream fix and saw the canary briefly app
 | `REF-02` | Existing recovered-history fix for scrollback and post-reply tools | `src/features/chat/operations/loadHistory.ts`, `src/features/chat/operations/mergeRecoveredTail.ts` |
 | `REF-03` | Failed retest after fully closing/reopening Cookie Nerve app and running tool → message → tool canary | Current WebChat conversation, 2026-08-01 13:43 EDT |
 | `REF-04` | Failed retest where midpoint canary flashed briefly and disappeared | Current WebChat conversation, 2026-08-01 14:28 EDT |
+| `REF-05` | Failed retest where midpoint canary appeared above the final response then disappeared | Current WebChat conversation, 2026-08-01 14:41 EDT |
 
 ---
 
@@ -122,20 +125,43 @@ Derrick retested again after the agent stream fix and saw the canary briefly app
 
 **Results:** Tagged visible live `agent.stream === assistant` messages as provisional `liveAssistantStream` chat bubbles. Updated recovered-tail merging so anchored recovery preserves only those unrecovered live stream bubbles instead of dropping them from the suffix, while still allowing ordinary stale assistant suffix messages to be corrected. If recovered history later contains the same assistant text, the durable recovered copy replaces the provisional marker. Validation passed: `npm test -- src/features/chat/operations/mergeRecoveredTail.test.ts` (12), `npm test -- src/features/chat/operations` (128), `npm run lint`, `npm run build`, `git diff --check`, and full `npm test` (142 files / 1883 tests).
 
+### Task 5: Preserve Live Stream Bubbles Through Direct History Refresh
+
+**Bead ID:** `oc-5ju`
+**SubAgent:** `primary`
+**Role:** `coder`
+**References:** `REF-05`
+**Prompt:** Fix the remaining live canary failure on `workhorse-v3` where the midpoint `agent.stream === assistant` bubble appears above the final assistant response, then disappears when a direct history refresh replaces the current message window. Claim bead `oc-5ju`, keep the change focused, add regression coverage for direct history refresh preserving provisional live assistant stream messages, run validation, commit, and push to `origin/workhorse-v3`.
+
+**Folders Created/Deleted/Modified:**
+- `src/contexts/`
+- `src/hooks/`
+
+**Files Created/Deleted/Modified:**
+- `src/contexts/ChatContext.tsx`
+- `src/hooks/useChatMessages.ts`
+- `src/hooks/useChatMessages.test.ts`
+- `.plans/2026-08-01-workhorse-v3-live-in-turn-chat-preservation.md`
+
+**Status:** ✅ Complete
+
+**Results:** Added `mergeLoadedHistoryPreservingLiveStreams()` and used it for direct history refresh paths that previously bypassed recovered-tail merging. Initial history loads still replace normally, but if the current buffer contains provisional live assistant stream bubbles, loaded history is merged through the recovered-tail preservation path instead of replacing the whole window. Subagent polling now uses the same helper. Regression coverage verifies that a direct loaded history snapshot missing the live midpoint keeps the midpoint while preserving the final response. Validation passed: `npm test -- src/hooks/useChatMessages.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts` (14), `npm test -- src/features/chat/operations src/hooks/useChatMessages.test.ts` (130), `npm run lint`, `npm run build`, `git diff --check`, and full `npm test` (143 files / 1885 tests).
+
 ---
 
 ## Final Results
 
 **Status:** ✅ Complete
 
-**What We Built:** Removed inferred intermediate styling from nearby tool calls so assistant text before, between, or after tool calls remains normal visible chat unless it is explicitly marked as thinking/internal. Added focused regressions for the live canary shape through both `tagIntermediateMessages()` and the full `processChatMessages()` pipeline. After Derrick's reopened-app retest still failed, added live `agent.stream === assistant` rendering so assistant commentary emitted between tool events is materialized into the visible chat buffer instead of being treated as status-only. After the canary began flashing then disappearing, tagged those live stream bubbles as provisional and preserved them through delayed recovered-tail merges until durable history catches up.
+**What We Built:** Removed inferred intermediate styling from nearby tool calls so assistant text before, between, or after tool calls remains normal visible chat unless it is explicitly marked as thinking/internal. Added focused regressions for the live canary shape through both `tagIntermediateMessages()` and the full `processChatMessages()` pipeline. After Derrick's reopened-app retest still failed, added live `agent.stream === assistant` rendering so assistant commentary emitted between tool events is materialized into the visible chat buffer instead of being treated as status-only. After the canary began flashing then disappearing, tagged those live stream bubbles as provisional and preserved them through delayed recovered-tail merges until durable history catches up. After the canary survived until the final response then disappeared, routed direct history refreshes through the same provisional-bubble preservation path.
 
-**Reference Check:** `REF-01` is covered by a `tool/text/tool/text` regression that preserves the midpoint assistant text as normal chat. `REF-02` remains compatible because explicit thinking/internal markers and recovered-history fixes are preserved. `REF-03` is covered by agent assistant stream extraction/rendering tests and the live `ChatContext` wiring that appends/upserts those messages. `REF-04` is covered by recovered-tail merge tests that preserve unrecovered provisional live assistant bubbles after a history anchor while still replacing them when durable history contains the same message.
+**Reference Check:** `REF-01` is covered by a `tool/text/tool/text` regression that preserves the midpoint assistant text as normal chat. `REF-02` remains compatible because explicit thinking/internal markers and recovered-history fixes are preserved. `REF-03` is covered by agent assistant stream extraction/rendering tests and the live `ChatContext` wiring that appends/upserts those messages. `REF-04` is covered by recovered-tail merge tests that preserve unrecovered provisional live assistant bubbles after a history anchor while still replacing them when durable history contains the same message. `REF-05` is covered by direct history refresh tests that preserve a live midpoint bubble when loaded history has the final response but not the midpoint.
 
 **Commits:**
 - `d683045` - Preserve live assistant messages around tools
 - `470598b` - Record live chat preservation commit
 - `7938864` - Preserve agent assistant stream messages
 - `09a094c` - Preserve live stream bubbles through recovery
+- Pending - Preserve live streams through history refresh
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
