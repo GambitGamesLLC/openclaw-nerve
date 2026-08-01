@@ -1,8 +1,8 @@
 # Nerve Workhorse V2 Chat History Tool Regression
 
 **Date:** 2026-08-01  
-**Status:** In Progress  
-**Last Updated:** 2026-08-01 10:47 EDT  
+**Status:** Complete  
+**Last Updated:** 2026-08-01 10:54 EDT  
 **Blocked Reason:** None  
 **Agent:** cookie
 
@@ -98,7 +98,7 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 **Status:** ✅ Complete
 
-**Results:** Implemented on `workhorse-v3` in commit `b9c4886` (`Fix chat recovery preserving visible replies`) and pushed to `origin/workhorse-v3`. `tagIntermediateMessages()` now only marks pre-tool assistant narration intermediate when a tool is followed by a later assistant answer before the next user, so a visible final reply followed only by post-reply tools remains a normal assistant message. `mergeRecoveredTail()` now ignores the presentation-only `intermediate` flag in message identity, uses a looser role/text anchor when timestamp buckets differ, and preserves existing scrollback on bounded no-anchor recovery while appending clearly new recovered tail messages. Focused regressions cover final reply + post-reply tool, assistant -> tool -> assistant narration, intermediate retag recovery, loose timestamp anchoring, and no-anchor scrollback preservation. Validation passed: `npm test -- src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts --run` (54 tests), `npm test -- --run` (142 files / 1873 tests), `npm run lint`, `npm run build`, and `git diff --check`. Build emitted existing Vite chunk-size/dynamic-import warnings only. Caveat: no new hook/context test was added because the existing `useChatMessages`/`ChatContext` tests do not directly exercise this recovery refresh path; the covered pure operations are the diagnosed mutation and scrollback-loss points.
+**Results:** Implemented on `workhorse-v3` in commit `b9c4886` (`Fix chat recovery preserving visible replies`) and pushed to `origin/workhorse-v3`. `tagIntermediateMessages()` now only marks pre-tool assistant narration intermediate when a tool is followed by a later assistant answer before the next user, so a visible final reply followed only by post-reply tools remains a normal assistant message. `mergeRecoveredTail()` now ignores the presentation-only `intermediate` flag in message identity, uses a looser role/text anchor when timestamp buckets differ, and preserves existing scrollback on bounded no-anchor recovery while appending clearly new recovered tail messages. Focused regressions cover final reply + post-reply tool, assistant -> tool -> assistant narration, intermediate retag recovery, loose timestamp anchoring, and no-anchor scrollback preservation. Validation passed: `npm test -- src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts --run` (54 tests), `npm test -- --run` (142 files / 1873 tests), `npm run lint`, `npm run build`, and `git diff --check`. Build emitted existing Vite chunk-size/dynamic-import warnings only. Orchestrator reran the focused test command successfully: 2 files / 54 tests passed. Caveat: no new hook/context test was added because the existing `useChatMessages`/`ChatContext` tests do not directly exercise this recovery refresh path; the covered pure operations are the diagnosed mutation and scrollback-loss points.
 
 ---
 
@@ -116,9 +116,9 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 **Files Created/Deleted/Modified:**
 - None expected
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** QA verified on branch `workhorse-v3`; bead `oc-pc0` was claimed successfully. Focused regression command passed: `npm test -- src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts --run` (2 files / 54 tests). Component-adjacent rendering validation passed: `npm test -- src/features/chat/MessageBubble.test.tsx src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts --run` (3 files / 59 tests), covering the `MessageBubble` path that renders `intermediate` messages differently. Harness-level sequence check passed with `npx tsx -e "..."` against the actual `tagIntermediateMessages()` and `mergeRecoveredTail()` modules: existing scrollback (`Older visible prompt`, `Older visible answer`, `Question before regression`) remained present, `Visible final reply` had `intermediate: false` before and after recovered-tail merge, and post-reply `tool`/`toolGroup` plus a new recovered tail event remained appended. Additional validation passed: `npm test -- --run` (142 files / 1873 tests) and `npm run lint`. No served full-app check was run because this repo's local app path depends on live OpenClaw gateway/session state; the operation harness plus component tests exercised the diagnosed state and styling boundary without external credentials.
 
 ---
 
@@ -136,24 +136,24 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 **Files Created/Deleted/Modified:**
 - None expected
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Pending.
+**Results:** Independent audit passed on `workhorse-v3` at `ba754d8` (`origin/workhorse-v3` matched local HEAD and contains functional commit `b9c4886`). `loadHistory.ts` preserves real pre-tool narration by still marking assistant -> tool/toolGroup/toolResult -> assistant sequences as `intermediate`, while leaving a visible final assistant reply followed only by post-reply tools non-intermediate. `mergeRecoveredTail.ts` no longer includes presentation-only `intermediate` in identity signatures, supports loose role/text anchoring for timestamp drift, and preserves existing scrollback on bounded no-anchor recovery by appending only clearly new recovered messages. Focused tests cover the required cases in `loadHistory.test.ts` and `mergeRecoveredTail.test.ts`; component-adjacent validation through `MessageBubble.test.tsx` confirms the rendering boundary where `intermediate` changes presentation. Auditor reran `npm test -- src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/MessageBubble.test.tsx --run` successfully (3 files / 59 tests). QA evidence is enough for the diagnosed pure operation and rendering boundary; residual gap is only that no served full-app/live gateway reproduction was run, matching the QA caveat.
 
 ---
 
 ## Final Results
 
-**Status:** Pending
+**Status:** Complete
 
-**What We Built:** Pending.
+**What We Built:** A focused `workhorse-v3` fix for chat recovery that preserves prior scrollback and keeps visible assistant replies in normal rendering after post-reply tool activity.
 
-**Reference Check:** Pending.
+**Reference Check:** Matches Derrick's report: no-anchor recovery preserves existing scrollback, visible reply + post-reply tools stays non-intermediate, and true intermediate/pre-tool narration remains supported.
 
-**Commits:** Pending.
+**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus plan/push-note commits through branch tip `ba754d8`.
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The regression came from two presentation/recovery interactions: broad intermediate retagging changed visible message style, and recovered-tail identity/fallback could fail to anchor then replace existing transcript state.
 
 ---
 
-*Completed on Pending*
+*Completed on 2026-08-01*
