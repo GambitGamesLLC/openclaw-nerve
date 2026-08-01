@@ -94,6 +94,58 @@ export function mergeLoadedHistoryPreservingLiveStreams(existing: ChatMsg[], loa
     : loaded;
 }
 
+function hasSameDurableContent(a: ChatMsg, b: ChatMsg): boolean {
+  const aImgs = (a.extractedImages || []).map(i => i.url).sort().join('|');
+  const bImgs = (b.extractedImages || []).map(i => i.url).sort().join('|');
+
+  return (
+    a.role === b.role &&
+    normalizeComparableText(a.rawText) === normalizeComparableText(b.rawText) &&
+    Boolean(a.isThinking) === Boolean(b.isThinking) &&
+    (a.toolGroup?.length || 0) === (b.toolGroup?.length || 0) &&
+    (a.images?.length || 0) === (b.images?.length || 0) &&
+    aImgs === bImgs
+  );
+}
+
+export function mergeWithLiveAssistantStreamRegistry(
+  messages: ChatMsg[],
+  registry: Map<string, ChatMsg>,
+): { messages: ChatMsg[]; registry: Map<string, ChatMsg> } {
+  const nextRegistry = new Map(registry);
+
+  for (const msg of messages) {
+    if (msg.liveAssistantStream && msg.msgId) {
+      nextRegistry.set(msg.msgId, msg);
+    }
+  }
+
+  const durableMessages = messages.filter(msg => !msg.liveAssistantStream);
+  for (const [id, liveMsg] of nextRegistry) {
+    if (durableMessages.some(msg => hasSameDurableContent(msg, liveMsg))) {
+      nextRegistry.delete(id);
+    }
+  }
+
+  const merged = [...messages];
+  for (const liveMsg of nextRegistry.values()) {
+    const alreadyPresent = merged.some(msg =>
+      (liveMsg.msgId && msg.msgId === liveMsg.msgId) ||
+      hasSameDurableContent(msg, liveMsg)
+    );
+    if (alreadyPresent) continue;
+
+    const insertIdx = merged.findIndex(msg => msg.timestamp.getTime() > liveMsg.timestamp.getTime());
+    if (insertIdx === -1) {
+      merged.push(liveMsg);
+    } else {
+      merged.splice(insertIdx, 0, liveMsg);
+    }
+  }
+
+  return { messages: merged, registry: nextRegistry };
+}
+
 // ─── Hook ───────────────────────────────────────────────────────────────────────
 
 interface UseChatMessagesDeps {
@@ -108,26 +160,29 @@ export function useChatMessages({ rpc, currentSessionRef }: UseChatMessagesDeps)
 
   // Full history buffer + visible window for infinite scroll
   const allMessagesRef = useRef<ChatMsg[]>([]);
+  const liveAssistantStreamRegistryRef = useRef<Map<string, ChatMsg>>(new Map());
   const visibleCountRef = useRef(DEFAULT_VISIBLE_COUNT);
 
   /** Apply the windowed view of messages to React state. */
   const applyMessageWindow = useCallback((all: ChatMsg[], resetVisibleWindow = false) => {
-    allMessagesRef.current = all;
+    const reconciled = mergeWithLiveAssistantStreamRegistry(all, liveAssistantStreamRegistryRef.current);
+    liveAssistantStreamRegistryRef.current = reconciled.registry;
+    allMessagesRef.current = reconciled.messages;
 
     if (resetVisibleWindow) {
-      const nextVisible = all.length <= DEFAULT_VISIBLE_COUNT ? all.length : DEFAULT_VISIBLE_COUNT;
+      const nextVisible = reconciled.messages.length <= DEFAULT_VISIBLE_COUNT ? reconciled.messages.length : DEFAULT_VISIBLE_COUNT;
       setVisibleCount(nextVisible);
       visibleCountRef.current = nextVisible;
-      setHasMore(all.length > nextVisible);
-      setMessages(all.slice(-nextVisible));
+      setHasMore(reconciled.messages.length > nextVisible);
+      setMessages(reconciled.messages.slice(-nextVisible));
       return;
     }
 
-    const currentVisible = all.length === 0
+    const currentVisible = reconciled.messages.length === 0
       ? 0
-      : Math.max(DEFAULT_VISIBLE_COUNT, Math.min(visibleCountRef.current, all.length));
-    setHasMore(all.length > currentVisible);
-    setMessages(all.slice(-currentVisible));
+      : Math.max(DEFAULT_VISIBLE_COUNT, Math.min(visibleCountRef.current, reconciled.messages.length));
+    setHasMore(reconciled.messages.length > currentVisible);
+    setMessages(reconciled.messages.slice(-currentVisible));
   }, []);
 
   /** Load chat history from the gateway. */
@@ -171,7 +226,10 @@ export function useChatMessages({ rpc, currentSessionRef }: UseChatMessagesDeps)
 
   /** Set all messages buffer directly, or via functional updater for atomic read-then-write. */
   const setAllMessages = useCallback((updater: ChatMsg[] | ((prev: ChatMsg[]) => ChatMsg[])) => {
-    allMessagesRef.current = typeof updater === 'function' ? updater(allMessagesRef.current) : updater;
+    const next = typeof updater === 'function' ? updater(allMessagesRef.current) : updater;
+    const reconciled = mergeWithLiveAssistantStreamRegistry(next, liveAssistantStreamRegistryRef.current);
+    liveAssistantStreamRegistryRef.current = reconciled.registry;
+    allMessagesRef.current = reconciled.messages;
   }, []);
 
   /** Reset message state (for session switch). */
@@ -181,6 +239,7 @@ export function useChatMessages({ rpc, currentSessionRef }: UseChatMessagesDeps)
     visibleCountRef.current = DEFAULT_VISIBLE_COUNT;
     setHasMore(false);
     allMessagesRef.current = [];
+    liveAssistantStreamRegistryRef.current = new Map();
   }, []);
 
   return useMemo(() => ({

@@ -1,8 +1,8 @@
 # Nerve Workhorse V2 Chat History Tool Regression
 
 **Date:** 2026-08-01  
-**Status:** Complete  
-**Last Updated:** 2026-08-01 10:54 EDT  
+**Status:** In Progress
+**Last Updated:** 2026-08-01 14:54 EDT
 **Blocked Reason:** None  
 **Agent:** cookie
 
@@ -142,18 +142,39 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 ---
 
+### Task 6: Preserve Live Assistant Canary Through All Refresh Paths
+
+**Bead ID:** `oc-ddd`
+**SubAgent:** `primary`
+**Role:** `coder`
+**References:** `REF-01`
+**Prompt:** Claim bead `oc-ddd` on start. Derrick manually retested `workhorse-v3` after prior live-stream fixes and observed the midpoint assistant canary appears briefly, then disappears after the later tool/final reconciliation. Implement a fix so `agent.stream=assistant` bubbles remain visible across direct history refresh, recovery, final event merge, and other `applyMessageWindow()` paths until durable history contains the same assistant text. Add focused regression coverage and run validation before committing/pushing.
+
+**Folders Created/Deleted/Modified:**
+- `src/hooks/`
+
+**Files Created/Deleted/Modified:**
+- `src/hooks/useChatMessages.ts`
+- `src/hooks/useChatMessages.test.ts`
+
+**Status:** ✅ Complete
+
+**Results:** Added a live assistant stream registry inside `useChatMessages`. Any message window application now reconciles through that registry, so a live assistant canary that was already shown is reinserted if a later history/current-turn refresh omits it. The registry drops the provisional copy once durable history includes an assistant message with the same content, preventing duplicate bubbles. Added tests for preserving a live canary through an omitting refresh and for dropping it once persisted. Validation passed: `npm test -- src/hooks/useChatMessages.test.ts src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations --run` (6 files / 133 tests), `npm test -- --run` (143 files / 1887 tests), `npm run lint`, `npm run build`, and `git diff --check`. Manual retest is pending after Derrick runs `update.sh`.
+
+---
+
 ## Final Results
 
-**Status:** Complete
+**Status:** In Progress
 
-**What We Built:** A focused `workhorse-v3` fix for chat recovery that preserves prior scrollback and keeps visible assistant replies in normal rendering after post-reply tool activity.
+**What We Built:** A focused `workhorse-v3` fix series for chat recovery and live assistant stream preservation. It preserves prior scrollback, keeps visible assistant replies in normal rendering after post-reply tool activity, and now keeps live assistant canary bubbles through subsequent history/current-turn refreshes until durable history supersedes them.
 
 **Reference Check:** Matches Derrick's report: no-anchor recovery preserves existing scrollback, visible reply + post-reply tools stays non-intermediate, and true intermediate/pre-tool narration remains supported.
 
-**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus plan/push-note commits through branch tip `ba754d8`.
+**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits. Latest live-registry fix is pending commit/push.
 
 **Lessons Learned:** The regression came from two presentation/recovery interactions: broad intermediate retagging changed visible message style, and recovered-tail identity/fallback could fail to anchor then replace existing transcript state.
 
 ---
 
-*Completed on 2026-08-01*
+*Last updated on 2026-08-01*
