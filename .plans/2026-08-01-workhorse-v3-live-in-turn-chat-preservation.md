@@ -82,6 +82,6 @@ This follow-up stays on `workhorse-v3` and targets the live/current-turn reducer
 **Reference Check:** `REF-01` is covered by a `tool/text/tool/text` regression that preserves the midpoint assistant text as normal chat. `REF-02` remains compatible because explicit thinking/internal markers and recovered-history fixes are preserved.
 
 **Commits:**
-- `917d31e` - Preserve live assistant messages around tools
+- `d683045` - Preserve live assistant messages around tools
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
