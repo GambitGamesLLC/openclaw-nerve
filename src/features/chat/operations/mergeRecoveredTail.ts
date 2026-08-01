@@ -8,16 +8,16 @@ function hashString(input: string): number {
   return hash;
 }
 
-function messageSignature(msg: ChatMsg): string {
+function messageSignature(msg: ChatMsg, options: { includeTimestamp?: boolean } = {}): string {
+  const { includeTimestamp = true } = options;
   const normalizedText = (msg.rawText || '')
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 4000);
   const textHash = hashString(normalizedText).toString(16);
-  const tsBucket = Math.floor(msg.timestamp.getTime() / 30_000);
+  const tsBucket = includeTimestamp ? Math.floor(msg.timestamp.getTime() / 30_000) : 'any';
   const flags = [
     msg.isThinking ? 'thinking' : '',
-    msg.intermediate ? 'intermediate' : '',
     msg.toolGroup ? `toolGroup:${msg.toolGroup.length}` : '',
     msg.images?.length ? `images:${msg.images.length}` : '',
   ].filter(Boolean).join(',');
@@ -61,6 +61,18 @@ function findTailAnchor(existingSigs: string[], recoveredSigs: string[]) {
   return null;
 }
 
+function appendUnanchoredRecoveredMessages(existing: ChatMsg[], recovered: ChatMsg[]): ChatMsg[] {
+  const seen = new Set(existing.map(msg => messageSignature(msg, { includeTimestamp: false })));
+  const additions = recovered.filter((msg) => {
+    const sig = messageSignature(msg, { includeTimestamp: false });
+    if (seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
+
+  return additions.length > 0 ? [...existing, ...additions] : existing;
+}
+
 /**
  * Merge a recovered history tail into the current transcript without replacing
  * unaffected prefix messages.
@@ -69,8 +81,8 @@ export function mergeRecoveredTail(existing: ChatMsg[], recovered: ChatMsg[]): C
   if (recovered.length === 0) return existing;
   if (existing.length === 0) return recovered;
 
-  const existingSigs = existing.map(messageSignature);
-  const recoveredSigs = recovered.map(messageSignature);
+  const existingSigs = existing.map(msg => messageSignature(msg));
+  const recoveredSigs = recovered.map(msg => messageSignature(msg));
 
   // Fast path: recovered starts where existing tail ends.
   const overlap = findSuffixPrefixOverlap(existingSigs, recoveredSigs);
@@ -86,6 +98,17 @@ export function mergeRecoveredTail(existing: ChatMsg[], recovered: ChatMsg[]): C
     return [...preservedPrefix, ...patchedTail];
   }
 
-  // Last resort: no overlap/anchor detected, prefer authoritative recovered tail.
-  return recovered;
+  const looseExistingSigs = existing.map(msg => messageSignature(msg, { includeTimestamp: false }));
+  const looseRecoveredSigs = recovered.map(msg => messageSignature(msg, { includeTimestamp: false }));
+
+  const looseAnchor = findTailAnchor(looseExistingSigs, looseRecoveredSigs);
+  if (looseAnchor) {
+    const preservedPrefix = existing.slice(0, looseAnchor.existingIdx);
+    const patchedTail = recovered.slice(looseAnchor.recoveredIdx);
+    return [...preservedPrefix, ...patchedTail];
+  }
+
+  // Bounded recovery may only return a tail. If we cannot prove an anchor, keep
+  // current scrollback and append any recovered messages that are clearly new.
+  return appendUnanchoredRecoveredMessages(existing, recovered);
 }

@@ -3,12 +3,13 @@ import { describe, it, expect } from 'vitest';
 import { mergeRecoveredTail } from './mergeRecoveredTail';
 import type { ChatMsg } from '@/features/chat/types';
 
-function makeMsg(role: string, text: string, ts?: number): ChatMsg {
+function makeMsg(role: string, text: string, ts?: number, overrides: Partial<ChatMsg> = {}): ChatMsg {
   return {
     role: role as ChatMsg['role'],
     html: `<p>${text}</p>`,
     rawText: text,
     timestamp: new Date(ts ?? Date.now()),
+    ...overrides,
   };
 }
 
@@ -71,7 +72,7 @@ describe('mergeRecoveredTail', () => {
     expect(result.some(m => m.rawText === 'Old reply B')).toBe(false);
   });
 
-  it('falls back to recovered when no overlap or anchor found', () => {
+  it('preserves existing scrollback when no overlap or anchor is found', () => {
     const existing = [
       makeMsg('user', 'Old message 1', 1000000),
       makeMsg('assistant', 'Old reply 1', 1000001),
@@ -81,7 +82,42 @@ describe('mergeRecoveredTail', () => {
       makeMsg('assistant', 'New reply', 2000001),
     ];
     const result = mergeRecoveredTail(existing, recovered);
-    expect(result).toEqual(recovered);
+    expect(result).toEqual([...existing, ...recovered]);
+  });
+
+  it('ignores intermediate presentation changes when anchoring recovered messages', () => {
+    const ts = 1700000000000;
+    const existing = [
+      makeMsg('user', 'Original question', ts),
+      makeMsg('assistant', 'Visible final reply', ts + 1000),
+    ];
+    const recovered = [
+      makeMsg('assistant', 'Visible final reply', ts + 1000, { intermediate: true }),
+      makeMsg('tool', 'post-reply tool result', ts + 2000),
+    ];
+    const result = mergeRecoveredTail(existing, recovered);
+    expect(result).toHaveLength(3);
+    expect(result[0].rawText).toBe('Original question');
+    expect(result[1].rawText).toBe('Visible final reply');
+    expect(result[1].intermediate).toBeFalsy();
+    expect(result[2].rawText).toBe('post-reply tool result');
+  });
+
+  it('uses role and text as a loose anchor when timestamp buckets differ', () => {
+    const existing = [
+      makeMsg('user', 'Earlier prefix', 1000000),
+      makeMsg('assistant', 'Synthetic visible reply', 1000001),
+    ];
+    const recovered = [
+      makeMsg('assistant', 'Synthetic visible reply', 5000000),
+      makeMsg('tool', 'later persisted tool', 5000001),
+    ];
+    const result = mergeRecoveredTail(existing, recovered);
+    expect(result.map(m => m.rawText)).toEqual([
+      'Earlier prefix',
+      'Synthetic visible reply',
+      'later persisted tool',
+    ]);
   });
 
   it('handles single message overlap', () => {

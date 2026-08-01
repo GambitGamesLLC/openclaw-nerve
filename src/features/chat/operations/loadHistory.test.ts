@@ -270,10 +270,20 @@ describe('tagIntermediateMessages', () => {
     expect(result[0].intermediate).toBeFalsy();
   });
 
+  it('does not mark a visible assistant reply followed only by post-reply tools as intermediate', () => {
+    const msgs: ChatMsg[] = [
+      { role: 'assistant', html: '', rawText: 'Done, I updated it.', timestamp: new Date() },
+      { role: 'tool', html: '', rawText: 'post-reply result', timestamp: new Date() },
+    ];
+    const result = tagIntermediateMessages(msgs);
+    expect(result[0].intermediate).toBeFalsy();
+  });
+
   it('does not mark thinking messages as intermediate', () => {
     const msgs: ChatMsg[] = [
       { role: 'assistant', html: '', rawText: 'thinking...', timestamp: new Date(), isThinking: true },
       { role: 'tool', html: '', rawText: 'result', timestamp: new Date() },
+      { role: 'assistant', html: '', rawText: 'Final.', timestamp: new Date() },
     ];
     const result = tagIntermediateMessages(msgs);
     expect(result[0].intermediate).toBeFalsy();
@@ -283,6 +293,7 @@ describe('tagIntermediateMessages', () => {
     const msgs: ChatMsg[] = [
       { role: 'assistant', html: '', rawText: 'Check', timestamp: new Date() },
       { role: 'tool', html: '', rawText: 'result', timestamp: new Date() },
+      { role: 'assistant', html: '', rawText: 'Done', timestamp: new Date() },
     ];
     const result = tagIntermediateMessages(msgs);
     expect(msgs[0].intermediate).toBeUndefined();

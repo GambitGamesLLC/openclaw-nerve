@@ -553,8 +553,8 @@ export function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
  * Mark assistant messages that are "intermediate" — narration between tool calls,
  * not the final answer.
  *
- * An assistant message is intermediate if it is followed by tool messages before
- * the next user message (or end of conversation).
+ * An assistant message is intermediate if it is followed by tool messages and
+ * then another assistant answer before the next user message.
  */
 export function tagIntermediateMessages(msgs: ChatMsg[]): ChatMsg[] {
   // Work on a shallow copy so we don't mutate the input
@@ -563,14 +563,19 @@ export function tagIntermediateMessages(msgs: ChatMsg[]): ChatMsg[] {
   for (let i = 0; i < tagged.length; i++) {
     if (tagged[i].role !== 'assistant' || tagged[i].isThinking) continue;
     let hasToolAfter = false;
+    let hasAssistantAfterTool = false;
     for (let j = i + 1; j < tagged.length; j++) {
       if (tagged[j].role === 'user') break;
       if (tagged[j].role === 'tool' || tagged[j].role === 'toolResult' || tagged[j].toolGroup) {
         hasToolAfter = true;
+        continue;
+      }
+      if (hasToolAfter && tagged[j].role === 'assistant') {
+        hasAssistantAfterTool = true;
         break;
       }
     }
-    if (hasToolAfter && !(tagged[i].charts?.length)) {
+    if (hasAssistantAfterTool && !(tagged[i].charts?.length)) {
       tagged[i].intermediate = true;
     }
   }
