@@ -14,6 +14,7 @@ export {
   extractStreamDelta,
   extractAgentAssistantStreamText,
   buildAgentAssistantStreamMessage,
+  buildLiveAssistantStreamMessage,
   extractFinalMessage,
   extractFinalMessages,
   buildActivityLogEntry,

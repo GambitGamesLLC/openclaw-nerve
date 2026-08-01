@@ -163,15 +163,40 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 ---
 
+### Task 7: Materialize Buffered Chat Commentary Before Tool Use
+
+**Bead ID:** `oc-5x5`
+**SubAgent:** `primary`
+**Role:** `coder`
+**References:** `REF-01`
+**Prompt:** Claim bead `oc-5x5` on start. Derrick manually retested the live assistant bubble registry and the midpoint canary still disappeared. Inspect actual session history/event shape, then fix the path where commentary arrives as chat delta/stream overlay instead of durable history or `agent.stream=assistant`. The midpoint text should be committed to the visible transcript before a following tool event clears the stream overlay. Add a ChatContext regression for `chat_started -> chat_delta -> agent_tool_start`.
+
+**Folders Created/Deleted/Modified:**
+- `src/contexts/`
+- `src/features/chat/operations/`
+
+**Files Created/Deleted/Modified:**
+- `src/contexts/ChatContext.tsx`
+- `src/contexts/ChatContext.subscription.test.tsx`
+- `src/features/chat/operations/index.ts`
+- `src/features/chat/operations/streamEventHandler.ts`
+- `src/features/chat/operations/streamEventHandler.test.ts`
+
+**Status:** ✅ Complete
+
+**Results:** Session history inspection showed the midpoint canary is not persisted as a normal assistant message; it exists in Codex local JSONL as `phase:"commentary"` and is mirrored to Nerve as transient chat stream text. Added `buildLiveAssistantStreamMessage()` and materialized the active `run.bufferText` into a provisional assistant bubble when an `agent_tool_start` follows a chat delta. Added a ChatContext regression for `chat_started -> chat_delta(midpoint) -> agent_tool_start` and pure helper tests. Validation passed: `npm test -- src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations --run` (6 files / 136 tests), `npm run lint`, `npm run build`, and `git diff --check`. Full suite repeated one unrelated `src/features/kanban/CreateTaskDialog.test.tsx` suite-order/timing failure; that file passed standalone (`4 passed`) after the failure.
+
+---
+
 ## Final Results
 
 **Status:** In Progress
 
-**What We Built:** A focused `workhorse-v3` fix series for chat recovery and live assistant stream preservation. It preserves prior scrollback, keeps visible assistant replies in normal rendering after post-reply tool activity, and now keeps live assistant canary bubbles through subsequent history/current-turn refreshes until durable history supersedes them.
+**What We Built:** A focused `workhorse-v3` fix series for chat recovery and live assistant stream preservation. It preserves prior scrollback, keeps visible assistant replies in normal rendering after post-reply tool activity, keeps live assistant canary bubbles through subsequent history/current-turn refreshes until durable history supersedes them, and now materializes buffered chat commentary before a following tool event clears the stream overlay.
 
 **Reference Check:** Matches Derrick's report: no-anchor recovery preserves existing scrollback, visible reply + post-reply tools stays non-intermediate, and true intermediate/pre-tool narration remains supported.
 
-**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits. Latest live-registry fix is pending commit/push.
+**Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits. Latest buffered-commentary fix is pending commit/push.
 
 **Lessons Learned:** The regression came from two presentation/recovery interactions: broad intermediate retagging changed visible message style, and recovered-tail identity/fallback could fail to anchor then replace existing transcript state.
 

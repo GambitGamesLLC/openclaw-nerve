@@ -6,6 +6,7 @@ import {
   extractStreamDelta,
   extractAgentAssistantStreamText,
   buildAgentAssistantStreamMessage,
+  buildLiveAssistantStreamMessage,
   extractFinalMessages,
   extractFinalMessage,
   buildActivityLogEntry,
@@ -256,6 +257,22 @@ describe('buildAgentAssistantStreamMessage', () => {
 
     expect(msg?.msgId).toBe('msg-live-1');
     expect(msg?.rawText).toBe('Updated text.');
+  });
+});
+
+describe('buildLiveAssistantStreamMessage', () => {
+  it('builds a provisional assistant bubble from buffered chat delta text', () => {
+    const msg = buildLiveAssistantStreamMessage('  Buffered midpoint canary.  ', 'chat-live-1');
+
+    expect(msg?.msgId).toBe('chat-live-1');
+    expect(msg?.role).toBe('assistant');
+    expect(msg?.rawText).toBe('Buffered midpoint canary.');
+    expect(msg?.liveAssistantStream).toBe(true);
+    expect(msg?.intermediate).toBeUndefined();
+  });
+
+  it('ignores blank buffered chat delta text', () => {
+    expect(buildLiveAssistantStreamMessage('   ')).toBeNull();
   });
 });
 

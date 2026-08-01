@@ -33,6 +33,7 @@ import {
   classifyStreamEvent,
   extractStreamDelta,
   buildAgentAssistantStreamMessage,
+  buildLiveAssistantStreamMessage,
   extractFinalMessage,
   extractFinalMessages,
   deriveProcessingStage,
@@ -185,6 +186,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     resetPlayedSounds,
     handleFinalTTS,
   } = ttsHook;
+
+  const materializeBufferedChatStream = useCallback((runId?: string | null) => {
+    if (!runId) return;
+    const run = runsRef.current.get(runId);
+    const text = run?.bufferText?.trim();
+    if (!run || !text) return;
+
+    const streamMessageKey = `chat:${runId}`;
+    const existingMsgId = activeAssistantStreamMsgRef.current.get(streamMessageKey);
+    const streamMessage = buildLiveAssistantStreamMessage(text, existingMsgId);
+    if (!streamMessage) return;
+
+    activeAssistantStreamMsgRef.current.set(streamMessageKey, streamMessage.msgId!);
+    const existing = getAllMessages();
+    const existingIdx = existing.findIndex(m => m.msgId === streamMessage.msgId);
+    const next = existingIdx >= 0
+      ? existing.map((m, idx) => (idx === existingIdx ? streamMessage : m))
+      : mergeFinalMessages(existing, [streamMessage]);
+    applyMessageWindow(next, false);
+
+    run.bufferRaw = '';
+    run.bufferText = '';
+    clearStreamBuffer();
+  }, [applyMessageWindow, clearStreamBuffer, getAllMessages]);
 
   // ─── Reset transient state on session switch ──────────────────────────────
   useEffect(() => {
@@ -387,6 +412,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (type === 'agent_tool_start') {
           const streamMessageKey = classified.runId || classified.sessionKey || currentSessionRef.current;
           activeAssistantStreamMsgRef.current.delete(streamMessageKey);
+          materializeBufferedChatStream(activeRunIdRef.current || classified.runId);
           setProcessingStage('tool_use');
           addActivityEntry(ap);
           return;
@@ -454,6 +480,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         run.bufferRaw = '';
         run.bufferText = '';
         activeAssistantStreamMsgRef.current.delete(runId);
+        activeAssistantStreamMsgRef.current.delete(`chat:${runId}`);
 
         setIsGenerating(true);
         resetPlayedSounds();
@@ -495,6 +522,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
         activeAssistantStreamMsgRef.current.delete(runId);
+        activeAssistantStreamMsgRef.current.delete(`chat:${runId}`);
         incrementGeneration();
 
         if (isActiveRun) {
@@ -538,6 +566,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
         activeAssistantStreamMsgRef.current.delete(runId);
+        activeAssistantStreamMsgRef.current.delete(`chat:${runId}`);
         incrementGeneration();
 
         const partialMessagesRaw = extractFinalMessages(cp);
@@ -576,6 +605,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
         activeAssistantStreamMsgRef.current.delete(runId);
+        activeAssistantStreamMsgRef.current.delete(`chat:${runId}`);
         incrementGeneration();
 
         if (isActiveRun) {
@@ -606,6 +636,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     captureThinkingDuration,
     scheduleStreamingUpdate,
     clearStreamBuffer,
+    materializeBufferedChatStream,
     getThinkingDuration,
     resetThinking,
     triggerRecovery,

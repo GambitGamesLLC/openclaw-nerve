@@ -234,15 +234,26 @@ export function buildAgentAssistantStreamMessage(
   const extracted = extractAgentAssistantStreamText(agentPayload);
   if (!extracted) return null;
 
+  return buildLiveAssistantStreamMessage(extracted.cleaned, existingMsgId, extracted.charts);
+}
+
+export function buildLiveAssistantStreamMessage(
+  text: string,
+  existingMsgId?: string,
+  charts: ChartData[] = [],
+): ChatMsg | null {
+  const cleaned = text.trim();
+  if (!cleaned) return null;
+
   return {
     msgId: existingMsgId || generateMsgId(),
     role: 'assistant',
-    html: renderToolResults(renderMarkdown(extracted.cleaned)),
-    rawText: extracted.cleaned,
+    html: renderToolResults(renderMarkdown(cleaned)),
+    rawText: cleaned,
     timestamp: new Date(),
     streaming: false,
     liveAssistantStream: true,
-    ...(extracted.charts.length > 0 ? { charts: extracted.charts } : {}),
+    ...(charts.length > 0 ? { charts } : {}),
   };
 }
 
