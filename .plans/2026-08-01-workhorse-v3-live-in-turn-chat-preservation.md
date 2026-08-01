@@ -1,8 +1,8 @@
 # Workhorse V3 Live In-Turn Chat Preservation
 
 **Date:** 2026-08-01  
-**Status:** In Progress  
-**Last Updated:** 2026-08-01 11:51 EDT  
+**Status:** Complete  
+**Last Updated:** 2026-08-01 12:17 EDT  
 **Blocked Reason:** None  
 **Agent:** cookie
 
@@ -83,5 +83,6 @@ This follow-up stays on `workhorse-v3` and targets the live/current-turn reducer
 
 **Commits:**
 - `d683045` - Preserve live assistant messages around tools
+- `470598b` - Record live chat preservation commit
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
