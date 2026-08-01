@@ -241,6 +241,7 @@ export function buildAgentAssistantStreamMessage(
     rawText: extracted.cleaned,
     timestamp: new Date(),
     streaming: false,
+    liveAssistantStream: true,
     ...(extracted.charts.length > 0 ? { charts: extracted.charts } : {}),
   };
 }

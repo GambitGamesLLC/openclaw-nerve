@@ -72,6 +72,68 @@ describe('mergeRecoveredTail', () => {
     expect(result.some(m => m.rawText === 'Old reply B')).toBe(false);
   });
 
+  it('preserves unrecovered live assistant stream messages after an anchor', () => {
+    const ts = 1700000000000;
+    const existing = [
+      makeMsg('user', 'Run a tool/message/tool canary', ts),
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('assistant', 'Midpoint canary', ts + 2000, { liveAssistantStream: true }),
+      makeMsg('tool', 'post-tool result', ts + 3000),
+    ];
+    const recovered = [
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('tool', 'post-tool result', ts + 3000),
+    ];
+    const result = mergeRecoveredTail(existing, recovered);
+    expect(result.map(m => m.rawText)).toEqual([
+      'Run a tool/message/tool canary',
+      'pre-tool result',
+      'Midpoint canary',
+      'post-tool result',
+    ]);
+  });
+
+  it('does not preserve arbitrary stale assistant messages after an anchor', () => {
+    const ts = 1700000000000;
+    const existing = [
+      makeMsg('user', 'Run a tool/message/tool canary', ts),
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('assistant', 'Old stale answer', ts + 2000),
+    ];
+    const recovered = [
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('assistant', 'Corrected answer', ts + 2000),
+    ];
+    const result = mergeRecoveredTail(existing, recovered);
+    expect(result.map(m => m.rawText)).toEqual([
+      'Run a tool/message/tool canary',
+      'pre-tool result',
+      'Corrected answer',
+    ]);
+  });
+
+  it('drops the live assistant stream marker once recovered history contains the same message', () => {
+    const ts = 1700000000000;
+    const existing = [
+      makeMsg('user', 'Run a tool/message/tool canary', ts),
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('assistant', 'Midpoint canary', ts + 2000, { liveAssistantStream: true }),
+    ];
+    const recovered = [
+      makeMsg('tool', 'pre-tool result', ts + 1000),
+      makeMsg('assistant', 'Midpoint canary', ts + 2000),
+      makeMsg('tool', 'post-tool result', ts + 3000),
+    ];
+    const result = mergeRecoveredTail(existing, recovered);
+    expect(result.map(m => m.rawText)).toEqual([
+      'Run a tool/message/tool canary',
+      'pre-tool result',
+      'Midpoint canary',
+      'post-tool result',
+    ]);
+    expect(result[2].liveAssistantStream).toBeFalsy();
+  });
+
   it('preserves existing scrollback when no overlap or anchor is found', () => {
     const existing = [
       makeMsg('user', 'Old message 1', 1000000),

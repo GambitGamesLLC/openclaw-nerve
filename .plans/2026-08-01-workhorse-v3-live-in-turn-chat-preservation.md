@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-01  
 **Status:** Complete  
-**Last Updated:** 2026-08-01 13:48 EDT
+**Last Updated:** 2026-08-01 14:32 EDT
 **Blocked Reason:** None  
 **Agent:** cookie
 
@@ -22,6 +22,8 @@ This follow-up stays on `workhorse-v3` and targets the live/current-turn reducer
 
 Derrick retested after pulling and updating `workhorse-v3`, fully closing and reopening Cookie's Nerve app on Chip, and rerunning the canary. The midpoint message still did not appear. That narrowed the remaining issue to `agent.stream === assistant` events: the live subscription path treated them as status-only streaming indicators and never materialized renderable assistant text into the chat message buffer.
 
+Derrick retested again after the agent stream fix and saw the canary briefly appear, then disappear. That narrowed the next issue to delayed tool-result history recovery: the live bubble was successfully created, but recovered history could anchor before it and replace the suffix before that assistant stream message had persisted into transcript history.
+
 ---
 
 ## REFERENCES
@@ -31,6 +33,7 @@ Derrick retested after pulling and updating `workhorse-v3`, fully closing and re
 | `REF-01` | Derrick's manual retest report after applying `workhorse-v3` | Current WebChat conversation |
 | `REF-02` | Existing recovered-history fix for scrollback and post-reply tools | `src/features/chat/operations/loadHistory.ts`, `src/features/chat/operations/mergeRecoveredTail.ts` |
 | `REF-03` | Failed retest after fully closing/reopening Cookie Nerve app and running tool → message → tool canary | Current WebChat conversation, 2026-08-01 13:43 EDT |
+| `REF-04` | Failed retest where midpoint canary flashed briefly and disappeared | Current WebChat conversation, 2026-08-01 14:28 EDT |
 
 ---
 
@@ -97,19 +100,42 @@ Derrick retested after pulling and updating `workhorse-v3`, fully closing and re
 
 **Results:** Added extraction/rendering for visible `agent.stream === assistant` payload text and wired `ChatContext` to upsert it into the chat buffer as a normal assistant message. Empty/internal control messages remain hidden. Tool start/result and final/abort/error events clear the active assistant stream segment so separate assistant messages in one turn do not collapse together. Validation passed: stream handler test (47), full chat operations test suite (125), `npm run lint`, `npm run build`, and `git diff --check`.
 
+### Task 4: Preserve Live Stream Bubbles Through Tool-Result Recovery
+
+**Bead ID:** `oc-3qt`
+**SubAgent:** `primary`
+**Role:** `coder`
+**References:** `REF-04`
+**Prompt:** Fix the remaining live canary failure on `workhorse-v3` where the midpoint `agent.stream === assistant` bubble appears briefly, then disappears after a later tool event/recovery pass. Claim bead `oc-3qt`, keep the change focused, add regression coverage for delayed recovered-tail merge preserving provisional live assistant stream messages, run validation, commit, and push to `origin/workhorse-v3`.
+
+**Folders Created/Deleted/Modified:**
+- `src/features/chat/`
+
+**Files Created/Deleted/Modified:**
+- `src/features/chat/types.ts`
+- `src/features/chat/operations/streamEventHandler.ts`
+- `src/features/chat/operations/mergeRecoveredTail.ts`
+- `src/features/chat/operations/mergeRecoveredTail.test.ts`
+- `.plans/2026-08-01-workhorse-v3-live-in-turn-chat-preservation.md`
+
+**Status:** ✅ Complete
+
+**Results:** Tagged visible live `agent.stream === assistant` messages as provisional `liveAssistantStream` chat bubbles. Updated recovered-tail merging so anchored recovery preserves only those unrecovered live stream bubbles instead of dropping them from the suffix, while still allowing ordinary stale assistant suffix messages to be corrected. If recovered history later contains the same assistant text, the durable recovered copy replaces the provisional marker. Validation passed: `npm test -- src/features/chat/operations/mergeRecoveredTail.test.ts` (12), `npm test -- src/features/chat/operations` (128), `npm run lint`, `npm run build`, `git diff --check`, and full `npm test` (142 files / 1883 tests).
+
 ---
 
 ## Final Results
 
 **Status:** ✅ Complete
 
-**What We Built:** Removed inferred intermediate styling from nearby tool calls so assistant text before, between, or after tool calls remains normal visible chat unless it is explicitly marked as thinking/internal. Added focused regressions for the live canary shape through both `tagIntermediateMessages()` and the full `processChatMessages()` pipeline. After Derrick's reopened-app retest still failed, added live `agent.stream === assistant` rendering so assistant commentary emitted between tool events is materialized into the visible chat buffer instead of being treated as status-only.
+**What We Built:** Removed inferred intermediate styling from nearby tool calls so assistant text before, between, or after tool calls remains normal visible chat unless it is explicitly marked as thinking/internal. Added focused regressions for the live canary shape through both `tagIntermediateMessages()` and the full `processChatMessages()` pipeline. After Derrick's reopened-app retest still failed, added live `agent.stream === assistant` rendering so assistant commentary emitted between tool events is materialized into the visible chat buffer instead of being treated as status-only. After the canary began flashing then disappearing, tagged those live stream bubbles as provisional and preserved them through delayed recovered-tail merges until durable history catches up.
 
-**Reference Check:** `REF-01` is covered by a `tool/text/tool/text` regression that preserves the midpoint assistant text as normal chat. `REF-02` remains compatible because explicit thinking/internal markers and recovered-history fixes are preserved. `REF-03` is covered by agent assistant stream extraction/rendering tests and the live `ChatContext` wiring that appends/upserts those messages before later tool events can erase them.
+**Reference Check:** `REF-01` is covered by a `tool/text/tool/text` regression that preserves the midpoint assistant text as normal chat. `REF-02` remains compatible because explicit thinking/internal markers and recovered-history fixes are preserved. `REF-03` is covered by agent assistant stream extraction/rendering tests and the live `ChatContext` wiring that appends/upserts those messages. `REF-04` is covered by recovered-tail merge tests that preserve unrecovered provisional live assistant bubbles after a history anchor while still replacing them when durable history contains the same message.
 
 **Commits:**
 - `d683045` - Preserve live assistant messages around tools
 - `470598b` - Record live chat preservation commit
 - `7938864` - Preserve agent assistant stream messages
+- `7607299` - Preserve live stream bubbles through recovery
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.

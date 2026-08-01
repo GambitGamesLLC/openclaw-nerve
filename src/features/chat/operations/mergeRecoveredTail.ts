@@ -73,6 +73,39 @@ function appendUnanchoredRecoveredMessages(existing: ChatMsg[], recovered: ChatM
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
+function mergeOverlappingRecoveredMessages(existing: ChatMsg[], recovered: ChatMsg[], overlap: number): ChatMsg[] {
+  const prefix = existing.slice(0, existing.length - overlap);
+  const existingOverlap = existing.slice(existing.length - overlap);
+  const recoveredOverlap = recovered.slice(0, overlap);
+  const reconciledOverlap = recoveredOverlap.map((msg, idx) => (
+    existingOverlap[idx]?.liveAssistantStream ? msg : existingOverlap[idx]
+  ));
+
+  return [...prefix, ...reconciledOverlap, ...recovered.slice(overlap)];
+}
+
+function mergeLiveAssistantStreamMessages(existingSuffix: ChatMsg[], patchedTail: ChatMsg[]): ChatMsg[] {
+  const merged = [...patchedTail];
+  const seen = new Set(merged.map(msg => messageSignature(msg, { includeTimestamp: false })));
+
+  for (const msg of existingSuffix) {
+    if (!msg.liveAssistantStream) continue;
+
+    const sig = messageSignature(msg, { includeTimestamp: false });
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+
+    const insertIdx = merged.findIndex(candidate => candidate.timestamp.getTime() > msg.timestamp.getTime());
+    if (insertIdx === -1) {
+      merged.push(msg);
+    } else {
+      merged.splice(insertIdx, 0, msg);
+    }
+  }
+
+  return merged;
+}
+
 /**
  * Merge a recovered history tail into the current transcript without replacing
  * unaffected prefix messages.
@@ -87,14 +120,15 @@ export function mergeRecoveredTail(existing: ChatMsg[], recovered: ChatMsg[]): C
   // Fast path: recovered starts where existing tail ends.
   const overlap = findSuffixPrefixOverlap(existingSigs, recoveredSigs);
   if (overlap > 0) {
-    return [...existing, ...recovered.slice(overlap)];
+    return mergeOverlappingRecoveredMessages(existing, recovered, overlap);
   }
 
   // Anchor path: find a matching point in the existing tail and replace only suffix.
   const anchor = findTailAnchor(existingSigs, recoveredSigs);
   if (anchor) {
     const preservedPrefix = existing.slice(0, anchor.existingIdx);
-    const patchedTail = recovered.slice(anchor.recoveredIdx);
+    const existingSuffix = existing.slice(anchor.existingIdx);
+    const patchedTail = mergeLiveAssistantStreamMessages(existingSuffix, recovered.slice(anchor.recoveredIdx));
     return [...preservedPrefix, ...patchedTail];
   }
 
@@ -104,7 +138,8 @@ export function mergeRecoveredTail(existing: ChatMsg[], recovered: ChatMsg[]): C
   const looseAnchor = findTailAnchor(looseExistingSigs, looseRecoveredSigs);
   if (looseAnchor) {
     const preservedPrefix = existing.slice(0, looseAnchor.existingIdx);
-    const patchedTail = recovered.slice(looseAnchor.recoveredIdx);
+    const existingSuffix = existing.slice(looseAnchor.existingIdx);
+    const patchedTail = mergeLiveAssistantStreamMessages(existingSuffix, recovered.slice(looseAnchor.recoveredIdx));
     return [...preservedPrefix, ...patchedTail];
   }
 

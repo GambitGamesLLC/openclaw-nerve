@@ -132,6 +132,8 @@ export interface ChatMsg {
   extractedImages?: { url: string; alt?: string }[];
   /** Whether this is a thinking bubble (not regular assistant content) */
   isThinking?: boolean;
+  /** Provisional assistant text from live agent.stream events before history persists it. */
+  liveAssistantStream?: boolean;
   /** Thinking trace text */
   thinkingText?: string;
   /** How long the model spent thinking (milliseconds) */
