@@ -136,6 +136,6 @@ Derrick retested again after the agent stream fix and saw the canary briefly app
 - `d683045` - Preserve live assistant messages around tools
 - `470598b` - Record live chat preservation commit
 - `7938864` - Preserve agent assistant stream messages
-- `7607299` - Preserve live stream bubbles through recovery
+- `09a094c` - Preserve live stream bubbles through recovery
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
