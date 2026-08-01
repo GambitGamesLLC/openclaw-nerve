@@ -251,14 +251,14 @@ describe('groupToolMessages', () => {
 });
 
 describe('tagIntermediateMessages', () => {
-  it('marks assistant messages before tools as intermediate', () => {
+  it('does not infer intermediate styling from assistant text before tools', () => {
     const msgs: ChatMsg[] = [
       { role: 'assistant', html: '', rawText: 'Let me check...', timestamp: new Date() },
       { role: 'tool', html: '', rawText: 'result', timestamp: new Date() },
       { role: 'assistant', html: '', rawText: 'Here you go.', timestamp: new Date() },
     ];
     const result = tagIntermediateMessages(msgs);
-    expect(result[0].intermediate).toBe(true);
+    expect(result[0].intermediate).toBeFalsy();
     expect(result[2].intermediate).toBeFalsy();
   });
 
@@ -297,7 +297,19 @@ describe('tagIntermediateMessages', () => {
     ];
     const result = tagIntermediateMessages(msgs);
     expect(msgs[0].intermediate).toBeUndefined();
-    expect(result[0].intermediate).toBe(true);
+    expect(result[0].intermediate).toBeFalsy();
+  });
+
+  it('keeps assistant text between tool calls as normal visible chat', () => {
+    const msgs: ChatMsg[] = [
+      { role: 'tool', html: '', rawText: '**tool:** `date`', timestamp: new Date() },
+      { role: 'assistant', html: '', rawText: 'Visible midpoint test message.', timestamp: new Date() },
+      { role: 'tool', html: '', rawText: '**tool:** `date`', timestamp: new Date() },
+      { role: 'assistant', html: '', rawText: 'Done.', timestamp: new Date() },
+    ];
+    const result = tagIntermediateMessages(msgs);
+    expect(result[1].intermediate).toBeFalsy();
+    expect(result[3].intermediate).toBeFalsy();
   });
 });
 
@@ -310,6 +322,31 @@ describe('processChatMessages', () => {
     const result = processChatMessages(msgs);
     expect(result.length).toBeGreaterThanOrEqual(2);
     expect(result.every(m => m.msgId)).toBe(true);
+  });
+
+  it('preserves assistant text between tool calls as normal chat through the full pipeline', () => {
+    const result = processChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', name: 'date', input: {} },
+          { type: 'text', text: 'Visible midpoint test message.' },
+          { type: 'tool_use', name: 'date', input: {} },
+          { type: 'text', text: 'Final answer.' },
+        ],
+      },
+    ]);
+
+    const midpoint = result.find(m => m.rawText === 'Visible midpoint test message.');
+    expect(midpoint).toBeDefined();
+    expect(midpoint!.role).toBe('assistant');
+    expect(midpoint!.intermediate).toBeFalsy();
+
+    const final = result.find(m => m.rawText === 'Final answer.');
+    expect(final).toBeDefined();
+    expect(final!.intermediate).toBeFalsy();
+
+    expect(result.some(m => m.toolGroup || m.role === 'tool')).toBe(true);
   });
 
   it('tags background task notifications as system notifications', () => {
