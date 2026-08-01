@@ -4,6 +4,8 @@ import {
   isActiveAgentState,
   classifyStreamEvent,
   extractStreamDelta,
+  extractAgentAssistantStreamText,
+  buildAgentAssistantStreamMessage,
   extractFinalMessages,
   extractFinalMessage,
   buildActivityLogEntry,
@@ -11,7 +13,7 @@ import {
   appendActivityEntry,
   deriveProcessingStage,
 } from './streamEventHandler';
-import type { GatewayEvent } from '@/types';
+import type { AgentEventPayload, GatewayEvent } from '@/types';
 
 describe('isActiveAgentState', () => {
   it('returns true for active states', () => {
@@ -198,6 +200,62 @@ describe('extractStreamDelta', () => {
     const result = extractStreamDelta(payload);
     expect(result).not.toBeNull();
     expect(result!.text).toContain('Hello world');
+  });
+});
+
+describe('extractAgentAssistantStreamText', () => {
+  it('extracts visible assistant text from agent assistant stream data', () => {
+    const result = extractAgentAssistantStreamText({
+      stream: 'assistant',
+      data: { text: 'Midpoint canary message.' },
+    } as unknown as AgentEventPayload);
+
+    expect(result?.cleaned).toBe('Midpoint canary message.');
+  });
+
+  it('extracts visible assistant text from content blocks', () => {
+    const result = extractAgentAssistantStreamText({
+      stream: 'assistant',
+      data: { content: [{ type: 'text', text: 'Visible block text.' }] },
+    } as unknown as AgentEventPayload);
+
+    expect(result?.cleaned).toBe('Visible block text.');
+  });
+
+  it('ignores empty and internal assistant stream messages', () => {
+    expect(extractAgentAssistantStreamText({
+      stream: 'assistant',
+      data: { text: '   ' },
+    } as unknown as AgentEventPayload)).toBeNull();
+    expect(extractAgentAssistantStreamText({
+      stream: 'assistant',
+      data: { text: 'HEARTBEAT_OK' },
+    } as unknown as AgentEventPayload)).toBeNull();
+  });
+});
+
+describe('buildAgentAssistantStreamMessage', () => {
+  it('builds a normal assistant chat bubble for visible assistant stream text', () => {
+    const msg = buildAgentAssistantStreamMessage({
+      stream: 'assistant',
+      data: { text: 'Midpoint canary message.' },
+    } as unknown as AgentEventPayload);
+
+    expect(msg).not.toBeNull();
+    expect(msg!.role).toBe('assistant');
+    expect(msg!.rawText).toBe('Midpoint canary message.');
+    expect(msg!.intermediate).toBeUndefined();
+    expect(msg!.toolGroup).toBeUndefined();
+  });
+
+  it('reuses an existing msgId when updating the same live stream bubble', () => {
+    const msg = buildAgentAssistantStreamMessage({
+      stream: 'assistant',
+      data: { text: 'Updated text.' },
+    } as unknown as AgentEventPayload, 'msg-live-1');
+
+    expect(msg?.msgId).toBe('msg-live-1');
+    expect(msg?.rawText).toBe('Updated text.');
   });
 });
 

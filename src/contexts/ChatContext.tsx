@@ -32,6 +32,7 @@ import {
   sendChatMessage,
   classifyStreamEvent,
   extractStreamDelta,
+  buildAgentAssistantStreamMessage,
   extractFinalMessage,
   extractFinalMessages,
   deriveProcessingStage,
@@ -127,6 +128,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const lastGatewaySeqRef = useRef<number | null>(null);
   const lastChatSeqRef = useRef<number | null>(null);
   const toolResultRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeAssistantStreamMsgRef = useRef<Map<string, string>>(new Map());
 
   // ─── Compose hooks ────────────────────────────────────────────────────────
   const msgHook = useChatMessages({ rpc, currentSessionRef });
@@ -189,6 +191,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     activeRunIdRef.current = null;
     lastGatewaySeqRef.current = null;
     lastChatSeqRef.current = null;
+    activeAssistantStreamMsgRef.current.clear();
     if (toolResultRefreshRef.current) {
       clearTimeout(toolResultRefreshRef.current);
       toolResultRefreshRef.current = null;
@@ -347,12 +350,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             triggerRecovery('reconnect');
           }
           activeRunIdRef.current = null;
+          activeAssistantStreamMsgRef.current.clear();
           return;
         }
 
         if (type === 'assistant_stream') {
           setProcessingStage('streaming');
           setLastEventTimestamp(Date.now());
+          const streamMessageKey = classified.runId || classified.sessionKey || currentSessionRef.current;
+          const existingMsgId = activeAssistantStreamMsgRef.current.get(streamMessageKey);
+          const streamMessage = buildAgentAssistantStreamMessage(ap, existingMsgId);
+          if (streamMessage) {
+            activeAssistantStreamMsgRef.current.set(streamMessageKey, streamMessage.msgId!);
+            const existing = getAllMessages();
+            const existingIdx = existing.findIndex(m => m.msgId === streamMessage.msgId);
+            const next = existingIdx >= 0
+              ? existing.map((m, idx) => (idx === existingIdx ? streamMessage : m))
+              : mergeFinalMessages(existing, [streamMessage]);
+            applyMessageWindow(next, false);
+          }
           return;
         }
 
@@ -364,12 +380,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setLastEventTimestamp(Date.now());
 
         if (type === 'agent_tool_start') {
+          const streamMessageKey = classified.runId || classified.sessionKey || currentSessionRef.current;
+          activeAssistantStreamMsgRef.current.delete(streamMessageKey);
           setProcessingStage('tool_use');
           addActivityEntry(ap);
           return;
         }
 
         if (type === 'agent_tool_result') {
+          const streamMessageKey = classified.runId || classified.sessionKey || currentSessionRef.current;
+          activeAssistantStreamMsgRef.current.delete(streamMessageKey);
           const completedId = ap.data?.toolCallId;
           if (completedId) completeActivityEntry(completedId);
 
@@ -428,6 +448,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         run.stopReason = undefined;
         run.bufferRaw = '';
         run.bufferText = '';
+        activeAssistantStreamMsgRef.current.delete(runId);
 
         setIsGenerating(true);
         resetPlayedSounds();
@@ -468,6 +489,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         run.bufferText = '';
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
+        activeAssistantStreamMsgRef.current.delete(runId);
         incrementGeneration();
 
         if (isActiveRun) {
@@ -510,6 +532,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         run.bufferText = '';
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
+        activeAssistantStreamMsgRef.current.delete(runId);
         incrementGeneration();
 
         const partialMessagesRaw = extractFinalMessages(cp);
@@ -547,6 +570,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         run.bufferText = '';
 
         if (activeRunIdRef.current === runId) activeRunIdRef.current = null;
+        activeAssistantStreamMsgRef.current.delete(runId);
         incrementGeneration();
 
         if (isActiveRun) {

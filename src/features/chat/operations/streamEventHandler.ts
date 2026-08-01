@@ -11,7 +11,9 @@ import type {
   ContentBlock,
 } from '@/types';
 import type { ActivityLogEntry, ProcessingStage } from '@/contexts/ChatContext';
+import { generateMsgId, type ChatMsg } from '@/features/chat/types';
 import { extractText, describeToolUse } from '@/utils/helpers';
+import { renderMarkdown, renderToolResults } from '@/utils/helpers';
 import { extractTTSMarkers } from '@/features/tts/useTTS';
 import { extractChartMarkers } from '@/features/charts/extractCharts';
 import type { ChartData } from '@/features/charts/extractCharts';
@@ -162,6 +164,85 @@ export function extractStreamDelta(
   const { cleaned: ttsStripped, ttsText } = extractTTSMarkers(deltaText);
   const { cleaned, charts } = extractChartMarkers(ttsStripped);
   return { text: deltaText, cleaned, ttsText, charts };
+}
+
+// ─── Agent assistant stream extraction ────────────────────────────────────────
+
+const INTERNAL_CONTROL_REPLY_RE = /^(NO_REPLY|HEARTBEAT_OK)$/i;
+
+function isContentBlockArray(value: unknown): value is ContentBlock[] {
+  return Array.isArray(value) && value.every(block => block && typeof block === 'object' && 'type' in block);
+}
+
+function textFromUnknownAssistantPayload(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+
+  if (isContentBlockArray(value)) {
+    return extractText({ role: 'assistant', content: value });
+  }
+
+  if (!value || typeof value !== 'object') return null;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ['text', 'delta', 'content', 'message', 'output']) {
+    const candidate = record[key];
+    if (typeof candidate === 'string') return candidate;
+    if (isContentBlockArray(candidate)) {
+      return extractText({ role: 'assistant', content: candidate });
+    }
+    if (candidate && typeof candidate === 'object') {
+      const nested = candidate as Partial<ChatMessage>;
+      if (nested.role === 'assistant' && nested.content) {
+        return extractText({
+          role: 'assistant',
+          content: nested.content,
+          text: nested.text,
+        });
+      }
+    }
+  }
+
+  return null;
+}
+
+export function extractAgentAssistantStreamText(
+  agentPayload: AgentEventPayload,
+): { text: string; cleaned: string; ttsText: string | null; charts: ChartData[] } | null {
+  if (agentPayload.stream !== 'assistant') return null;
+
+  const payloadRecord = agentPayload as unknown as Record<string, unknown>;
+  const rawText =
+    textFromUnknownAssistantPayload(payloadRecord.data) ??
+    textFromUnknownAssistantPayload(payloadRecord.message) ??
+    textFromUnknownAssistantPayload(payloadRecord.content) ??
+    textFromUnknownAssistantPayload(payloadRecord.text);
+
+  if (!rawText) return null;
+
+  const { cleaned: ttsStripped, ttsText } = extractTTSMarkers(rawText);
+  const { cleaned, charts } = extractChartMarkers(ttsStripped);
+  if (!cleaned.trim()) return null;
+  if (INTERNAL_CONTROL_REPLY_RE.test(cleaned.trim())) return null;
+
+  return { text: rawText, cleaned, ttsText, charts };
+}
+
+export function buildAgentAssistantStreamMessage(
+  agentPayload: AgentEventPayload,
+  existingMsgId?: string,
+): ChatMsg | null {
+  const extracted = extractAgentAssistantStreamText(agentPayload);
+  if (!extracted) return null;
+
+  return {
+    msgId: existingMsgId || generateMsgId(),
+    role: 'assistant',
+    html: renderToolResults(renderMarkdown(extracted.cleaned)),
+    rawText: extracted.cleaned,
+    timestamp: new Date(),
+    streaming: false,
+    ...(extracted.charts.length > 0 ? { charts: extracted.charts } : {}),
+  };
 }
 
 // ─── Final message extraction ──────────────────────────────────────────────────

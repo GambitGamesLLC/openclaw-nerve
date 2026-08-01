@@ -12,6 +12,8 @@ export type { ChatSendAck, ChatSendStatus } from './sendMessage';
 export {
   classifyStreamEvent,
   extractStreamDelta,
+  extractAgentAssistantStreamText,
+  buildAgentAssistantStreamMessage,
   extractFinalMessage,
   extractFinalMessages,
   buildActivityLogEntry,
