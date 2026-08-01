@@ -1,9 +1,9 @@
 # Nerve Workhorse V2 Chat History Tool Regression
 
 **Date:** 2026-08-01  
-**Status:** In Progress
-**Last Updated:** 2026-08-01 15:17 EDT
-**Blocked Reason:** Awaiting Derrick to run `update.sh` and manually retest the latest `workhorse-v3` canary fix  
+**Status:** Blocked
+**Last Updated:** 2026-08-01 15:47 EDT
+**Blocked Reason:** Manual retest still failed after `bb7b4e9`; Derrick approved calling the live midpoint-message bug here unless/until a future instrumented event-stream investigation is requested  
 **Agent:** cookie
 
 ---
@@ -34,6 +34,7 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 | `REF-02` | Screenshot showing conversation collapsed into tool/status blocks after tool use | `/home/derrick/.openclaw/workspace/.temp/nerve-uploads/2026/08/01/image-91a3ef87.png` |
 | `REF-03` | Existing changelog entries for prior chat reconciliation fixes, including infinite scroll and message merge mutation fixes | `CHANGELOG.md` |
 | `REF-04` | Upstream Nerve Issues/PRs and branch history for this bug shape | Issue #334, Issue #344, PR #330, PR #342, PR #355, PR #363 |
+| `REF-05` | Failed manual retest after `bb7b4e9`; Derrick approved stopping this bug pursuit for now | Current OpenClaw conversation context, 2026-08-01 15:23 EDT |
 
 ---
 
@@ -184,22 +185,22 @@ Execution will use the standard research -> coder -> QA -> auditor loop on the `
 
 **Status:** ✅ Complete
 
-**Results:** Session history inspection showed the midpoint canary is not persisted as a normal assistant message; it exists in Codex local JSONL as `phase:"commentary"` and is mirrored to Nerve as transient chat stream text. Added `buildLiveAssistantStreamMessage()` and materialized the active `run.bufferText` into a provisional assistant bubble when an `agent_tool_start` follows a chat delta. Added a ChatContext regression for `chat_started -> chat_delta(midpoint) -> agent_tool_start` and pure helper tests. Committed and pushed `bb7b4e9` (`Materialize buffered chat commentary before tools`) to `origin/workhorse-v3`. Validation passed: `npm test -- src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations --run` (6 files / 136 tests), `npm run lint`, `npm run build`, and `git diff --check`. Full suite repeated one unrelated `src/features/kanban/CreateTaskDialog.test.tsx` suite-order/timing failure; that file passed standalone (`4 passed`) after the failure. Manual retest is pending after Derrick runs `update.sh`.
+**Results:** Session history inspection showed the midpoint canary is not persisted as a normal assistant message; it exists in Codex local JSONL as `phase:"commentary"` and is mirrored to Nerve as transient chat stream text. Added `buildLiveAssistantStreamMessage()` and materialized the active `run.bufferText` into a provisional assistant bubble when an `agent_tool_start` follows a chat delta. Added a ChatContext regression for `chat_started -> chat_delta(midpoint) -> agent_tool_start` and pure helper tests. Committed and pushed `bb7b4e9` (`Materialize buffered chat commentary before tools`) to `origin/workhorse-v3`. Validation passed: `npm test -- src/contexts/ChatContext.subscription.test.tsx src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations --run` (6 files / 136 tests), `npm run lint`, `npm run build`, and `git diff --check`. Full suite repeated one unrelated `src/features/kanban/CreateTaskDialog.test.tsx` suite-order/timing failure; that file passed standalone (`4 passed`) after the failure. Derrick manually retested after update and the canary still disappeared, so this path did not squash the live midpoint-message bug.
 
 ---
 
 ## Final Results
 
-**Status:** In Progress
+**Status:** ⚠️ Partial / Blocked
 
-**What We Built:** A focused `workhorse-v3` fix series for chat recovery and live assistant stream preservation. It preserves prior scrollback, keeps visible assistant replies in normal rendering after post-reply tool activity, keeps live assistant canary bubbles through subsequent history/current-turn refreshes until durable history supersedes them, and now materializes buffered chat commentary before a following tool event clears the stream overlay.
+**What We Built:** A focused `workhorse-v3` fix series for chat recovery and live assistant stream preservation. It preserves prior scrollback and keeps visible assistant replies in normal rendering after post-reply tool activity. Several attempted live midpoint-message fixes improved or covered plausible frontend paths, but Derrick's manual canary retests still show the midpoint message briefly appears and is then removed.
 
-**Reference Check:** Matches Derrick's report: no-anchor recovery preserves existing scrollback, visible reply + post-reply tools stays non-intermediate, and true intermediate/pre-tool narration remains supported.
+**Reference Check:** The original scrollback/recovery symptoms are improved by `workhorse-v3`, but `REF-05` remains unresolved. The next credible fix path is not another blind frontend patch; it requires instrumenting the live event stream and persistence boundary to identify the authoritative state source that removes the transient midpoint message.
 
 **Commits:** `b9c4886` (`Fix chat recovery preserving visible replies`) plus subsequent `workhorse-v3` live-stream preservation commits through `bb7b4e9` (`Materialize buffered chat commentary before tools`).
 
-**Lessons Learned:** The regression came from two presentation/recovery interactions: broad intermediate retagging changed visible message style, and recovered-tail identity/fallback could fail to anchor then replace existing transcript state.
+**Lessons Learned:** The regression came from multiple presentation/recovery interactions. Broad intermediate retagging changed visible message style, recovered-tail identity/fallback could fail to anchor then replace existing transcript state, and the remaining live midpoint canary appears to depend on a transient event/persistence boundary that needs instrumentation before the next fix attempt.
 
 ---
 
-*Last updated on 2026-08-01*
+*Last updated on 2026-08-01 15:47 EDT*
