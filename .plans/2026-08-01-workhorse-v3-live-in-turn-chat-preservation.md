@@ -162,6 +162,6 @@ Derrick retested after the recovery-preservation fix and saw the midpoint canary
 - `470598b` - Record live chat preservation commit
 - `7938864` - Preserve agent assistant stream messages
 - `09a094c` - Preserve live stream bubbles through recovery
-- Pending - Preserve live streams through history refresh
+- `d043098` - Preserve live streams through history refresh
 
 **Lessons Learned:** The recovered-history fix and the live current-turn path share presentation tagging assumptions, but they fail at different points. Treat heuristic presentation flags as volatile UI state, not durable message identity.
