@@ -6,6 +6,7 @@ import { getSessionKey, type Session, type AgentLogEntry, type EventEntry, type 
 import { playPing } from '@/features/voice/audio-feedback';
 import { describeToolUse } from '@/utils/helpers';
 import { buildSessionTree } from '@/features/sessions/sessionTree';
+import { mergeAuthoritativeSessions } from '@/features/sessions/sessionReconciliation';
 import {
   buildAgentRootSessionKey,
   extractIdentityName,
@@ -336,10 +337,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }),
       );
 
-      return spawnedSessionLists.reduce(
-        (acc, spawnedSessions) => mergeSessionLists(acc, spawnedSessions),
-        baseSessions,
-      );
+      return mergeAuthoritativeSessions(baseSessions, spawnedSessionLists);
     } catch (err) {
       console.debug('[SessionContext] Failed to fetch authoritative session list:', err);
       return sessionsRef.current;
