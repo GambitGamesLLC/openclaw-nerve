@@ -325,19 +325,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       // Keep active child sessions visible even when the full sessions.list
       // result lags behind the recent spawn/discovery flow.
-      const spawnedSessionLists = await Promise.all(
+      const spawnedResults = await Promise.all(
         [...spawnedByRoots].map(async (rootSessionKey) => {
           try {
             const spawnedRes = await rpc('sessions.list', { spawnedBy: rootSessionKey, limit: SESSIONS_SPAWNED_LIMIT }) as SessionsListResponse;
-            return spawnedRes?.sessions ?? [];
+            return { ok: true as const, sessions: spawnedRes?.sessions ?? [] };
           } catch (err) {
             console.debug('[SessionContext] Failed to fetch spawned sessions for root:', rootSessionKey, err);
-            return [];
+            return { ok: false as const, sessions: [] as Session[] };
           }
         }),
       );
 
-      return mergeAuthoritativeSessions(baseSessions, spawnedSessionLists);
+      return mergeAuthoritativeSessions(
+        baseSessions,
+        spawnedResults.map((result) => result.sessions),
+        { spawnedByAuthoritative: spawnedResults.some((result) => result.ok) },
+      );
     } catch (err) {
       console.debug('[SessionContext] Failed to fetch authoritative session list:', err);
       return sessionsRef.current;

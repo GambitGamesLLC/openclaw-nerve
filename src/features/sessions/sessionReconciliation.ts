@@ -1,5 +1,12 @@
 import type { Session } from '@/types';
 import { getSessionKey } from '@/types';
+import {
+  getExplicitParentCandidates,
+  getRootAgentSessionKey,
+  isCronRunSessionKey,
+  isCronSessionKey,
+  isTopLevelAgentSessionKey,
+} from './sessionKeys';
 
 const LIVE_SUPPLEMENTAL_STATES = new Set([
   'busy',
@@ -51,12 +58,56 @@ export function isLiveSupplementalSession(session: Session): boolean {
   return false;
 }
 
+function hasConfirmedParent(session: Session, confirmedKeys: Set<string>): boolean {
+  return getExplicitParentCandidates(session).some((parentKey) => confirmedKeys.has(parentKey));
+}
+
+function isSessionEligibleWithoutSpawnedConfirmation(session: Session): boolean {
+  const key = getSessionKey(session);
+  if (!key) return false;
+  if (isTopLevelAgentSessionKey(key)) return true;
+  if (isCronSessionKey(key) || isCronRunSessionKey(key)) return true;
+  return isLiveSupplementalSession(session);
+}
+
+export interface MergeAuthoritativeSessionsOptions {
+  /**
+   * True when spawnedBy calls succeeded and can be treated as the current child
+   * source of truth. When every spawnedBy call fails, callers should leave this
+   * false so an RPC outage does not wipe the sidebar down to roots.
+   */
+  spawnedByAuthoritative?: boolean;
+}
+
 export function mergeAuthoritativeSessions(
   baseSessions: Session[],
   spawnedSessionLists: Session[][],
+  options: MergeAuthoritativeSessionsOptions = {},
 ): Session[] {
-  const merged = [...baseSessions];
-  const seen = new Set(baseSessions.map(getSessionKey).filter(Boolean));
+  const spawnedKeys = new Set<string>();
+  for (const spawnedSessions of spawnedSessionLists) {
+    for (const session of spawnedSessions) {
+      const key = getSessionKey(session);
+      if (key) spawnedKeys.add(key);
+    }
+  }
+
+  const spawnedByAuthoritative = options.spawnedByAuthoritative ?? spawnedSessionLists.length > 0;
+  const baseSessionsToKeep = spawnedByAuthoritative
+    ? baseSessions.filter((session) => {
+        const key = getSessionKey(session);
+        if (!key) return false;
+        if (isSessionEligibleWithoutSpawnedConfirmation(session)) return true;
+        if (spawnedKeys.has(key)) return true;
+        if (hasConfirmedParent(session, spawnedKeys)) return true;
+
+        const rootKey = getRootAgentSessionKey(key);
+        return Boolean(rootKey && spawnedKeys.has(rootKey));
+      })
+    : baseSessions;
+
+  const merged = [...baseSessionsToKeep];
+  const seen = new Set(baseSessionsToKeep.map(getSessionKey).filter(Boolean));
 
   for (const spawnedSessions of spawnedSessionLists) {
     for (const session of spawnedSessions) {

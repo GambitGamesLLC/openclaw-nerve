@@ -32,6 +32,53 @@ describe('session reconciliation', () => {
     expect(merged.map((item) => item.sessionKey)).toEqual(['agent:main:main']);
   });
 
+  it('prunes stale base-list children missing from current spawnedBy truth', () => {
+    const merged = mergeAuthoritativeSessions(
+      [
+        session('agent:main:main'),
+        session('agent:main:subagent:stale-cache-child', { label: 'Old cached child', status: 'idle' }),
+        session('agent:main:subagent:current-child', { label: 'Current child', status: 'idle' }),
+      ],
+      [[session('agent:main:subagent:current-child', { label: 'Current child' })]],
+    );
+
+    expect(merged.map((item) => item.sessionKey)).toEqual([
+      'agent:main:main',
+      'agent:main:subagent:current-child',
+    ]);
+  });
+
+  it('keeps base-list children with live state even before spawnedBy catches up', () => {
+    const merged = mergeAuthoritativeSessions(
+      [
+        session('agent:main:main'),
+        session('agent:main:subagent:streaming-child', { status: 'running' }),
+      ],
+      [[]],
+    );
+
+    expect(merged.map((item) => item.sessionKey)).toEqual([
+      'agent:main:main',
+      'agent:main:subagent:streaming-child',
+    ]);
+  });
+
+  it('preserves base sessions when spawnedBy lookups all fail', () => {
+    const merged = mergeAuthoritativeSessions(
+      [
+        session('agent:main:main'),
+        session('agent:main:subagent:unknown-child', { label: 'Unknown child' }),
+      ],
+      [[]],
+      { spawnedByAuthoritative: false },
+    );
+
+    expect(merged.map((item) => item.sessionKey)).toEqual([
+      'agent:main:main',
+      'agent:main:subagent:unknown-child',
+    ]);
+  });
+
   it('preserves terminal sessions when the full list still reports them', () => {
     const merged = mergeAuthoritativeSessions(
       [
