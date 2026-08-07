@@ -1,9 +1,9 @@
 # Nerve Workhorse v4 State Reconciliation Bugs
 
 **Date:** 2026-08-07  
-**Status:** Blocked  
-**Last Updated:** 2026-08-07 15:00 EDT  
-**Blocked Reason:** Upstream refresh ceremony completed; waiting for Derrick to re-examine the baseline and choose/confirm the next bug-prioritization direction before starting Task 2.
+**Status:** In Progress  
+**Last Updated:** 2026-08-07 16:21 EDT  
+**Blocked Reason:** None
 **Agent:** byte
 
 ---
@@ -29,6 +29,14 @@ Validation should prove that Nerve remains trustworthy during heavy OpenClaw Cod
 Before prioritizing or implementing the remaining bug fixes, pause after the upstream refresh ceremony and report the result to Derrick. That checkpoint should say whether latest upstream `master` already includes promising fixes, which `workhorse-v3` changes still appear useful, which ones are redundant or risky, and what the new `workhorse-v4` baseline contains.
 
 Runtime deployment must use the workspace updater path with the gateway restart skipped. Do not run `/home/derrick/.openclaw/workspace/scripts/update.sh` directly in a way that refreshes the OpenClaw Gateway. Use its `--skip-gateway-restart` / `--no-gateway-restart` flag if an installed Nerve update is needed for visual QA.
+
+After Derrick re-examined the upstream-refresh checkpoint, execution is now prioritized as separate rollback-friendly slices. Each bug class should land as its own commit where practical so we can revert, branch, or upstream the fixes independently later. The first operational slice points the local Nerve deployment at `workhorse-v4` and runs the safe updater. The first research slice maps the reducer/source-of-truth problem. Implementation should then proceed in this order: chat message identity and history merge, internal compaction/`NO_REPLY` filtering, Agents-panel reconciliation, regression tests, then real-session visual QA and independent audit.
+
+Likely code hot spots from the current `workhorse-v4` baseline:
+- Chat state/load/stream merge: `src/hooks/useChatMessages.ts`, `src/hooks/useChatStreaming.ts`, `src/hooks/useChatRecovery.ts`, `src/features/chat/operations/loadHistory.ts`, `src/features/chat/operations/streamEventHandler.ts`, `src/features/chat/operations/realtimeState.ts`, `src/features/chat/operations/mergeRecoveredTail.ts`, `src/features/chat/operations/sendMessage.ts`, `src/features/chat/ChatPanel.tsx`, and `src/features/chat/MessageBubble.tsx`.
+- Gateway/live event path: `src/hooks/useWebSocket.ts`, `src/hooks/useDashboardData.ts`, `src/hooks/useServerEvents.ts`, `server/routes/gateway.ts`, `server/lib/gateway-rpc.ts`, and `server/lib/gateway-client.ts`.
+- Sessions/Agents list path: `src/features/sessions/SessionList.tsx`, `src/features/sessions/SessionNode.tsx`, `src/features/sessions/sessionTree.ts`, `src/features/sessions/sessionKeys.ts`, `src/features/sessions/statusUtils.ts`, `server/routes/sessions.ts`, and gateway calls to `sessions.list`, `sessions.get`, `subagents`, or `sessions_history`.
+- Tests to extend: `src/features/chat/operations/loadHistory.test.ts`, `src/features/chat/operations/streamEventHandler.test.ts`, `src/features/chat/operations/mergeRecoveredTail.test.ts`, `src/hooks/useWebSocket.test.ts`, `src/hooks/useDashboardData.test.ts`, `src/features/sessions/sessionTree.test.ts`, `src/features/sessions/SessionList.test.tsx`, and `server/routes/sessions.test.ts`.
 
 ---
 
@@ -70,7 +78,27 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 
 ---
 
-### Task 2: Branch and Investigation Baseline
+### Task 2: Point Local Nerve Deployment at Workhorse v4
+
+**Bead ID:** `oc-kn6`  
+**SubAgent:** `primary` (for `coder` workflow role)  
+**Role:** `coder`  
+**References:** `REF-05`  
+**Prompt:** In `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Confirm the repo is on `workhorse-v4` and pushed. Update `/home/derrick/.openclaw/.env` so `NERVE_DEPLOY_BRANCH=workhorse-v4` while preserving all unrelated env lines and secrets. Then run `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart` or the equivalent no-gateway-restart flag. Do not restart or refresh the OpenClaw Gateway. Verify Nerve remains installed/runnable and report the deployed branch/commit plus any updater warnings. Close the bead only after the safe updater call completes.
+
+**Folders Created/Deleted/Modified:**
+- `/home/derrick/.openclaw/`
+
+**Files Created/Deleted/Modified:**
+- `/home/derrick/.openclaw/.env`
+
+**Status:** ✅ Complete
+
+**Results:** Completed by orchestrator. Updated `/home/derrick/.openclaw/.env` from `NERVE_DEPLOY_BRANCH=workhorse-v3` to `NERVE_DEPLOY_BRANCH=workhorse-v4`. Ran `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart`; updater confirmed `Nerve branch: workhorse-v4`, synced Nerve to `origin/workhorse-v4`, skipped the OpenClaw Gateway restart by flag, restarted the Nerve service, and reported `Update Summary: SUCCESS`. Post-update Nerve health check at `http://127.0.0.1:3080/health` returned `{"status":"ok","gateway":"ok"}`. Bead `oc-kn6` closed.
+
+---
+
+### Task 3: Branch and Investigation Baseline
 
 **Bead ID:** `oc-vcz`  
 **SubAgent:** `primary` (for `research` workflow role)  
@@ -84,19 +112,99 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-workhorse-v4-agent-list-and-duplicate-replies.md`
 
-**Status:** ⏳ Pending, waiting on checkpoint
+**Status:** ✅ Complete
 
-**Results:** Earlier draft branch `workhorse-v4` was created locally from `workhorse-v3`, but Derrick requested the final `workhorse-v4` baseline be rebuilt or updated from latest upstream `master` first. Task 1 completed that ceremony. Investigation is now technically unblocked in Beads, but intentionally paused until Derrick re-examines the ceremony result and confirms the next prioritization direction.
+**Results:** Earlier draft branch `workhorse-v4` was created locally from `workhorse-v3`, but Derrick requested the final `workhorse-v4` baseline be rebuilt or updated from latest upstream `master` first. Task 1 completed that ceremony. Derrick then re-examined the ceremony result and authorized prioritizing the bugs, splitting fixes into separate commits, and deploying local Nerve on `workhorse-v4` for iteration. Bead `oc-vcz` was moved from blocked back to open with that note. Spawned visible OpenClaw subagent `agent:main:subagent:f04fac34-b08e-4661-80f2-ef68c6e3b226` for the `primary` research role with instructions to claim `oc-vcz`, inspect the listed hot spots and screenshots, update bead notes, and close the bead only when investigation is complete. Subagent completed and closed `oc-vcz`.
+
+Key findings: Nerve treats gateway `chat.history` as authoritative, but the `ChatMessage`/`ChatMsg` path discards durable OpenClaw transcript identity and generates UI-only ids. Optimistic send, live gateway events, streaming assistant output, recovery/history refetch, subagent polling, and tool-result delayed refreshes are competing writers that merge via generated ids plus content/timestamp/index heuristics. This explains duplicate heartbeat/operator messages, disappearing optimistic messages after refetch, and stale/out-of-order overwrite risk. The Agents panel has a similar reconciliation problem: `SessionContext.listAuthoritativeSessions()` merges full `sessions.list`, hidden cron sessions, and `sessions.list({spawnedBy})`; stale spawnedBy/session-store supplements can keep dead children visible after the authoritative full list has dropped them. Evidence gap: local JSONL transcript rows have stable ids, but implementation should sample the live `chat.history` wire shape to confirm whether the gateway forwards or strips those ids before Nerve sees them.
 
 ---
 
-### Task 3: Implement State Reconciliation Fixes
+### Task 4: Fix Chat Message Identity and History Merge
 
-**Bead ID:** `oc-324`  
+**Bead ID:** `oc-xcm`  
 **SubAgent:** `primary` (for `coder` workflow role)  
 **Role:** `coder`  
-**References:** `REF-01`, `REF-02`, `REF-05`, `REF-06`, `REF-07`, `REF-08`  
-**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Inspect `REF-01`, `REF-06`, and `REF-07` as proof screenshots and use `REF-08` as the required behavior framing. Implement focused reducer/adapter/source-of-truth fixes for stale/dead Agents entries, duplicate live heartbeat/message rendering, final posted message loss, delayed/reordered optimistic user messages during compaction/history refresh, and internal `NO_REPLY` or memory-flush turns leaking into operator chat. Preserve legitimate realtime streaming from `workhorse-v3`; avoid arbitrary delays and component-specific hacks unless the investigation proves the component owns the bug. Add or update focused tests for stable message identity, optimistic/live/history merges, heartbeat persistence, internal event filtering, out-of-order event protection, and Agents reconciliation/pruning. Run relevant automated validation, including at least targeted tests and `npm run build` unless a blocker is documented. Commit and push the implementation to `origin/workhorse-v4` unless blocked. Do not run the workspace updater without `--skip-gateway-restart` / `--no-gateway-restart`.
+**References:** `REF-07`, `REF-08`  
+**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Use the investigation results from `oc-vcz`. Fix duplicate/disappearing chat by making optimistic user messages, live gateway events, streaming assistant output, heartbeat/operator messages, and canonical history refreshes merge by stable identity instead of content/timestamp/index or wholesale replacement. Preserve realtime streaming and avoid arbitrary delays. Add focused tests where practical. Commit this slice separately and push.
+
+**Folders Created/Deleted/Modified:**
+- `src/features/chat/`
+- `src/hooks/`
+
+**Files Created/Deleted/Modified:**
+- `src/types.ts`
+- `src/features/chat/types.ts`
+- `src/features/chat/operations/loadHistory.ts`
+- `src/features/chat/operations/loadHistory.test.ts`
+- `src/features/chat/operations/mergeRecoveredTail.ts`
+- `src/features/chat/operations/mergeRecoveredTail.test.ts`
+- `src/features/chat/operations/sendMessage.ts`
+- `src/hooks/useChatMessages.ts`
+- `src/hooks/useChatMessages.test.ts`
+- `src/contexts/ChatContext.tsx`
+- `src/contexts/ChatContext.subscription.test.tsx`
+
+**Status:** ✅ Complete
+
+**Results:** Created as the highest-priority rollback-friendly implementation slice. Spawned visible OpenClaw subagent `agent:main:subagent:d4407e8e-a5e1-41e1-a71f-1ed7b074a401` for the `primary` coder role with instructions to claim `oc-xcm`, sample live `chat.history` shape without exposing secrets, preserve or derive stable message ids in the adapter/reducer path, keep the write scope focused to chat identity/history merge, add targeted tests, run validation, commit separately, and push `origin/workhorse-v4`. Subagent completed the slice and closed `oc-xcm`. Commit `ad01882` was pushed to `origin/workhorse-v4`. Live `chat.history` sampling confirmed the gateway forwards `__openclaw` identity metadata (`mirrorIdentity`, `id`, `recordTimestampMs`, `seq`) plus fields such as `idempotencyKey` and `toolCallId` on relevant rows. The implementation adds durable `sourceId` / `alternateSourceIds` fields, preserves or derives stable message ids, makes optimistic user sends use the same idempotency identity sent through `chat.send`, and updates final/history/recovery/subagent-poll merges to reconcile by stable identity while preserving pending/newer local state. Validation passed: `npm test -- --run src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations/sendMessage.test.ts src/contexts/ChatContext.subscription.test.tsx` (82 tests), and `npm run build` passed with existing Vite chunk/dynamic-import warnings. Full real-session visual QA remains covered by `oc-dz8`; internal compaction/NO_REPLY filtering and Agents panel pruning remain separate beads.
+
+---
+
+### Task 5: Filter Internal Compaction and No-Reply Turns
+
+**Bead ID:** `oc-83k`  
+**SubAgent:** `primary` (for `coder` workflow role)  
+**Role:** `coder`  
+**References:** `REF-08`  
+**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Use the investigation results from `oc-vcz`. Ensure internal/system compaction, memory-flush, and `NO_REPLY` turns are not rendered as normal operator chat while legitimate assistant/operator progress messages remain visible. Prefer adapter/reducer-level filtering over component-specific hiding. Add focused tests where practical. Commit this slice separately and push.
+
+**Folders Created/Deleted/Modified:**
+- `src/features/chat/`
+- `src/hooks/`
+- `server/`
+
+**Files Created/Deleted/Modified:**
+- `src/features/chat/operations/loadHistory.ts`
+- `src/features/chat/operations/loadHistory.test.ts`
+
+**Status:** ✅ Complete
+
+**Results:** Created as a separate high-priority slice because it may be upstreamed independently from generic message dedupe. Spawned visible OpenClaw subagent `agent:main:subagent:e8dfbcb7-41d5-4e48-b259-fcdc062145af` for the `primary` coder role with instructions to claim `oc-83k`, preserve the stable identity semantics from `ad01882`, implement adapter/reducer-level filtering for internal/system compaction, memory-flush, and `NO_REPLY` turns without hiding legitimate operator progress messages, add focused tests, run validation, commit separately, push `origin/workhorse-v4`, and close the bead only when complete. Subagent completed the slice and closed `oc-83k`. Commit `bf5dddc` was pushed to `origin/workhorse-v4`. The adapter-level filter now suppresses internal metadata-marked rows, exact `NO_REPLY` / `HEARTBEAT_OK` silent replies, JSON silent reply envelopes, compaction/checkpoint/memory-flush status rows, pure runtime-context blocks, and existing wake bundles, while preserving legitimate assistant/operator progress messages that mention compaction or memory. Orchestrator review verified the commit, bead closure, branch push state, and code scope. Validation passed locally after handoff: `npm test -- --run src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/hooks/useChatMessages.test.ts src/features/chat/operations/streamEventHandler.test.ts src/contexts/ChatContext.subscription.test.tsx` (106 tests), and `npm run build` passed with existing Vite dynamic-import/chunk-size warnings.
+
+---
+
+### Task 6: Reconcile Agents Panel With Live Sessions
+
+**Bead ID:** `oc-904`  
+**SubAgent:** `primary` (for `coder` workflow role)  
+**Role:** `coder`  
+**References:** `REF-01`, `REF-06`, `REF-08`  
+**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Use the investigation results from `oc-vcz`. Fix the Agents/Subagents listing so it converges to OpenClaw's current live session truth, pruning stale/dead cached entries without hiding active or recently relevant sessions. Inspect `sessions.list`, `subagents`, session tree derivation, hidden/cron session filtering, and cache/reconnect behavior. Add focused tests where practical. Commit this slice separately and push.
+
+**Folders Created/Deleted/Modified:**
+- `src/features/sessions/`
+- `src/hooks/`
+- `server/routes/`
+
+**Files Created/Deleted/Modified:**
+- `src/contexts/SessionContext.tsx`
+- `src/features/sessions/sessionReconciliation.ts`
+- `src/features/sessions/sessionReconciliation.test.ts`
+
+**Status:** ✅ Complete
+
+**Results:** Created as a separate slice because stale Agents cleanup has no known `workhorse-v3` patch and is likely independent of chat message merging. Spawned visible OpenClaw subagent `agent:main:subagent:b77eaacd-58ae-4fe3-b1e3-73c10d97d31c` for the `primary` coder role with instructions to claim `oc-904`, inspect the sessions/Agents source-of-truth and merge paths, implement reconciliation/pruning without arbitrary delays or visual-only hiding, add focused tests, run validation, commit separately, push `origin/workhorse-v4`, and close the bead only when complete. Subagent completed the slice and closed `oc-904`. Commit `4456816` was pushed to `origin/workhorse-v4`. The implementation introduces `sessionReconciliation.ts` so full `sessions.list` plus hidden cron sessions remain the base truth, while `spawnedBy` supplements are admitted only when they carry a positive live signal such as `busy`, `processing`, or live/running state. Terminal/archived cache-only children are pruned, and terminal rows still shown by the full authoritative list are preserved. Orchestrator review verified the commit, bead closure, branch push state, code scope, and residual risk that active children with no state fields must appear in the full base list rather than supplement-only data. Validation passed locally after handoff: `npm test -- --run src/features/sessions/sessionReconciliation.test.ts src/contexts/SessionContext.test.tsx src/features/sessions/sessionTree.test.ts` (49 tests), and `npm run build` passed with existing Vite dynamic-import/chunk-size warnings.
+
+---
+
+### Task 7: Add Regression Tests for Reconciliation
+
+**Bead ID:** `oc-8xt`  
+**SubAgent:** `primary` (for `coder` workflow role)  
+**Role:** `coder`  
+**References:** `REF-01`, `REF-06`, `REF-07`, `REF-08`  
+**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. After the focused implementation slices, add or tighten regression tests for stable message identity, optimistic/live/history merges, heartbeat persistence, internal event filtering, out-of-order refetch protection, and Agents reconciliation/pruning. Run relevant targeted tests and `npm run build`. Commit this test slice separately and push, unless tests were already committed with each implementation slice and the bead can be closed with evidence.
 
 **Folders Created/Deleted/Modified:**
 - `src/`
@@ -105,13 +213,13 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 **Files Created/Deleted/Modified:**
 - `Pending investigation`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Not started.
+**Results:** Created as a test-hardening slice dependent on the three focused bug-fix beads. Original umbrella implementation bead `oc-324` was closed as superseded by `oc-xcm`, `oc-83k`, `oc-904`, and `oc-8xt`. No extra test-only commit was needed because regression coverage landed with the three implementation commits: `ad01882` covered stable chat identity, optimistic/history alias merging, send idempotency, stream/recovery merge behavior, and out-of-order refresh preservation; `bf5dddc` covered internal `NO_REPLY` / `HEARTBEAT_OK`, compaction/status, metadata-marked, runtime-context, and wake-bundle filtering while preserving real progress text; `4456816` covered live supplemental spawned sessions, terminal supplement pruning, base-list preservation, and unknown-state pruning. Orchestrator ran the combined regression suite `npm test -- --run src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/operations/sendMessage.test.ts src/features/chat/operations/streamEventHandler.test.ts src/hooks/useChatMessages.test.ts src/contexts/ChatContext.subscription.test.tsx src/features/sessions/sessionReconciliation.test.ts src/contexts/SessionContext.test.tsx src/features/sessions/sessionTree.test.ts`; it passed with 177 tests. Bead `oc-8xt` closed with that evidence.
 
 ---
 
-### Task 4: Real Session and Visual QA on Running Nerve
+### Task 8: Real Session and Visual QA on Running Nerve
 
 **Bead ID:** `oc-dz8`  
 **SubAgent:** `primary` (for `qa` workflow role)  
@@ -125,13 +233,35 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 **Files Created/Deleted/Modified:**
 - `None expected, except test artifacts if needed`
 
-**Status:** ⏳ Pending
+**Status:** ❌ Failed
 
-**Results:** Not started.
+**Results:** Preconditions complete. After implementation and regression slices landed, orchestrator ran `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart` with `/home/derrick/.openclaw/.env` still set to `NERVE_DEPLOY_BRANCH=workhorse-v4`. The updater confirmed `Nerve branch: workhorse-v4`, synced to `origin/workhorse-v4` at `4456816`, skipped the OpenClaw Gateway restart by flag, restarted the Nerve service, and reported `Update Summary: SUCCESS`. Post-update health check at `http://127.0.0.1:3080/health` returned `{"status":"ok","gateway":"ok"}` after the service finished listening. Spawned visible OpenClaw subagent `agent:main:subagent:5eadc554-b930-47e0-8899-93a924955ab9` for the `primary` QA role with instructions to claim `oc-dz8`, use the desktop-control skill and proof screenshots, inspect running Nerve at `http://127.0.0.1:3080`, compare Agents against live OpenClaw truth where practical, verify chat/heartbeat/internal-turn behavior, capture evidence, and close the bead only if QA passes or evidence-limited gaps are documented. QA reported FAIL/BLOCKED on Agents convergence: live `sessions.list {spawnedBy:'agent:main:main', limit:1000}` returned only 4 current spawned children, but running Nerve still rendered 164 session rows after Refresh sessions and hard reload, including old entries such as `2oj5 Windows bytecode E2E repair coder`, `Subagent d2398493`, and `APEX-*` sessions. Evidence lives under `/home/derrick/.openclaw/workspace/.temp/nerve-qa/oc-dz8/`. Chat acceptance was not completed because Agents convergence remained a blocking failure.
 
 ---
 
-### Task 5: Independent Audit and Wrap-up
+### Task 8A: Fix Agents Panel QA Failure
+
+**Bead ID:** `oc-z2r`  
+**SubAgent:** `primary` (for `coder` workflow role)  
+**Role:** `coder`  
+**References:** `REF-01`, `REF-06`, `REF-08`  
+**Prompt:** On branch `workhorse-v4` in `/home/derrick/.openclaw/workspace/projects/gambit-openclaw-nerve`, claim the bead on start. Read the repo README before touching the repo. Use the failed QA evidence from `oc-dz8`: live `sessions.list {spawnedBy:'agent:main:main', limit:1000}` returned 4 current spawned children, but running Nerve still rendered 164 stale session rows after Refresh sessions and hard reload. Investigate why the prior `sessionReconciliation.ts` fix did not affect the rendered Agents panel source of truth, then fix the remaining Agents panel/session list path so it converges to live OpenClaw session truth. Keep the fix rollback-friendly as a separate commit, add or adjust targeted tests, run validation and `npm run build`, push `origin/workhorse-v4`, and close the bead only when complete.
+
+**Folders Created/Deleted/Modified:**
+- `src/features/sessions/`
+- `src/hooks/`
+- `server/routes/`
+
+**Files Created/Deleted/Modified:**
+- `Pending retry investigation`
+
+**Status:** ⏳ In Progress
+
+**Results:** Created after real-session QA found the first Agents reconciliation fix was insufficient. Spawned visible OpenClaw subagent `agent:main:subagent:156a9c15-ff2f-4766-b215-3ed61301a4ee` for the `primary` coder role with instructions to claim `oc-z2r`, inspect the real QA evidence, find the actual source feeding the stale `164 active sessions` Agents panel, fix it as a separate rollback-friendly commit, add targeted tests, run validation/build, push `origin/workhorse-v4`, update bead notes, and close `oc-z2r` only when complete.
+
+---
+
+### Task 9: Independent Audit and Wrap-up
 
 **Bead ID:** `oc-2cg`  
 **SubAgent:** `primary` (for `auditor` workflow role)  
@@ -163,6 +293,10 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 - `5d15105` - Carry protocol v4 gateway handshake to workhorse-v4
 - `8c32b92` - Document workhorse v4 ceremony checkpoint
 - `28f6780` - Record workhorse v4 checkpoint commit
+- `f025046` - Record verified workhorse v4 checkpoint
+- `ad01882` - Fix chat message identity merging
+- `bf5dddc` - Filter internal chat control turns
+- `4456816` - Prune stale spawned session supplements
 
 **Lessons Learned:** Pending execution.
 
