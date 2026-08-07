@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** Blocked  
-**Last Updated:** 2026-08-07 14:55 EDT  
+**Last Updated:** 2026-08-07 15:00 EDT  
 **Blocked Reason:** Upstream refresh ceremony completed; waiting for Derrick to re-examine the baseline and choose/confirm the next bug-prioritization direction before starting Task 2.
 **Agent:** byte
 
@@ -66,7 +66,7 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 
 **Status:** ✅ Complete
 
-**Results:** Bead created and unblocked. Execution started after Derrick confirmed `execute`. Spawned visible OpenClaw subagent `agent:main:subagent:2f8591ee-dffc-46aa-a738-3b3407d84b76` for the `primary` research role. Subagent completed the ceremony and closed `oc-bys`. `workhorse-v4` was rebuilt from latest `upstream/master` `312e273` and pushed to `origin/workhorse-v4` at `5d15105`. The only carried-forward `workhorse-v3`/`workhorse-v2` patch was the protocol-v4 gateway handshake because upstream `master` still negotiates protocol 3 while upstream `next` contains the same protocol-v4 direction. The older `workhorse-v3` chat-preservation patches were deferred because upstream `next` now has a larger chat runtime/reducer/replay-buffer line that likely supersedes or conflicts with component-level preservation patches. No stale Agents pruning fix was found in `workhorse-v3`. Targeted vitest for `server/lib/gateway-rpc.test.ts` and `src/hooks/useWebSocket.test.ts` passed, and `npm run build` passed. The remaining blocker is Derrick's requested checkpoint before prioritizing the rest of the bug plan.
+**Results:** Bead created and unblocked. Execution started after Derrick confirmed `execute`. Spawned visible OpenClaw subagent `agent:main:subagent:2f8591ee-dffc-46aa-a738-3b3407d84b76` for the `primary` research role. Subagent completed the ceremony and closed `oc-bys`. `workhorse-v4` was rebuilt from latest `upstream/master` `312e273`; the code checkpoint was pushed to `origin/workhorse-v4` at `5d15105`, and plan/checkpoint documentation was pushed afterward at branch tip `28f6780`. Orchestrator verification confirmed `upstream/master` is an ancestor of `HEAD`, `origin/workhorse-v4` matches local `HEAD`, and the only code delta from `upstream/master` is the protocol-v4 gateway handshake in `server/lib/gateway-rpc.ts` and `src/hooks/useWebSocket.ts`. The only carried-forward `workhorse-v3`/`workhorse-v2` patch was the protocol-v4 gateway handshake because upstream `master` still negotiates protocol 3 while upstream `next` contains the same protocol-v4 direction. The older `workhorse-v3` chat-preservation patches were deferred because upstream `next` now has a larger chat runtime/reducer/replay-buffer line that likely supersedes or conflicts with component-level preservation patches. No stale Agents pruning fix was found in `workhorse-v3`. Targeted vitest for `server/lib/gateway-rpc.test.ts` and `src/hooks/useWebSocket.test.ts` passed, and `npm run build` passed. The remaining blocker is Derrick's requested checkpoint before prioritizing the rest of the bug plan.
 
 ---
 
@@ -155,13 +155,14 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 
 **Status:** ⚠️ Partial
 
-**What We Built:** Active plan, Beads, and a refreshed `workhorse-v4` branch based on latest upstream `master`. The plan was expanded after Derrick supplied GPT-assisted debugging context that reframed the symptoms as one state identity/reconciliation problem, then modified to add an upstream refresh ceremony before prioritizing the rest of the bug work. The ceremony completed and produced a pushed `workhorse-v4` baseline containing only the still-needed protocol-v4 gateway handshake patch.
+**What We Built:** Active plan, Beads, and a refreshed `workhorse-v4` branch based on latest upstream `master`. The plan was expanded after Derrick supplied GPT-assisted debugging context that reframed the symptoms as one state identity/reconciliation problem, then modified to add an upstream refresh ceremony before prioritizing the rest of the bug work. The ceremony completed and produced a pushed `workhorse-v4` baseline containing only the still-needed protocol-v4 gateway handshake patch plus plan/checkpoint documentation.
 
 **Reference Check:** `REF-01`, `REF-06`, and `REF-07` inspected and captured in plan. `REF-05` inspected for the required no-gateway-restart flag. `REF-08` incorporated as the main investigation and acceptance framing.
 
 **Commits:**
 - `5d15105` - Carry protocol v4 gateway handshake to workhorse-v4
 - `8c32b92` - Document workhorse v4 ceremony checkpoint
+- `28f6780` - Record workhorse v4 checkpoint commit
 
 **Lessons Learned:** Pending execution.
 
