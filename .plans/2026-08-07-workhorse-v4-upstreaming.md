@@ -1,9 +1,9 @@
 # Workhorse v4 Upstreaming
 
 **Date:** 2026-08-07  
-**Status:** Blocked  
-**Last Updated:** 2026-08-07 18:07 EDT  
-**Blocked Reason:** Awaiting Derrick approval before public upstream GitHub issue/PR writes  
+**Status:** In Progress  
+**Last Updated:** 2026-08-07 19:08 EDT  
+**Blocked Reason:** None  
 **Agent:** byte
 
 ---
@@ -100,13 +100,38 @@ Each issue and PR should begin with an `In Plain English` section before the ups
 
 ---
 
-### Task 3: Prepare Chat Identity Merge Upstream Branch
+### Task 3: Create Upstream GitHub Issues
+
+**Bead ID:** `oc-6nv`  
+**SubAgent:** `primary`  
+**Role:** `coder`  
+**References:** `REF-01`, `REF-03`, `REF-04`, `REF-05`  
+**Prompt:** Derrick approved the public upstream writes. Create the three GitHub bug issues in `daggerhashimoto/openclaw-nerve` for the already-planned split. Read the repo README, CONTRIBUTING, `.github/ISSUE_TEMPLATE/bug_report.md`, and the plan before creating issues. Each issue must start with an `In Plain English` section, then follow the bug template sections. Use one issue per planned PR: chat identity/history merge (`REF-03`), internal `NO_REPLY`/`HEARTBEAT_OK` filtering (`REF-04`), and stale Agents/session pruning (`REF-05`). Return issue numbers/URLs and do not create branches or PRs. Claim the bead on start and close it when the issues are created.
+
+**Folders Created/Deleted/Modified:**
+- None expected
+
+**Files Created/Deleted/Modified:**
+- Plan and Beads state only
+
+**Status:** ✅ Complete
+
+**Results:** Derrick approved public upstream GitHub issue/PR writes at 2026-08-07 18:40 EDT. Created upstream issues:
+- #370 `[Bug] Chat history loses assistant message identity during reload/recovery`: https://github.com/daggerhashimoto/openclaw-nerve/issues/370
+- #371 `[Bug] Internal control replies appear in chat history`: https://github.com/daggerhashimoto/openclaw-nerve/issues/371
+- #372 `[Bug] Agents panel keeps stale spawned-session rows after sessions disappear`: https://github.com/daggerhashimoto/openclaw-nerve/issues/372
+
+Issue bodies start with `In Plain English` and then follow the bug report template. Adding the `bug` label failed because the GitHub account does not have upstream label permissions (`AddLabelsToLabelable`).
+
+---
+
+### Task 4: Prepare Chat Identity Merge Upstream Branch
 
 **Bead ID:** `oc-bjk`  
 **SubAgent:** `primary`  
 **Role:** `coder`  
 **References:** `REF-01`, `REF-03`  
-**Prompt:** After issue creation approval/issue ID exists, create a branch from latest upstream `master` named for that issue and the chat identity merge bug. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commit `ad01882`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
+**Prompt:** Issue #370 exists. Create a branch from latest upstream `master` named `fix/issue-370-chat-message-identity-merge`. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commit `ad01882`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
 
 **Folders Created/Deleted/Modified:**
 - Nerve source tree
@@ -114,19 +139,19 @@ Each issue and PR should begin with an `In Plain English` section before the ups
 **Files Created/Deleted/Modified:**
 - Chat identity/history merge files and tests
 
-**Status:** ⏸ Waiting for approval
+**Status:** ✅ Complete
 
-**Results:** Waiting on upstream issue ID.
+**Results:** Issue #370 created and PR #373 opened: https://github.com/daggerhashimoto/openclaw-nerve/pull/373. Branch `fix/issue-370-chat-message-identity-merge` was created from upstream `master` `312e27333e14f841b95bf4f2b205a856b4a4c370`, pushed to `origin`, and contains commit `657a9da950e5f5b1143ae526ad6fe925aa1da717`. Pre-patch proof reproduced with `npm test -- --run src/features/chat/operations/mergeRecoveredTail.test.ts`, failing on unpatched master because the recovered assistant identity regression dropped the local question. Validation passed: targeted chat tests (81 tests), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (143 files / 1878 tests). GitHub reports CI `build` plus CodeRabbit successful.
 
 ---
 
-### Task 4: Prepare Internal Control Turn Filtering Upstream Branch
+### Task 5: Prepare Internal Control Turn Filtering Upstream Branch
 
 **Bead ID:** `oc-8tn`  
 **SubAgent:** `primary`  
 **Role:** `coder`  
 **References:** `REF-01`, `REF-04`  
-**Prompt:** After issue creation approval/issue ID exists, create a branch from latest upstream `master` named for that issue and the internal control turn filtering bug. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commit `bf5dddc`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
+**Prompt:** Issue #371 exists. Create a branch from latest upstream `master` named `fix/issue-371-filter-internal-chat-turns`. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commit `bf5dddc`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
 
 **Folders Created/Deleted/Modified:**
 - Nerve source tree
@@ -134,19 +159,19 @@ Each issue and PR should begin with an `In Plain English` section before the ups
 **Files Created/Deleted/Modified:**
 - Chat history loading files and tests
 
-**Status:** ⏸ Waiting for approval
+**Status:** ✅ Complete
 
-**Results:** Waiting on upstream issue ID.
+**Results:** Issue #371 created and PR #374 opened: https://github.com/daggerhashimoto/openclaw-nerve/pull/374. Branch `fix/issue-371-filter-internal-chat-turns` was created from upstream `master` `312e27333e14f841b95bf4f2b205a856b4a4c370`, pushed to `origin`, and contains commit `37f21cc25926bb79228b5d4f1c50f6eaf0db8237`. Pre-patch proof reproduced with `npm test -- --run src/features/chat/operations/loadHistory.test.ts`, failing on unpatched master because broader internal control/status replies such as `{"action":"NO_REPLY"}` and `Compaction complete.` remained visible in loaded history; upstream master already filtered exact bare `NO_REPLY` and `HEARTBEAT_OK`. Validation passed: focused load-history tests (48 passed), targeted chat tests (5 files / 120 passed), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (142 files / 1874 passed). Parent review verified the PR has one commit, only touches `src/features/chat/operations/loadHistory.ts` and `loadHistory.test.ts`, and GitHub reports CI `build` plus CodeRabbit successful.
 
 ---
 
-### Task 5: Prepare Stale Agents Pruning Upstream Branch
+### Task 6: Prepare Stale Agents Pruning Upstream Branch
 
 **Bead ID:** `oc-pe0`  
 **SubAgent:** `primary`  
 **Role:** `coder`  
 **References:** `REF-01`, `REF-05`  
-**Prompt:** After issue creation approval/issue ID exists, create a branch from latest upstream `master` named for that issue and the stale Agents/session pruning bug. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commits `4456816` and `49c8481`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
+**Prompt:** Issue #372 exists. Create a branch from latest upstream `master` named `fix/issue-372-prune-stale-agent-sessions`. Prove the bug on unpatched master where feasible, cherry-pick or reimplement only commits `4456816` and `49c8481`, run targeted tests and required checks, then prepare/push the branch for one PR. Claim the bead on start.  
 
 **Folders Created/Deleted/Modified:**
 - Nerve source tree
@@ -154,13 +179,13 @@ Each issue and PR should begin with an `In Plain English` section before the ups
 **Files Created/Deleted/Modified:**
 - Session reconciliation files and tests
 
-**Status:** ⏸ Waiting for approval
+**Status:** ⏳ In Progress
 
-**Results:** Waiting on upstream issue ID.
+**Results:** Issue #372 created. Spawned `primary` coder subagent at 2026-08-07 19:04 EDT to prepare branch `fix/issue-372-prune-stale-agent-sessions`, prove the bug against unpatched upstream `master`, apply only `REF-05`, run required validation, push the branch, open the PR, and close `oc-pe0` when complete.
 
 ---
 
-### Task 6: QA And Audit Upstream Branches
+### Task 7: QA And Audit Upstream Branches
 
 **Bead ID:** `oc-psf`  
 **SubAgent:** `primary`  
@@ -182,9 +207,9 @@ Each issue and PR should begin with an `In Plain English` section before the ups
 
 ## Final Results
 
-**Status:** ⚠️ Partial / Blocked on external approval
+**Status:** ⚠️ Partial / In Progress
 
-**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned.
+**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373 and #374 are open.
 
 **Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three proposed upstream submissions.
 
