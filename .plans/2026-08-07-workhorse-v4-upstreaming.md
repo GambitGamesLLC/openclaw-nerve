@@ -1,9 +1,9 @@
 # Workhorse v4 Upstreaming
 
 **Date:** 2026-08-07  
-**Status:** In Progress  
-**Last Updated:** 2026-08-07 19:17 EDT  
-**Blocked Reason:** None  
+**Status:** Blocked  
+**Last Updated:** 2026-08-07 19:29 EDT  
+**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, and #375  
 **Agent:** byte
 
 ---
@@ -199,25 +199,47 @@ Issue bodies start with `In Plain English` and then follow the bug report templa
 **Files Created/Deleted/Modified:**
 - Plan and Beads state
 
-**Status:** ⏳ Ready for QA/audit
+**Status:** ✅ Complete
 
-**Results:** All three upstream branches and PRs are ready for independent QA/audit: #373, #374, and #375.
+**Results:** QA completed at 2026-08-07 19:22 EDT and passed for upstream PRs #373, #374, and #375. QA read `README.md`, `CONTRIBUTING.md`, and this plan; claimed `oc-psf`; confirmed upstream `master` is still `312e27333e14f841b95bf4f2b205a856b4a4c370`; verified each branch's merge-base is exactly `312e273`; verified commit counts are 1, 1, and 2 respectively; confirmed each PR touches only its intended scope; reproduced each regression on unpatched master by checking out the regression tests only; and confirmed patched targeted tests pass locally. QA also reviewed PR bodies and GitHub evidence: CI runs `31225141123` (#373 head `657a9da`), `31225894745` (#374 head `37f21cc`), and `31226424927` (#375 head `08cd488`) all completed successfully, and CodeRabbit status is success on all three. Warning noise for #375 was documented as existing unrelated React `act(...)`/nested-button warnings and Vite chunk/dynamic-import warnings.
+
+Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent review re-checked GitHub PR heads and statuses. Audit verified upstream `master` is still `312e27333e14f841b95bf4f2b205a856b4a4c370`; all three branch merge-bases are exactly `312e273`; PR #373 has one commit `657a9da` and only chat identity/history files; PR #374 has one commit `37f21cc` and only `loadHistory` files; PR #375 has two commits `e5d5478` and `08cd488` and only session reconciliation/context files. Issues #370/#371/#372 map one-to-one to PRs #373/#374/#375, the issues and PRs start with plain-English problem/solution framing, GitHub CI is green on all three, and CodeRabbit is passing on all three. Minor residual risk: PR #375 uses a plain `In Plain English` line rather than a Markdown `##` heading, but the framing requirement is substantively met.
+
+---
+
+### Task 8: Monitor Upstream Review And Merge
+
+**Bead ID:** `oc-nz2`  
+**SubAgent:** `primary`  
+**Role:** `auditor` / `coder`  
+**References:** `REF-01`, `REF-03`, `REF-04`, `REF-05`  
+**Prompt:** Track upstream PRs #373, #374, and #375 until maintainer approval/merge or requested changes. Re-check CI if upstream `master` advances, respond to review feedback, and update/close linked issues as needed. Claim the bead on start.  
+
+**Folders Created/Deleted/Modified:**
+- None yet
+
+**Files Created/Deleted/Modified:**
+- Plan and Beads state only
+
+**Status:** ⏳ Pending on upstream maintainer review
+
+**Results:** Follow-up bead created because all agent-owned branch, issue, PR, QA, and audit work is complete, but the upstream repo still requires maintainer approval/merge before the fixes actually land on Nerve `master`.
 
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Partial / In Progress
+**Status:** ⚠️ Blocked on upstream maintainer review
 
-**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373, #374, and #375 are open with GitHub checks green.
+**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed.
 
-**Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three proposed upstream submissions.
+**Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three upstream submissions. QA/audit verified each branch starts at upstream `master` `312e273`, has only the intended commits/files, reproduces the target regression on unpatched master, fixes it on the patched branch, and has passing GitHub CI plus CodeRabbit.
 
 **Commits:**
 - Pending
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The one-issue/one-PR split kept review scope clean. Public upstream work should continue to record both unpatched-master reproduction and patched-branch validation in each PR body, because that made the independent audit straightforward.
 
 ---
 
-*Completed on Pending*
+*Completed on Pending upstream maintainer review*
