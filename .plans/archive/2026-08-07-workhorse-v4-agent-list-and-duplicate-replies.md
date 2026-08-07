@@ -1,8 +1,8 @@
 # Nerve Workhorse v4 State Reconciliation Bugs
 
 **Date:** 2026-08-07  
-**Status:** In Progress  
-**Last Updated:** 2026-08-07 16:21 EDT  
+**Status:** Complete  
+**Last Updated:** 2026-08-07 16:55 EDT  
 **Blocked Reason:** None
 **Agent:** byte
 
@@ -233,9 +233,9 @@ Key findings: Nerve treats gateway `chat.history` as authoritative, but the `Cha
 **Files Created/Deleted/Modified:**
 - `None expected, except test artifacts if needed`
 
-**Status:** ❌ Failed
+**Status:** ✅ Complete
 
-**Results:** Preconditions complete. After implementation and regression slices landed, orchestrator ran `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart` with `/home/derrick/.openclaw/.env` still set to `NERVE_DEPLOY_BRANCH=workhorse-v4`. The updater confirmed `Nerve branch: workhorse-v4`, synced to `origin/workhorse-v4` at `4456816`, skipped the OpenClaw Gateway restart by flag, restarted the Nerve service, and reported `Update Summary: SUCCESS`. Post-update health check at `http://127.0.0.1:3080/health` returned `{"status":"ok","gateway":"ok"}` after the service finished listening. Spawned visible OpenClaw subagent `agent:main:subagent:5eadc554-b930-47e0-8899-93a924955ab9` for the `primary` QA role with instructions to claim `oc-dz8`, use the desktop-control skill and proof screenshots, inspect running Nerve at `http://127.0.0.1:3080`, compare Agents against live OpenClaw truth where practical, verify chat/heartbeat/internal-turn behavior, capture evidence, and close the bead only if QA passes or evidence-limited gaps are documented. QA reported FAIL/BLOCKED on Agents convergence: live `sessions.list {spawnedBy:'agent:main:main', limit:1000}` returned only 4 current spawned children, but running Nerve still rendered 164 session rows after Refresh sessions and hard reload, including old entries such as `2oj5 Windows bytecode E2E repair coder`, `Subagent d2398493`, and `APEX-*` sessions. Evidence lives under `/home/derrick/.openclaw/workspace/.temp/nerve-qa/oc-dz8/`. Chat acceptance was not completed because Agents convergence remained a blocking failure.
+**Results:** Preconditions complete. After implementation and regression slices landed, orchestrator ran `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart` with `/home/derrick/.openclaw/.env` still set to `NERVE_DEPLOY_BRANCH=workhorse-v4`. The updater confirmed `Nerve branch: workhorse-v4`, synced to `origin/workhorse-v4` at `4456816`, skipped the OpenClaw Gateway restart by flag, restarted the Nerve service, and reported `Update Summary: SUCCESS`. Post-update health check at `http://127.0.0.1:3080/health` returned `{"status":"ok","gateway":"ok"}` after the service finished listening. Spawned visible OpenClaw subagent `agent:main:subagent:5eadc554-b930-47e0-8899-93a924955ab9` for the `primary` QA role with instructions to claim `oc-dz8`, use the desktop-control skill and proof screenshots, inspect running Nerve at `http://127.0.0.1:3080`, compare Agents against live OpenClaw truth where practical, verify chat/heartbeat/internal-turn behavior, capture evidence, and close the bead only if QA passes or evidence-limited gaps are documented. QA reported FAIL/BLOCKED on Agents convergence: live `sessions.list {spawnedBy:'agent:main:main', limit:1000}` returned only 4 current spawned children, but running Nerve still rendered 164 session rows after Refresh sessions and hard reload, including old entries such as `2oj5 Windows bytecode E2E repair coder`, `Subagent d2398493`, and `APEX-*` sessions. Evidence lives under `/home/derrick/.openclaw/workspace/.temp/nerve-qa/oc-dz8/`. Chat acceptance was not completed because Agents convergence remained a blocking failure. After `oc-z2r` landed commit `49c8481`, orchestrator reran `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart`; the updater again reported `Update Summary: SUCCESS`, skipped the gateway restart, restarted Nerve only, and the branch tip matched `origin/workhorse-v4` at `49c8481`. Post-update health check returned `{"status":"ok","gateway":"ok"}`. Bead `oc-dz8` was returned to `in_progress`, and a fresh visible QA rerun was spawned as `agent:main:subagent:5f137f0d-6068-49a5-bac2-a8d7d6eb059c` to verify Agents convergence first, then chat/heartbeat/internal-turn behavior if the previous blocker passes. QA passed and closed `oc-dz8`. Evidence folder: `/home/derrick/.openclaw/workspace/.temp/nerve-qa/oc-dz8/rerun-49c8481-20260807-163837/`. Orchestrator review verified `QA-SUMMARY.md`, the hard-reload DOM summary, live session JSON, and screenshot. Live gateway truth had 3 spawned-by-main children and 166 total rows, while the Nerve UI after Refresh sessions and hard reload rendered 4 active sessions total: Byte main plus the 3 current children. The previous stale examples were absent. Chat checks passed within evidence limits: the selected persisted user message and assistant progress/final message rendered once across initial/refresh/hard reload; gateway history contained `NO_REPLY` and `HEARTBEAT_OK`, but hard-reload UI DOM rendered zero occurrences of both. Limitation: QA did not force a fresh compaction/memory-flush event or send a new prompt from Nerve to avoid perturbing the active conversation.
 
 ---
 
@@ -253,11 +253,14 @@ Key findings: Nerve treats gateway `chat.history` as authoritative, but the `Cha
 - `server/routes/`
 
 **Files Created/Deleted/Modified:**
-- `Pending retry investigation`
+- `src/features/sessions/sessionReconciliation.ts`
+- `src/features/sessions/sessionReconciliation.test.ts`
+- `src/contexts/SessionContext.tsx`
+- `src/contexts/SessionContext.test.tsx`
 
-**Status:** ⏳ In Progress
+**Status:** ✅ Complete
 
-**Results:** Created after real-session QA found the first Agents reconciliation fix was insufficient. Spawned visible OpenClaw subagent `agent:main:subagent:156a9c15-ff2f-4766-b215-3ed61301a4ee` for the `primary` coder role with instructions to claim `oc-z2r`, inspect the real QA evidence, find the actual source feeding the stale `164 active sessions` Agents panel, fix it as a separate rollback-friendly commit, add targeted tests, run validation/build, push `origin/workhorse-v4`, update bead notes, and close `oc-z2r` only when complete.
+**Results:** Created after real-session QA found the first Agents reconciliation fix was insufficient. Spawned visible OpenClaw subagent `agent:main:subagent:156a9c15-ff2f-4766-b215-3ed61301a4ee` for the `primary` coder role with instructions to claim `oc-z2r`, inspect the real QA evidence, find the actual source feeding the stale `164 active sessions` Agents panel, fix it as a separate rollback-friendly commit, add targeted tests, run validation/build, push `origin/workhorse-v4`, update bead notes, and close `oc-z2r` only when complete. The retry completed and closed `oc-z2r`. Commit `49c8481` was pushed to `origin/workhorse-v4`. Root cause: the earlier fix pruned stale rows that came from `spawnedBy` supplements, but the real UI was admitting stale historical subagents through the base `sessions.list({ limit: 1000 })` result before supplement reconciliation. The fix now treats successful `sessions.list({ spawnedBy: <root> })` calls as authoritative child truth and prunes base-list child rows missing from that current spawned index, while preserving top-level roots, cron rows, live/running children, confirmed current children, and the old base list if all spawnedBy lookups fail. Orchestrator review verified the diff, bead closure, pushed branch state, and validation. Targeted validation passed locally: `npm test -- --run src/features/sessions/sessionReconciliation.test.ts src/contexts/SessionContext.test.tsx src/features/sessions/sessionTree.test.ts` (53 tests). `npm run build` passed with existing Vite dynamic-import/chunk-size warnings.
 
 ---
 
@@ -275,19 +278,19 @@ Key findings: Nerve treats gateway `chat.history` as authoritative, but the `Cha
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-workhorse-v4-agent-list-and-duplicate-replies.md`
 
-**Status:** ⏳ Pending
+**Status:** ✅ Complete
 
-**Results:** Not started.
+**Results:** Spawned visible OpenClaw subagent `agent:main:subagent:868e8bee-d497-4f2f-baf7-1a288230c066` for the `primary` auditor role with instructions to claim `oc-2cg`, inspect the final diff, Beads, plan, validation, pushed commits, and QA evidence under `/home/derrick/.openclaw/workspace/.temp/nerve-qa/oc-dz8/rerun-49c8481-20260807-163837/`, and close `oc-2cg` only if the work genuinely passes. Auditor passed and closed `oc-2cg`. Audit verified `workhorse-v4` at `49c8481`, confirmed local `HEAD` matched `origin/workhorse-v4`, confirmed `upstream/master` `312e273` is an ancestor, inspected the rollback-friendly fix commits, verified `/home/derrick/.openclaw/.env` still points to `NERVE_DEPLOY_BRANCH=workhorse-v4`, and checked no-gateway-restart deployment evidence. Auditor independently inspected the chat identity merge, internal-turn filtering, and session reconciliation diffs; reran the combined targeted regression suite with 181 passing tests; reran `npm run build`; and inspected real-session QA evidence showing Nerve rendered Byte main plus 3 current children, removed prior stale rows, preserved selected user/progress messages once across refresh/hard reload, and filtered `NO_REPLY` / `HEARTBEAT_OK` from UI DOM. The accepted limitation is that QA did not force a fresh compaction/memory-flush event or send a new Nerve prompt during the rerun to avoid perturbing the active conversation.
 
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Partial
+**Status:** ✅ Complete
 
-**What We Built:** Active plan, Beads, and a refreshed `workhorse-v4` branch based on latest upstream `master`. The plan was expanded after Derrick supplied GPT-assisted debugging context that reframed the symptoms as one state identity/reconciliation problem, then modified to add an upstream refresh ceremony before prioritizing the rest of the bug work. The ceremony completed and produced a pushed `workhorse-v4` baseline containing only the still-needed protocol-v4 gateway handshake patch plus plan/checkpoint documentation.
+**What We Built:** A refreshed and deployed `workhorse-v4` branch based on latest upstream `master`, with rollback-friendly commits for the protocol-v4 gateway handshake, stable chat message identity/history merging, internal control-turn filtering, spawned session supplement pruning, and base `sessions.list` child pruning. The local deployment now points at `workhorse-v4`, was updated with `update.sh --skip-gateway-restart`, and real-session QA verified the Agents panel converges to live OpenClaw truth while chat messages persist once across refresh/reload and silent heartbeat responses stay hidden.
 
-**Reference Check:** `REF-01`, `REF-06`, and `REF-07` inspected and captured in plan. `REF-05` inspected for the required no-gateway-restart flag. `REF-08` incorporated as the main investigation and acceptance framing.
+**Reference Check:** `REF-01`, `REF-06`, and `REF-07` were used for stale Agents and duplicate/lost chat acceptance. `REF-05` was satisfied by using the no-gateway-restart updater flag. `REF-08` drove the reducer/source-of-truth approach and was checked through implementation, QA, and independent audit.
 
 **Commits:**
 - `5d15105` - Carry protocol v4 gateway handshake to workhorse-v4
@@ -297,9 +300,11 @@ Key findings: Nerve treats gateway `chat.history` as authoritative, but the `Cha
 - `ad01882` - Fix chat message identity merging
 - `bf5dddc` - Filter internal chat control turns
 - `4456816` - Prune stale spawned session supplements
+- `c5b0d9d` - Track agents panel QA retry
+- `49c8481` - Prune stale base session children
 
-**Lessons Learned:** Pending execution.
+**Lessons Learned:** The first Agents fix was too narrow because stale rows were already entering through the full base `sessions.list` result before `spawnedBy` supplement reconciliation. Treating successful `spawnedBy` lookups as authoritative child truth fixed the real rendered panel without hiding top-level roots or live children.
 
 ---
 
-*Completed on Pending*
+*Completed on 2026-08-07*
