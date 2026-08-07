@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** Blocked  
-**Last Updated:** 2026-08-07 14:53 EDT  
+**Last Updated:** 2026-08-07 14:55 EDT  
 **Blocked Reason:** Upstream refresh ceremony completed; waiting for Derrick to re-examine the baseline and choose/confirm the next bug-prioritization direction before starting Task 2.
 **Agent:** byte
 
@@ -161,6 +161,7 @@ Runtime deployment must use the workspace updater path with the gateway restart 
 
 **Commits:**
 - `5d15105` - Carry protocol v4 gateway handshake to workhorse-v4
+- `8c32b92` - Document workhorse v4 ceremony checkpoint
 
 **Lessons Learned:** Pending execution.
 
