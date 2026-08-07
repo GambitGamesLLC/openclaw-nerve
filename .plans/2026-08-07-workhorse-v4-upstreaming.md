@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** In Progress  
-**Last Updated:** 2026-08-07 19:08 EDT  
+**Last Updated:** 2026-08-07 19:17 EDT  
 **Blocked Reason:** None  
 **Agent:** byte
 
@@ -179,9 +179,9 @@ Issue bodies start with `In Plain English` and then follow the bug report templa
 **Files Created/Deleted/Modified:**
 - Session reconciliation files and tests
 
-**Status:** ⏳ In Progress
+**Status:** ✅ Complete
 
-**Results:** Issue #372 created. Spawned `primary` coder subagent at 2026-08-07 19:04 EDT to prepare branch `fix/issue-372-prune-stale-agent-sessions`, prove the bug against unpatched upstream `master`, apply only `REF-05`, run required validation, push the branch, open the PR, and close `oc-pe0` when complete.
+**Results:** Issue #372 created and PR #375 opened: https://github.com/daggerhashimoto/openclaw-nerve/pull/375. Branch `fix/issue-372-prune-stale-agent-sessions` was created from upstream `master` `312e27333e14f841b95bf4f2b205a856b4a4c370`, pushed to `origin`, and contains commits `e5d5478c35ac839d6529edb5fd8d3feebe37e616` and `08cd488adae1acf4b374177cdf628c950e12d756`. Pre-patch proof reproduced with `npm test -- --run src/contexts/SessionContext.test.tsx`, failing on unpatched master because `Old cached child` remained rendered. Validation passed: targeted session tests (2 files / 27 tests), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (143 files / 1878 tests). Parent review verified the PR has only the two intended commits, touches only session reconciliation/context files and tests, and GitHub reports CI `build` plus CodeRabbit successful. Full tests emitted existing unrelated React `act(...)` and nested-button warning noise; Vite build emitted existing chunk/dynamic-import warnings.
 
 ---
 
@@ -199,9 +199,9 @@ Issue bodies start with `In Plain English` and then follow the bug report templa
 **Files Created/Deleted/Modified:**
 - Plan and Beads state
 
-**Status:** ⏸ Waiting for upstream branches
+**Status:** ⏳ Ready for QA/audit
 
-**Results:** Pending.
+**Results:** All three upstream branches and PRs are ready for independent QA/audit: #373, #374, and #375.
 
 ---
 
@@ -209,7 +209,7 @@ Issue bodies start with `In Plain English` and then follow the bug report templa
 
 **Status:** ⚠️ Partial / In Progress
 
-**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373 and #374 are open.
+**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373, #374, and #375 are open with GitHub checks green.
 
 **Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three proposed upstream submissions.
 
