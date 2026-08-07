@@ -301,6 +301,42 @@ describe('processChatMessages', () => {
     expect(result.every(m => m.msgId)).toBe(true);
   });
 
+  it('preserves OpenClaw transcript identity as stable UI ids', () => {
+    const msgs: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: 'Durable reply',
+        timestamp: 1775131617235,
+        __openclaw: {
+          mirrorIdentity: 'run-1:assistant:final',
+          id: 'wrapper-id-1',
+          recordTimestampMs: 1775131617235,
+          seq: 10,
+        },
+      },
+    ];
+
+    const first = processChatMessages(msgs, { sessionKey: 'agent:main:main' });
+    const second = processChatMessages(msgs, { sessionKey: 'agent:main:main' });
+
+    expect(first[0].sourceId).toBe('openclaw:mirror:run-1:assistant:final');
+    expect(second[0].msgId).toBe(first[0].msgId);
+  });
+
+  it('derives deterministic ids when gateway history lacks wrapper ids', () => {
+    const msg: ChatMessage = {
+      role: 'assistant',
+      content: 'Fallback identity',
+      timestamp: 1775131617235,
+    };
+
+    const first = processChatMessages([msg], { sessionKey: 'agent:main:main' });
+    const second = processChatMessages([msg], { sessionKey: 'agent:main:main' });
+
+    expect(first[0].sourceId).toMatch(/^derived:agent:main:main:assistant:1775131617235:/);
+    expect(second[0].msgId).toBe(first[0].msgId);
+  });
+
   it('tags background task notifications as system notifications', () => {
     const msgs: ChatMessage[] = [
       { role: 'user', content: 'A background task "x" just completed.' },
