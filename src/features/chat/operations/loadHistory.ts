@@ -200,7 +200,47 @@ const SYSTEM_EVENT_LINE = /^System(?: \(untrusted\))?: \[\d{4}-\d{2}-\d{2} \d{2}
 const SYSTEM_EVENT_FOLLOWUP_LINE = /^(?:An async command you ran earlier has completed\.|A scheduled reminder has been triggered\.|A scheduled cron event was triggered(?:, but no event content was found)?\.|Handle this reminder internally\.|Handle this internally\.|Handle the result internally\.?|Do not relay it to the user unless explicitly requested\.|Please relay the command output to the user in a helpful way\.|Please relay this reminder to the user in a helpful and friendly way\.|Current time:)/i;
 
 /** Internal assistant control replies that should never render as chat bubbles. */
-const INTERNAL_CONTROL_REPLY_RE = /^(?:NO_REPLY|HEARTBEAT_OK)$/;
+const INTERNAL_CONTROL_REPLY_RE = /^(?:NO_REPLY|HEARTBEAT_OK)(?:\s+(?:NO_REPLY|HEARTBEAT_OK))*$/i;
+const INTERNAL_CONTROL_ENVELOPE_RE = /^\{\s*"action"\s*:\s*"(?:NO_REPLY|HEARTBEAT_OK)"\s*\}$/i;
+const INTERNAL_MESSAGE_KIND_RE = /(?:^|[._:-])(?:internal|compaction|checkpoint|memory[-_. ]?flush|memory[-_. ]?sync)(?:$|[._:-])/i;
+const INTERNAL_ASSISTANT_STATUS_RE = /^(?:\[?(?:internal|system)\]?\s*)?(?:(?:session|context|history)\s+)?(?:compaction|memory[-_ ]?flush|memory\s+sync|memory\s+checkpoint|checkpoint)(?:\s+(?:started|complete|completed|finished|failed|succeeded|skipped|saved|written|updated))?(?:[.:]\s*)?$/i;
+const INTERNAL_RUNTIME_CONTEXT_RE = /<<<BEGIN_OPENCLAW_INTERNAL_CONTEXT>>>[\s\S]*<<<END_OPENCLAW_INTERNAL_CONTEXT>>>/;
+
+function readStringField(value: unknown, key: string): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const field = (value as Record<string, unknown>)[key];
+  return typeof field === 'string' ? field : undefined;
+}
+
+function hasInternalMessageMetadata(message: ChatMessage): boolean {
+  const candidates = [
+    message.__openclaw?.kind,
+    readStringField(message, 'kind'),
+    readStringField(message, 'type'),
+    readStringField(message, 'source'),
+    readStringField(message, 'event'),
+    readStringField(message, 'category'),
+    readStringField(message, 'subtype'),
+  ].filter((value): value is string => Boolean(value));
+
+  return candidates.some((value) => INTERNAL_MESSAGE_KIND_RE.test(value));
+}
+
+function isSilentControlReply(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return INTERNAL_CONTROL_REPLY_RE.test(trimmed) || INTERNAL_CONTROL_ENVELOPE_RE.test(trimmed);
+}
+
+function isInternalAssistantStatus(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (isSilentControlReply(trimmed)) return true;
+  if (INTERNAL_RUNTIME_CONTEXT_RE.test(trimmed)) {
+    return !trimmed.replace(INTERNAL_RUNTIME_CONTEXT_RE, '').trim();
+  }
+  return INTERNAL_ASSISTANT_STATUS_RE.test(trimmed);
+}
 
 function isInternalWakeBundle(text: string): boolean {
   let sawSystemEvent = false;
@@ -253,7 +293,11 @@ export function filterMessage(m: ChatMessage): boolean {
   const text = extractText(m);
   const trimmedText = text.trim();
 
-  if (m.role === 'assistant' && INTERNAL_CONTROL_REPLY_RE.test(trimmedText)) {
+  if (hasInternalMessageMetadata(m)) {
+    return false;
+  }
+
+  if ((m.role === 'assistant' || m.role === 'system') && isInternalAssistantStatus(trimmedText)) {
     return false;
   }
 
