@@ -105,9 +105,13 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - `.temp/nerve-qa/cookie-double-final/*`
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-psq`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** Deployed the pushed `workhorse-v4` fix to Cookie with `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart`; updater reported `Update Summary: SUCCESS` and `openclaw-gateway-restart-skipped`. Cookie moved from `7303ef526297` to `1a8ecfbe6675`, and `git merge-base --is-ancestor 2ba668a HEAD` passed. Final health check returned `{"status":"ok","gateway":"ok"}`. The OpenClaw gateway process remained PID `3117569`, started `Fri Aug 7 13:06:04 2026`; only Nerve restarted at `Fri Aug 7 20:37:53 2026`.
+
+Duplicate-final proof passed against the Task 1 path: gateway `chat.history` for `agent:main:main` contains exactly one durable assistant row matching `Task 10 audit is verified complete`, with `timestamp=1786147218006`, `__openclaw.id=8b415b68-9554-400c-b868-ed57246785e7`, and `mirrorIdentity=019fdeaa-eb0d-7ed1-96dd-08243ee90d95:assistant`. The running Cookie Nerve UI rendered that final exactly once in the live display, after normal refresh, and after hard reload.
+
+Smoke checks passed. The Agents UI rendered Cookie main plus the 9 current spawned-by-main rows across live/refresh/hard reload; stale examples including `2oj5 Windows bytecode E2E repair coder` and `APEX-` had DOM count 0 even though the full gateway historical session list still contains old rows, proving UI pruning rather than historical deletion. Exact assistant/operator `NO_REPLY` / `HEARTBEAT_OK` rows in sampled main history were 0; `HEARTBEAT_OK` rendered 0 times, and visible `NO_REPLY` occurrences were only inside user pre-compaction prompt text, not assistant control replies. Evidence bundle: `.temp/nerve-qa/cookie-double-final/oc-4zp/QA-SUMMARY.md`, `cookie-update-output.txt`, `final-deploy-check.txt`, `gateway-history-session-summary.json`, `01-live.png`, `02-refresh.png`, `03-hard-reload.png`, and matching DOM summaries.
 
 ---
 
