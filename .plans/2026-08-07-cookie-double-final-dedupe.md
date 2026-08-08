@@ -1,9 +1,9 @@
 # Cookie Double Final Message Dedupe
 
 **Date:** 2026-08-07  
-**Status:** Draft  
-**Last Updated:** 2026-08-07 20:09 EDT  
-**Blocked Reason:** Waiting for Derrick approval to execute  
+**Status:** In Progress  
+**Last Updated:** 2026-08-07 20:15 EDT  
+**Blocked Reason:** None  
 **Agent:** byte
 
 ---
@@ -42,7 +42,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 1: Reproduce And Classify The Duplicate
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-ees`  
 **SubAgent:** `primary`  
 **Role:** `research`  
 **References:** `REF-01`, `REF-02`, `REF-03`, `REF-04`, `REF-05`  
@@ -56,15 +56,15 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 - `.temp/nerve-qa/cookie-double-final/*`
 
-**Status:** Pending
+**Status:** In Progress
 
-**Results:** Pending.
+**Results:** Created dependency-ready investigation bead `oc-ees`; this bead blocks the implementation, QA, audit, issue, PR, and PR-check follow-up beads.
 
 ---
 
 ### Task 2: Implement Narrow Fix On Workhorse
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-psq`  
 **SubAgent:** `primary`  
 **Role:** `coder`  
 **References:** `REF-01`, `REF-02`, `REF-04`, `REF-05`  
@@ -78,7 +78,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 **Files Created/Deleted/Modified:**
 - Exact files pending Task 1 root cause.
 
-**Status:** Pending
+**Status:** Pending, blocked by `oc-ees`
 
 **Results:** Pending.
 
@@ -86,7 +86,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 3: Deploy To Cookie And Prove The Squash
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-4zp`  
 **SubAgent:** `primary`  
 **Role:** `qa`  
 **References:** `REF-01`, `REF-03`, `REF-07`  
@@ -100,7 +100,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - `.temp/nerve-qa/cookie-double-final/*`
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending
+**Status:** Pending, blocked by `oc-psq`
 
 **Results:** Pending.
 
@@ -108,7 +108,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 4: Independent Audit
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-5gr`  
 **SubAgent:** `primary`  
 **Role:** `auditor`  
 **References:** `REF-01`, `REF-02`, `REF-04`, `REF-05`, `REF-07`  
@@ -120,7 +120,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending
+**Status:** Pending, blocked by `oc-4zp`
 
 **Results:** Pending.
 
@@ -128,7 +128,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 5: Create Upstream Issue
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-unv`  
 **SubAgent:** `primary`  
 **Role:** `research`  
 **References:** `REF-01`, `REF-06`  
@@ -140,7 +140,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending external write approval
+**Status:** Pending, blocked by `oc-5gr`
 
 **Results:** Pending.
 
@@ -148,7 +148,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 6: Create Upstream PR
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-v5q`  
 **SubAgent:** `primary`  
 **Role:** `coder`  
 **References:** `REF-06`  
@@ -161,7 +161,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - Exact files pending Task 2 final diff.
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending external write approval
+**Status:** Pending, blocked by `oc-unv`
 
 **Results:** Pending.
 
@@ -169,7 +169,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 
 ### Task 7: PR Checks And Maintainer Follow-Up
 
-**Bead ID:** `Pending`  
+**Bead ID:** `oc-bzx`  
 **SubAgent:** `primary`  
 **Role:** `auditor`  
 **References:** `REF-06`  
@@ -181,7 +181,7 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending
+**Status:** Pending, blocked by `oc-v5q`
 
 **Results:** Pending.
 
