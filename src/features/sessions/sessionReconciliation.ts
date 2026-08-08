@@ -77,6 +77,7 @@ export interface MergeAuthoritativeSessionsOptions {
    * false so an RPC outage does not wipe the sidebar down to roots.
    */
   spawnedByAuthoritative?: boolean;
+  authoritativeSpawnedByRoots?: Set<string>;
 }
 
 export function mergeAuthoritativeSessions(
@@ -93,6 +94,7 @@ export function mergeAuthoritativeSessions(
   }
 
   const spawnedByAuthoritative = options.spawnedByAuthoritative ?? spawnedSessionLists.length > 0;
+  const authoritativeSpawnedByRoots = options.authoritativeSpawnedByRoots;
   const baseSessionsToKeep = spawnedByAuthoritative
     ? baseSessions.filter((session) => {
         const key = getSessionKey(session);
@@ -102,6 +104,7 @@ export function mergeAuthoritativeSessions(
         if (hasConfirmedParent(session, spawnedKeys)) return true;
 
         const rootKey = getRootAgentSessionKey(key);
+        if (rootKey && authoritativeSpawnedByRoots && !authoritativeSpawnedByRoots.has(rootKey)) return true;
         return Boolean(rootKey && spawnedKeys.has(rootKey));
       })
     : baseSessions;

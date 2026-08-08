@@ -79,6 +79,28 @@ describe('session reconciliation', () => {
     ]);
   });
 
+  it('only prunes children for roots with successful spawnedBy lookups', () => {
+    const merged = mergeAuthoritativeSessions(
+      [
+        session('agent:main:main'),
+        session('agent:main:subagent:stale-main-child', { label: 'Old main child', status: 'idle' }),
+        session('agent:reviewer:main'),
+        session('agent:reviewer:subagent:unknown-reviewer-child', { label: 'Reviewer child', status: 'idle' }),
+      ],
+      [[]],
+      {
+        spawnedByAuthoritative: true,
+        authoritativeSpawnedByRoots: new Set(['agent:main:main']),
+      },
+    );
+
+    expect(merged.map((item) => item.sessionKey)).toEqual([
+      'agent:main:main',
+      'agent:reviewer:main',
+      'agent:reviewer:subagent:unknown-reviewer-child',
+    ]);
+  });
+
   it('preserves terminal sessions when the full list still reports them', () => {
     const merged = mergeAuthoritativeSessions(
       [

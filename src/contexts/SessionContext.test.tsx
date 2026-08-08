@@ -554,6 +554,40 @@ describe('SessionContext', () => {
     expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:main:main', limit: 500 });
   });
 
+  it('preserves children under roots whose spawnedBy lookup fails', async () => {
+    rpcMock.mockImplementation(async (method: string, params?: Record<string, unknown>) => {
+      if (method !== 'sessions.list') return {};
+      if (params?.spawnedBy === 'agent:main:main') {
+        return { sessions: [] };
+      }
+      if (params?.spawnedBy === 'agent:reviewer:main') {
+        throw new Error('reviewer spawnedBy failed');
+      }
+      return {
+        sessions: [
+          { sessionKey: 'agent:main:main', label: 'Main' },
+          { sessionKey: 'agent:main:subagent:stale-main-child', label: 'Old main child', status: 'idle' },
+          { sessionKey: 'agent:reviewer:main', label: 'Reviewer' },
+          { sessionKey: 'agent:reviewer:subagent:unknown-child', label: 'Reviewer child', status: 'idle' },
+        ],
+      };
+    });
+
+    render(
+      <SessionProvider>
+        <SessionLabels />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Reviewer child')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Old main child')).not.toBeInTheDocument();
+    expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:main:main', limit: 500 });
+    expect(rpcMock).toHaveBeenCalledWith('sessions.list', { spawnedBy: 'agent:reviewer:main', limit: 500 });
+  });
+
   it('hydrates root session labels from IDENTITY.md names', async () => {
     rpcMock.mockImplementation(async (method: string) => {
       if (method === 'sessions.list') {

@@ -329,10 +329,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         [...spawnedByRoots].map(async (rootSessionKey) => {
           try {
             const spawnedRes = await rpc('sessions.list', { spawnedBy: rootSessionKey, limit: SESSIONS_SPAWNED_LIMIT }) as SessionsListResponse;
-            return { ok: true as const, sessions: spawnedRes?.sessions ?? [] };
+            return { rootSessionKey, ok: true as const, sessions: spawnedRes?.sessions ?? [] };
           } catch (err) {
             console.debug('[SessionContext] Failed to fetch spawned sessions for root:', rootSessionKey, err);
-            return { ok: false as const, sessions: [] as Session[] };
+            return { rootSessionKey, ok: false as const, sessions: [] as Session[] };
           }
         }),
       );
@@ -340,7 +340,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return mergeAuthoritativeSessions(
         baseSessions,
         spawnedResults.map((result) => result.sessions),
-        { spawnedByAuthoritative: spawnedResults.some((result) => result.ok) },
+        {
+          spawnedByAuthoritative: spawnedResults.some((result) => result.ok),
+          authoritativeSpawnedByRoots: new Set(spawnedResults
+            .filter((result) => result.ok)
+            .map((result) => result.rootSessionKey)),
+        },
       );
     } catch (err) {
       console.debug('[SessionContext] Failed to fetch authoritative session list:', err);
