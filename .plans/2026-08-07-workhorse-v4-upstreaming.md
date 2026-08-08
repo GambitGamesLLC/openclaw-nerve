@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-07  
 **Status:** Blocked  
-**Last Updated:** 2026-08-07 19:29 EDT  
-**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, and #375  
+**Last Updated:** 2026-08-08 04:47 EDT  
+**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, #375, and #377  
 **Agent:** byte
 
 ---
@@ -213,7 +213,7 @@ Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent 
 **SubAgent:** `primary`  
 **Role:** `auditor` / `coder`  
 **References:** `REF-01`, `REF-03`, `REF-04`, `REF-05`  
-**Prompt:** Track upstream PRs #373, #374, and #375 until maintainer approval/merge or requested changes. Re-check CI if upstream `master` advances, respond to review feedback, and update/close linked issues as needed. Claim the bead on start.  
+**Prompt:** Track upstream PRs #373, #374, #375, and #377 until maintainer approval/merge or requested changes. Re-check CI if upstream `master` advances, respond to review feedback, and update/close linked issues as needed. Claim the bead on start.  
 
 **Folders Created/Deleted/Modified:**
 - None yet
@@ -223,7 +223,7 @@ Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent 
 
 **Status:** ⏳ Pending on upstream maintainer review
 
-**Results:** Follow-up bead created because all agent-owned branch, issue, PR, QA, and audit work is complete, but the upstream repo still requires maintainer approval/merge before the fixes actually land on Nerve `master`.
+**Results:** Follow-up bead created because all agent-owned branch, issue, PR, QA, and audit work is complete, but the upstream repo still requires maintainer approval/merge before the fixes actually land on Nerve `master`. The monitor set now includes #377, the Cookie duplicate-final follow-up PR, alongside #373/#374/#375.
 
 ---
 
@@ -231,7 +231,7 @@ Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent 
 
 **Status:** ⚠️ Blocked on upstream maintainer review
 
-**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three upstream issues have been created, and PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed.
+**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three original upstream issues have been created, PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed, and follow-up duplicate-final PR #377 is also open and green.
 
 **Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three upstream submissions. QA/audit verified each branch starts at upstream `master` `312e273`, has only the intended commits/files, reproduces the target regression on unpatched master, fixes it on the patched branch, and has passing GitHub CI plus CodeRabbit.
 
