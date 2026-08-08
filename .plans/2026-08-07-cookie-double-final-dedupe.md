@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** In Progress  
-**Last Updated:** 2026-08-07 21:24 EDT  
+**Last Updated:** 2026-08-07 21:41 EDT  
 **Blocked Reason:** None  
 **Agent:** byte
 
@@ -206,24 +206,32 @@ Validation passed on the PR branch: targeted chat tests `npm test -- --run src/h
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-v5q`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** PR #377 initial GitHub CI `build` completed red at 2026-08-07 21:23 EDT on commit `8238509`; the only failure was full-suite test `src/features/kanban/CreateTaskDialog.test.tsx:118`, unable to find `No matching assignees`. The failed log showed the title input containing `Closed set taskagent:ghost`, meaning the typed assignee text landed outside the assignee field. That Kanban failure did not reproduce locally at PR head: `npm test -- --run src/features/kanban/CreateTaskDialog.test.tsx` passed before and after follow-up fixes, and the PR diff was chat/history scoped. Review feedback then found valid in-scope chat reconciliation issues. Commits `d5a34b9` and `8ac0120` were pushed to `GambitGamesLLC:fix/issue-376-dedupe-assistant-final-delivery`, tightening current-turn final aliasing, attaching optimistic user idempotency identities before insertion, preserving aliases/streaming state, preventing repeated final key reuse, and disambiguating repeated derived history identities. Local validation on `8ac0120` passed: focused chat suites `npm test -- --run src/hooks/useChatMessages.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/sendMessage.test.ts` (94 tests), `npm run lint`, `npm run build` (with existing Vite chunk/dynamic-import warnings), and full suite `npm test -- --run` (143 files / 1891 tests). As of 2026-08-07 21:41 EDT, PR #377 head is `8ac0120`; GitHub `build` run `31233122984` passed in 2m42s, including lint/build/build:server/test; CodeRabbit is `SUCCESS` and the latest review generated no actionable comments. Remaining gate is maintainer review/merge (`reviewDecision: REVIEW_REQUIRED`).
 
 ---
 
 ## Final Results
 
-**Status:** Pending
+**Status:** Complete, with upstream maintainer review pending under follow-up bead `oc-nz2`
 
-**What We Built:** Pending.
+**What We Built:** Reproduced and classified the remaining Cookie duplicate-final bug, patched Nerve's chat reconciliation to merge true local-to-durable assistant final duplicates without hiding legitimate repeated or rich messages, deployed the fix to Cookie without restarting the OpenClaw gateway, and proved the duplicate-final text renders once across live display, refresh, and hard reload. Filed upstream issue [#376](https://github.com/daggerhashimoto/openclaw-nerve/issues/376) and opened upstream PR [#377](https://github.com/daggerhashimoto/openclaw-nerve/pull/377).
 
-**Reference Check:** Pending.
+**Reference Check:** `REF-01` was satisfied by the Cookie proof artifacts showing the previously duplicated final now renders once. `REF-02`, `REF-04`, and `REF-05` were preserved by smoke checks for prior duplicate/internal-control filtering behavior. `REF-07` was satisfied by the Cookie updater evidence showing `--skip-gateway-restart` and unchanged gateway PID/start time. `REF-06` was satisfied by opening PR #377 from upstream `master` and validating it with green GitHub CI plus CodeRabbit.
 
 **Commits:**
-- Pending.
+- `2ba668a` - Fix assistant final history aliasing
+- `1a8ecfb` - Update cookie dedupe implementation plan
+- `2d40d1e` - Record Cookie duplicate final QA proof
+- `0c8b2c4` - Record duplicate final audit
+- `ad6c87f` - docs: record duplicate final upstream issue
+- `8238509` - fix(chat): dedupe assistant final history delivery
+- `fd9681e` - docs(plans): record duplicate final upstream PR
+- `d5a34b9` - fix(chat): tighten final message reconciliation
+- `8ac0120` - fix(chat): harden history identity merging
 
-**Lessons Learned:** Pending.
+**Lessons Learned:** The duplicate family needed two layers of proof: backend/session-history cardinality and frontend live/history reconciliation. The screenshot's delayed second copy was tied to recovery/compaction timing, so future chat fixes should include live, refresh, and hard-reload DOM checks against a real deployed agent path before upstreaming.
 
 ---
 
