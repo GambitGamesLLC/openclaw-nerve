@@ -1,9 +1,9 @@
 # Workhorse v4 Upstreaming
 
 **Date:** 2026-08-07  
-**Status:** Blocked  
-**Last Updated:** 2026-08-08 08:24 EDT
-**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, #375, and #377 after review-feedback fixes were pushed and upstream GitHub `build` plus CodeRabbit checks returned green
+**Status:** Complete  
+**Last Updated:** 2026-08-08 09:59 EDT
+**Blocked Reason:** None
 **Agent:** byte
 
 ---
@@ -221,7 +221,7 @@ Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent 
 **Files Created/Deleted/Modified:**
 - Plan and Beads state only
 
-**Status:** ⏳ Pending on upstream maintainer review
+**Status:** ✅ Complete
 
 **Results:** Follow-up bead created because all agent-owned branch, issue, PR, QA, and audit work is complete, but the upstream repo still requires maintainer approval/merge before the fixes actually land on Nerve `master`. The monitor set now includes #377, the Cookie duplicate-final follow-up PR, alongside #373/#374/#375.
 
@@ -236,21 +236,29 @@ Review-feedback triage completed at 2026-08-08 08:19 EDT. Startup reads were com
 
 Parent verification at 2026-08-08 08:25 EDT re-checked GitHub directly. PRs #373, #374, #375, and #377 are all open and review-required with `mergeStateStatus=BLOCKED` only because maintainer review is still required. GitHub `build` and CodeRabbit status checks are successful on heads `3f9bb1a`, `01755db`, `28e7b01`, and `8ac0120` respectively. No further agent-owned PR feedback action is currently exposed.
 
+Closed for now at Derrick's request on 2026-08-08 09:59 EDT. Upstream status checking and any maintainer-review follow-up will be handled later under a separate plan instead of keeping this plan active.
+
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Blocked on upstream maintainer review/merge
+**Status:** ✅ Complete
 
-**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three original upstream issues have been created, PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed, and follow-up duplicate-final PR #377 is also open and green.
+**What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three original upstream issues have been created, PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed, and follow-up duplicate-final PR #377 is also open and green. The plan is complete from the agent side and archived; future upstream review/merge status checks will be started as a separate plan.
 
 **Reference Check:** `REF-01` reviewed for required upstream process. `REF-02` reviewed for local validation baseline. `REF-03`, `REF-04`, and `REF-05` split into three upstream submissions. QA/audit verified each branch starts at upstream `master` `312e273`, has only the intended commits/files, reproduces the target regression on unpatched master, fixes it on the patched branch, and has passing GitHub CI plus CodeRabbit.
 
 **Commits:**
-- Pending
+- `657a9da` - PR #373 initial chat identity/history merge fix
+- `3f9bb1a` - PR #373 review-feedback fix
+- `37f21cc` - PR #374 initial internal control turn filtering fix
+- `01755db` - PR #374 review-feedback fix
+- `e5d5478`, `08cd488` - PR #375 initial stale session pruning fixes
+- `28e7b01` - PR #375 review-feedback fix
+- `8ac0120` - PR #377 duplicate assistant-final delivery fix head
 
 **Lessons Learned:** The one-issue/one-PR split kept review scope clean. Public upstream work should continue to record both unpatched-master reproduction and patched-branch validation in each PR body, because that made the independent audit straightforward.
 
 ---
 
-*Completed on Pending upstream maintainer review*
+*Completed on 2026-08-08*
