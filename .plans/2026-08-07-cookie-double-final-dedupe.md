@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** In Progress  
-**Last Updated:** 2026-08-07 20:24 EDT  
+**Last Updated:** 2026-08-07 20:54 EDT  
 **Blocked Reason:** None  
 **Agent:** byte
 
@@ -129,9 +129,11 @@ Smoke checks passed. The Agents UI rendered Cookie main plus the 9 current spawn
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-4zp`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** Audit passed. Root-cause artifacts prove the reported Cookie duplicate was one durable backend/session-history assistant final rendered twice by Nerve live merge/recovery: gateway `chat.history` had exactly one matching assistant row for `Task 10 audit is verified complete` with durable `__openclaw.id=8b415b68-9554-400c-b868-ed57246785e7`, `mirrorIdentity=019fdeaa-eb0d-7ed1-96dd-08243ee90d95:assistant`, and a nearby compaction row at `2026-08-08T00:01:43Z`. The fix diff is narrow: it adds shared message reconciliation helpers and aliases only plain, finished assistant finals when exactly one side has durable OpenClaw identity, matching normalized text, no streaming/pending/failed/thinking/tool/chart/upload/image/rich payloads, and timestamps within 180 seconds. This preserves legitimate durable repeated assistant messages and rich/tool/image messages.
+
+Regression coverage is sufficient for the Cookie local-to-durable final path and preservation cases: local rerun passed `npm test -- --run src/hooks/useChatMessages.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/streamEventHandler.test.ts src/features/sessions/sessionReconciliation.test.ts src/contexts/SessionContext.test.tsx src/features/sessions/sessionTree.test.ts` (164 tests), `npm run lint`, and `npm run build` with only existing Vite dynamic-import/chunk-size warnings. Cookie deployment proof passed: `/home/derrick/.openclaw/workspace/scripts/update.sh --skip-gateway-restart` reported `Update Summary: SUCCESS` and `openclaw-gateway-restart-skipped`; deployed Cookie Nerve `HEAD=1a8ecfbe6675` contains `2ba668a`; the OpenClaw gateway PID/start stayed `3117569 Fri Aug 7 13:06:04 2026`; Nerve alone restarted; `/health` returned `{"status":"ok","gateway":"ok"}`. Live, refresh, and hard-reload DOM captures render the duplicate-final text exactly once, `HEARTBEAT_OK` zero times, stale Agents examples zero times, and `NO_REPLY` only inside user pre-compaction prompt text rather than assistant/operator control rows. Bead `oc-5gr` closed.
 
 ---
 
