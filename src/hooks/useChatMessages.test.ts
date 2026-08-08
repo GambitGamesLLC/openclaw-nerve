@@ -100,6 +100,47 @@ describe('chat message reconciliation', () => {
     ]);
   });
 
+  it('preserves a repeated current-turn assistant final instead of aliasing an earlier durable turn', () => {
+    const priorUser = msg('user', 'First request', 'message:idempotency:ik-1');
+    const priorDone = openclawAssistant('Done.', 'openclaw:mirror:run-1:assistant', 1700000000000);
+    const currentUser = msg('user', 'Second request', 'message:idempotency:ik-2');
+    const currentDone = openclawAssistant('Done.', 'derived:unknown-session:assistant:1700000005000:abc', 1700000005000);
+
+    const result = mergeFinalMessages([priorUser, priorDone, currentUser], [currentDone]);
+
+    expect(result.map(m => m.sourceId)).toEqual([
+      'message:idempotency:ik-1',
+      'openclaw:mirror:run-1:assistant',
+      'message:idempotency:ik-2',
+      'derived:unknown-session:assistant:1700000005000:abc',
+    ]);
+  });
+
+  it('matches a repeated current-turn assistant final only after the latest user during history refresh', () => {
+    const existing = [
+      msg('user', 'First request', 'message:idempotency:ik-1'),
+      openclawAssistant('Done.', 'openclaw:mirror:run-1:assistant', 1700000000000),
+      msg('user', 'Second request', 'message:idempotency:ik-2'),
+      openclawAssistant('Done.', 'derived:unknown-session:assistant:1700000005000:abc', 1700000005000),
+    ];
+    const history = [
+      msg('user', 'First request', 'message:idempotency:ik-1'),
+      openclawAssistant('Done.', 'openclaw:mirror:run-1:assistant', 1700000000000),
+      msg('user', 'Second request', 'message:idempotency:ik-2'),
+      openclawAssistant('Done.', 'openclaw:mirror:run-2:assistant', 1700000006000),
+    ];
+
+    const result = mergeHistoryMessages(existing, history);
+
+    expect(result.map(m => m.sourceId)).toEqual([
+      'message:idempotency:ik-1',
+      'openclaw:mirror:run-1:assistant',
+      'message:idempotency:ik-2',
+      'openclaw:mirror:run-2:assistant',
+    ]);
+    expect(result[3].msgId).toBe(existing[3].msgId);
+  });
+
   it('does not alias rich assistant messages with images by matching text alone', () => {
     const local = openclawAssistant('Here is the image.', 'derived:unknown-session:assistant:1700000000000:abc', 1700000000000);
     const durable = {

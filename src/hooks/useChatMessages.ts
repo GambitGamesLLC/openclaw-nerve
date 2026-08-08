@@ -46,14 +46,33 @@ export function isLikelyDuplicateMessage(a: ChatMsg, b: ChatMsg): boolean {
   );
 }
 
+function latestUserIndex(messages: ChatMsg[]): number {
+  return messages.reduce((latest, msg, index) => (msg.role === 'user' ? index : latest), -1);
+}
+
+function findExactIdentityIndex(messages: ChatMsg[], msg: ChatMsg): number {
+  return msg.sourceId
+    ? messages.findIndex((candidate) => isSameMessageIdentity(candidate, msg))
+    : -1;
+}
+
+function findCurrentTurnAssistantFinalIndex(messages: ChatMsg[], msg: ChatMsg, latestUser: number): number {
+  if (msg.role !== 'assistant') return -1;
+  return messages.findIndex((candidate, index) =>
+    index > latestUser && isSameAssistantFinalDelivery(candidate, msg)
+  );
+}
+
 export function mergeFinalMessages(existing: ChatMsg[], incoming: ChatMsg[]): ChatMsg[] {
   if (incoming.length === 0) return existing;
   const merged = [...existing];
 
   for (const msg of incoming) {
-    const identityIdx = msg.sourceId
-      ? merged.findIndex((candidate) => isSameMessageIdentity(candidate, msg) || isSameAssistantFinalDelivery(candidate, msg))
-      : merged.findIndex((candidate) => isSameAssistantFinalDelivery(candidate, msg));
+    const latestUser = latestUserIndex(merged);
+    const exactIdentityIdx = findExactIdentityIndex(merged, msg);
+    const identityIdx = exactIdentityIdx >= 0
+      ? exactIdentityIdx
+      : findCurrentTurnAssistantFinalIndex(merged, msg, latestUser);
     if (identityIdx >= 0) {
       merged[identityIdx] = mergeMessageState(merged[identityIdx], msg);
       continue;
@@ -94,10 +113,16 @@ export function mergeHistoryMessages(existing: ChatMsg[], history: ChatMsg[]): C
   }
   if (existing.length === 0) return history;
 
-  const merged = history.map((historyMsg) => {
-    const existingMatch = historyMsg.sourceId
-      ? existing.find((candidate) => isSameMessageIdentity(candidate, historyMsg) || isSameAssistantFinalDelivery(candidate, historyMsg))
-      : undefined;
+  const latestExistingUser = latestUserIndex(existing);
+  const latestHistoryUser = latestUserIndex(history);
+
+  const merged = history.map((historyMsg, historyIndex) => {
+    const exactIdentityIdx = findExactIdentityIndex(existing, historyMsg);
+    const assistantFinalIdx = historyIndex > latestHistoryUser
+      ? findCurrentTurnAssistantFinalIndex(existing, historyMsg, latestExistingUser)
+      : -1;
+    const matchIdx = exactIdentityIdx >= 0 ? exactIdentityIdx : assistantFinalIdx;
+    const existingMatch = matchIdx >= 0 ? existing[matchIdx] : undefined;
     return existingMatch ? mergeMessageState(existingMatch, historyMsg) : historyMsg;
   });
 
