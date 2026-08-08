@@ -2,8 +2,8 @@
 
 **Date:** 2026-08-07  
 **Status:** Blocked  
-**Last Updated:** 2026-08-08 04:47 EDT  
-**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, #375, and #377  
+**Last Updated:** 2026-08-08 08:24 EDT
+**Blocked Reason:** Waiting for upstream maintainer approval/merge on PRs #373, #374, #375, and #377 after review-feedback fixes were pushed and upstream GitHub `build` plus CodeRabbit checks returned green
 **Agent:** byte
 
 ---
@@ -225,11 +225,22 @@ Independent audit completed at 2026-08-07 19:28 EDT and closed `oc-psf`. Parent 
 
 **Results:** Follow-up bead created because all agent-owned branch, issue, PR, QA, and audit work is complete, but the upstream repo still requires maintainer approval/merge before the fixes actually land on Nerve `master`. The monitor set now includes #377, the Cookie duplicate-final follow-up PR, alongside #373/#374/#375.
 
+Heartbeat truth-maintenance pass at 2026-08-08 07:55 EDT found the prior blocker was stale. PRs #373, #374, #375, and #377 are still open, not draft, and have green GitHub `build` plus CodeRabbit status checks, but CodeRabbit posted actionable review comments on all four PRs. Bead `oc-nz2` was claimed for review-feedback triage. The next authorized step is to verify each CodeRabbit finding, address valid comments with minimal branch-scoped fixes, rerun validation, push branch updates, and then return the plan to maintainer-review monitoring if the PRs are clean.
+
+Review-feedback triage completed at 2026-08-08 08:19 EDT. Startup reads were completed for `README.md`, `CONTRIBUTING.md`, and this plan. `bd update oc-nz2 --status in_progress --json` printed the expected JSON and then hung; the stuck `bd update` process was killed after recording that output.
+
+- PR #373 `fix/issue-370-chat-message-identity-merge`: CodeRabbit findings were valid for content-only polling bypass, sequence/index-derived fallback identity, rendered `recordTimestampMs`, grouped tool aliases, original history-index preservation after filtering, alias unioning in both history and recovered-tail merges, and empty-history streaming retention. Also verified the non-CodeRabbit P1 comment about mutable content in fallback identities was valid and addressed it by keeping derived timestamp identities stable across content changes. Pushed commit `3f9bb1a7442907b6ca1e93f544db0bc506d87269` (`fix(chat): address history identity review feedback`). Local validation passed: targeted `npm test -- --run src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/hooks/useChatMessages.test.ts` (67 tests), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (143 files / 1886 tests). Upstream GitHub `build` and CodeRabbit checks are green on head `3f9bb1a`.
+- PR #374 `fix/issue-371-filter-internal-chat-turns`: CodeRabbit findings were valid for JSON control envelopes with extra fields and embedded OpenClaw runtime context inside assistant prose. Pushed commit `01755db3a005cba5a1d88be8a293bc4137ce12bb` (`fix(chat): strip internal history context`). Local validation passed: targeted `npm test -- --run src/features/chat/operations/loadHistory.test.ts` (49 tests), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (142 files / 1875 tests). Upstream GitHub `build` and CodeRabbit checks are green on head `01755db`.
+- PR #375 `fix/issue-372-prune-stale-agent-sessions`: CodeRabbit finding was valid; aggregate spawnedBy authority could prune children under roots whose spawnedBy lookup failed. The worktree had stale staged/index changes at startup for this branch; restored the PR files to HEAD before applying the branch-scoped fix. Ran `npm install` only because this worktree lacked `node_modules`; no package files changed. Pushed commit `28e7b01b873e6d0ab5b5a648ee606f57195543c6` (`fix(sessions): scope spawned session pruning by root`). Local validation passed: targeted `npm test -- --run src/features/sessions/sessionReconciliation.test.ts src/contexts/SessionContext.test.tsx` (29 tests), `npm run lint`, `npm run build`, `npm run build:server`, and `npm test -- --run` (143 files / 1880 tests). Upstream GitHub `build` and CodeRabbit checks are green on head `28e7b01`.
+- PR #377 `fix/issue-376-dedupe-assistant-final-delivery`: No new code changes made. CodeRabbit threads already included `Addressed in commit 8ac0120` / `d5a34b9` markers, and branch inspection confirmed the requested fixes are present: occurrence disambiguation, consumed-row guards, alias unioning, missing rawText guard, durable-identity dedupe gating, empty-history streaming retention, and source-less history final matching. Local validation passed: targeted `npm test -- --run src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/hooks/useChatMessages.test.ts` (71 tests). GitHub head remains `8ac01206aaf37017eee53e44f7725c7311162e8e` with upstream `build` and CodeRabbit successful.
+
+Parent verification at 2026-08-08 08:25 EDT re-checked GitHub directly. PRs #373, #374, #375, and #377 are all open and review-required with `mergeStateStatus=BLOCKED` only because maintainer review is still required. GitHub `build` and CodeRabbit status checks are successful on heads `3f9bb1a`, `01755db`, `28e7b01`, and `8ac0120` respectively. No further agent-owned PR feedback action is currently exposed.
+
 ---
 
 ## Final Results
 
-**Status:** ⚠️ Blocked on upstream maintainer review
+**Status:** ⚠️ Blocked on upstream maintainer review/merge
 
 **What We Built:** Internal rollout completed for cookie, chip, and pico. Upstream issue/PR split and branch strategy planned. Derrick approved public upstream writes, the three original upstream issues have been created, PRs #373, #374, and #375 are open with GitHub checks green and independent QA/audit passed, and follow-up duplicate-final PR #377 is also open and green.
 
