@@ -90,6 +90,26 @@ function withSourceIdentity(
   };
 }
 
+function disambiguateRepeatedSourceIdentities(msgs: ChatMsg[]): ChatMsg[] {
+  const seen = new Map<string, number>();
+
+  return msgs.map((msg) => {
+    if (!msg.sourceId) return msg;
+
+    const occurrence = seen.get(msg.sourceId) || 0;
+    seen.set(msg.sourceId, occurrence + 1);
+    if (occurrence === 0) return msg;
+
+    const sourceId = `${msg.sourceId}:occurrence:${occurrence + 1}`;
+    return {
+      ...msg,
+      sourceId,
+      alternateSourceIds: [...new Set([...(msg.alternateSourceIds || []), msg.sourceId])],
+      msgId: stableMsgId(sourceId),
+    };
+  });
+}
+
 function getFilenameFromPathish(value: string, fallback: string): string {
   const trimmed = value.trim();
   if (!trimmed) return fallback;
@@ -662,9 +682,9 @@ export function tagIntermediateMessages(msgs: ChatMsg[]): ChatMsg[] {
  * filter → split → group → tag
  */
 export function processChatMessages(messages: ChatMessage[], options: { sessionKey?: string } = {}): ChatMsg[] {
-  const chatMsgs: ChatMsg[] = messages
+  const chatMsgs: ChatMsg[] = disambiguateRepeatedSourceIdentities(messages
     .filter(filterMessage)
-    .flatMap((message, messageIndex) => splitToolCallMessage(message, { ...options, messageIndex }));
+    .flatMap((message, messageIndex) => splitToolCallMessage(message, { ...options, messageIndex })));
 
   const grouped = groupToolMessages(chatMsgs);
   const tagged = tagIntermediateMessages(grouped);

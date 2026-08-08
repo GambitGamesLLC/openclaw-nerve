@@ -20,11 +20,17 @@ export function isSameMessageIdentity(a: ChatMsg, b: ChatMsg): boolean {
 }
 
 export function mergeMessageState(existing: ChatMsg, incoming: ChatMsg): ChatMsg {
+  const alternateSourceIds = [...new Set([
+    ...(existing.alternateSourceIds || []),
+    ...(incoming.alternateSourceIds || []),
+    ...(existing.sourceId && existing.sourceId !== incoming.sourceId ? [existing.sourceId] : []),
+  ])];
+
   return {
     ...incoming,
     msgId: existing.msgId || incoming.msgId || generateMsgId(),
     sourceId: incoming.sourceId || existing.sourceId,
-    alternateSourceIds: incoming.alternateSourceIds || existing.alternateSourceIds,
+    ...(alternateSourceIds.length > 0 ? { alternateSourceIds } : {}),
     collapsed: existing.collapsed ?? incoming.collapsed,
     pending: incoming.pending ?? false,
     failed: incoming.failed ?? false,
@@ -32,11 +38,11 @@ export function mergeMessageState(existing: ChatMsg, incoming: ChatMsg): ChatMsg
   };
 }
 
-export function normalizeComparableText(text: string): string {
-  return text.trim().replace(/\s+/g, ' ');
+export function normalizeComparableText(text: string | undefined): string {
+  return (text || '').trim().replace(/\s+/g, ' ');
 }
 
-function hasOpenClawDurableIdentity(msg: ChatMsg): boolean {
+export function hasOpenClawDurableIdentity(msg: ChatMsg): boolean {
   return getMessageSourceIds(msg).some((id) => id.startsWith('openclaw:mirror:') || id.startsWith('openclaw:id:'));
 }
 

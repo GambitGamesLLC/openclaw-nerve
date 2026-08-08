@@ -167,6 +167,22 @@ describe('mergeRecoveredTail', () => {
     ]);
   });
 
+  it('does not reuse one live msgId for two repeated durable finals', () => {
+    const existing = [
+      makeIdentifiedMsg('assistant', 'Done.', 'derived:unknown-session:assistant:1700000000000:abc', 1700000000000),
+    ];
+    const recovered = [
+      makeIdentifiedMsg('assistant', 'Done.', 'openclaw:mirror:run-1:assistant', 1700000000000),
+      makeIdentifiedMsg('assistant', 'Done.', 'openclaw:mirror:run-2:assistant', 1700000005000),
+    ];
+
+    const result = mergeRecoveredTail(existing, recovered);
+
+    expect(result).toHaveLength(2);
+    expect(new Set(result.map(m => m.msgId)).size).toBe(2);
+    expect(result[0].msgId).toBe(existing[0].msgId);
+  });
+
   it('does not alias tool-group assistant-adjacent rich messages by matching text alone', () => {
     const existing = [
       makeIdentifiedMsg('assistant', 'Used tools', 'derived:unknown-session:assistant:1700000000000:abc', 1700000000000),

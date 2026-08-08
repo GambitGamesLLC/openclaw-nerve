@@ -1,6 +1,6 @@
 /** Tests for chat message reconciliation helpers. */
 import { describe, expect, it } from 'vitest';
-import { mergeFinalMessages, mergeHistoryMessages } from './useChatMessages';
+import { isLikelyDuplicateMessage, mergeFinalMessages, mergeHistoryMessages } from './useChatMessages';
 import type { ChatMsg } from '@/features/chat/types';
 
 function msg(role: ChatMsg['role'], rawText: string, sourceId: string, pending = false): ChatMsg {
@@ -60,6 +60,25 @@ describe('chat message reconciliation', () => {
     expect(result[0].pending).toBe(false);
   });
 
+  it('preserves existing aliases when history confirms a row with new aliases', () => {
+    const existing = [{
+      ...msg('user', 'hello', 'openclaw:mirror:local-user', true),
+      alternateSourceIds: ['message:idempotency:ik-1'],
+    }];
+    const history = [{
+      ...msg('user', 'hello', 'openclaw:id:wrapper-1'),
+      alternateSourceIds: ['openclaw:mirror:local-user'],
+    }];
+
+    const result = mergeHistoryMessages(existing, history);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].alternateSourceIds).toEqual([
+      'message:idempotency:ik-1',
+      'openclaw:mirror:local-user',
+    ]);
+  });
+
   it('preserves pending optimistic messages absent from an authoritative refresh', () => {
     const existing = [
       msg('assistant', 'old', 'assistant-1'),
@@ -71,6 +90,18 @@ describe('chat message reconciliation', () => {
 
     expect(result.map(m => m.rawText)).toEqual(['old', 'still sending']);
     expect(result[1].pending).toBe(true);
+  });
+
+  it('preserves streaming assistant messages when an authoritative refresh is empty', () => {
+    const existing = [{
+      ...msg('assistant', 'still streaming', 'derived:assistant-stream'),
+      streaming: true,
+    }];
+
+    const result = mergeHistoryMessages(existing, []);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].streaming).toBe(true);
   });
 
   it('aliases a local streamed assistant final to the later durable OpenClaw history identity', () => {
@@ -98,6 +129,13 @@ describe('chat message reconciliation', () => {
       'openclaw:mirror:run-1:assistant',
       'openclaw:mirror:run-2:assistant',
     ]);
+  });
+
+  it('dedupes live-only assistant messages with identical text inside the legacy window', () => {
+    const first = openclawAssistant('Working on it.', 'derived:assistant:1', 1700000000000);
+    const second = openclawAssistant('Working on it.', 'derived:assistant:2', 1700000005000);
+
+    expect(isLikelyDuplicateMessage(first, second)).toBe(true);
   });
 
   it('preserves a repeated current-turn assistant final instead of aliasing an earlier durable turn', () => {
@@ -139,6 +177,25 @@ describe('chat message reconciliation', () => {
       'openclaw:mirror:run-2:assistant',
     ]);
     expect(result[3].msgId).toBe(existing[3].msgId);
+  });
+
+  it('does not match one existing assistant final to multiple history rows', () => {
+    const existing = [
+      msg('user', 'Question', 'message:idempotency:ik-1'),
+      openclawAssistant('Done.', 'derived:unknown-session:assistant:1700000000000:abc', 1700000000000),
+    ];
+    const history = [
+      msg('user', 'Question', 'message:idempotency:ik-1'),
+      openclawAssistant('Done.', 'openclaw:mirror:run-1:assistant', 1700000000000),
+      openclawAssistant('Done.', 'openclaw:mirror:run-2:assistant', 1700000005000),
+    ];
+
+    const result = mergeHistoryMessages(existing, history);
+
+    expect(result).toHaveLength(3);
+    expect(new Set(result.map(m => m.msgId)).size).toBe(3);
+    expect(result[1].msgId).toBe(existing[1].msgId);
+    expect(result[2].sourceId).toBe('openclaw:mirror:run-2:assistant');
   });
 
   it('does not alias rich assistant messages with images by matching text alone', () => {

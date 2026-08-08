@@ -104,11 +104,14 @@ function mergeByIdentity(existing: ChatMsg[], recovered: ChatMsg[], anchor: { ex
     for (const sourceId of getMessageSourceIds(msg)) existingById.set(sourceId, msg);
   }
 
+  const claimed = new Set<ChatMsg>();
   const mergedRecovered = recovered.slice(anchor.recoveredIdx).map((msg) => {
     const sourceIds = getMessageSourceIds(msg);
-    const prior = sourceIds.map((sourceId) => existingById.get(sourceId)).find(Boolean);
-    const assistantFinalPrior = prior || existingTail.find((candidate) => isSameAssistantFinalDelivery(candidate, msg));
-    return assistantFinalPrior ? mergeMessageState(assistantFinalPrior, msg) : msg;
+    const prior = sourceIds.map((sourceId) => existingById.get(sourceId)).find((candidate) => candidate && !claimed.has(candidate));
+    const assistantFinalPrior = prior || existingTail.find((candidate) => !claimed.has(candidate) && isSameAssistantFinalDelivery(candidate, msg));
+    if (!assistantFinalPrior) return msg;
+    claimed.add(assistantFinalPrior);
+    return mergeMessageState(assistantFinalPrior, msg);
   });
 
   const represented = new Set(mergedRecovered.flatMap(getMessageSourceIds));

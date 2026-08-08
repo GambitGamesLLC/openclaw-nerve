@@ -10,6 +10,7 @@ import { generateMsgId } from '@/features/chat/types';
 import {
   isSameAssistantFinalDelivery,
   isSameMessageIdentity,
+  hasOpenClawDurableIdentity,
   mergeMessageState,
   normalizeComparableText,
 } from '@/features/chat/operations/messageReconciliation';
@@ -24,9 +25,8 @@ const LOAD_MORE_BATCH = 30;
 
 export function isLikelyDuplicateMessage(a: ChatMsg, b: ChatMsg): boolean {
   if (a.sourceId && b.sourceId && a.sourceId === b.sourceId) return true;
-  if (a.role === 'assistant' || b.role === 'assistant') {
-    return isSameAssistantFinalDelivery(a, b);
-  }
+  if (isSameAssistantFinalDelivery(a, b)) return true;
+  if (hasOpenClawDurableIdentity(a) || hasOpenClawDurableIdentity(b)) return false;
 
   // Require timestamps within 60s to avoid suppressing legitimately repeated messages.
   const timeDiffMs = Math.abs(a.timestamp.getTime() - b.timestamp.getTime());
@@ -50,16 +50,16 @@ function latestUserIndex(messages: ChatMsg[]): number {
   return messages.reduce((latest, msg, index) => (msg.role === 'user' ? index : latest), -1);
 }
 
-function findExactIdentityIndex(messages: ChatMsg[], msg: ChatMsg): number {
+function findExactIdentityIndex(messages: ChatMsg[], msg: ChatMsg, claimed = new Set<number>()): number {
   return msg.sourceId
-    ? messages.findIndex((candidate) => isSameMessageIdentity(candidate, msg))
+    ? messages.findIndex((candidate, index) => !claimed.has(index) && isSameMessageIdentity(candidate, msg))
     : -1;
 }
 
-function findCurrentTurnAssistantFinalIndex(messages: ChatMsg[], msg: ChatMsg, latestUser: number): number {
+function findCurrentTurnAssistantFinalIndex(messages: ChatMsg[], msg: ChatMsg, latestUser: number, claimed = new Set<number>()): number {
   if (msg.role !== 'assistant') return -1;
   return messages.findIndex((candidate, index) =>
-    index > latestUser && isSameAssistantFinalDelivery(candidate, msg)
+    !claimed.has(index) && index > latestUser && isSameAssistantFinalDelivery(candidate, msg)
   );
 }
 
@@ -108,20 +108,22 @@ export function mergeFinalMessages(existing: ChatMsg[], incoming: ChatMsg[]): Ch
 
 export function mergeHistoryMessages(existing: ChatMsg[], history: ChatMsg[]): ChatMsg[] {
   if (history.length === 0) {
-    const pending = existing.filter((msg) => msg.pending || msg.failed);
-    return pending.length > 0 ? pending : history;
+    const inFlight = existing.filter((msg) => msg.pending || msg.failed || msg.streaming);
+    return inFlight.length > 0 ? inFlight : history;
   }
   if (existing.length === 0) return history;
 
   const latestExistingUser = latestUserIndex(existing);
   const latestHistoryUser = latestUserIndex(history);
+  const claimedExisting = new Set<number>();
 
   const merged = history.map((historyMsg, historyIndex) => {
-    const exactIdentityIdx = findExactIdentityIndex(existing, historyMsg);
+    const exactIdentityIdx = findExactIdentityIndex(existing, historyMsg, claimedExisting);
     const assistantFinalIdx = historyIndex > latestHistoryUser
-      ? findCurrentTurnAssistantFinalIndex(existing, historyMsg, latestExistingUser)
+      ? findCurrentTurnAssistantFinalIndex(existing, historyMsg, latestExistingUser, claimedExisting)
       : -1;
     const matchIdx = exactIdentityIdx >= 0 ? exactIdentityIdx : assistantFinalIdx;
+    if (matchIdx >= 0) claimedExisting.add(matchIdx);
     const existingMatch = matchIdx >= 0 ? existing[matchIdx] : undefined;
     return existingMatch ? mergeMessageState(existingMatch, historyMsg) : historyMsg;
   });
