@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** In Progress  
-**Last Updated:** 2026-08-07 20:15 EDT  
+**Last Updated:** 2026-08-07 20:24 EDT  
 **Blocked Reason:** None  
 **Agent:** byte
 
@@ -56,9 +56,9 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 - `.temp/nerve-qa/cookie-double-final/*`
 
-**Status:** In Progress
+**Status:** Complete
 
-**Results:** Created dependency-ready investigation bead `oc-ees`; this bead blocks the implementation, QA, audit, issue, PR, and PR-check follow-up beads.
+**Results:** Classified as one durable backend/session-history assistant final rendered twice by Nerve during live merge/recovery, not two backend rows and not a delayed Cookie/OpenClaw resend. Cookie is deployed on `workhorse-v4` at `7303ef526297`; `.env` has `NERVE_DEPLOY_BRANCH=workhorse-v4`; the Nerve process started at 2026-08-07 18:05:29 EDT; the OpenClaw gateway process started at 2026-08-07 13:06:04 EDT and was not restarted. Read-only `chat.history` for `agent:main:main` with `limit=500` contains exactly one matching assistant final for `Task 10 audit is verified complete`, with `timestamp=1786147218006`, `recordTimestampMs=1786147218069`, `seq=1429`, `__openclaw.id=8b415b68-9554-400c-b868-ed57246785e7`, `mirrorIdentity=019fdeaa-eb0d-7ed1-96dd-08243ee90d95:assistant`, and idempotency key `codex-app-server:019fdeaa-ead5-79c0-897e-5dd61b9130e8:019fdeaa-eb0d-7ed1-96dd-08243ee90d95:assistant`. The next nearby text row is a `Compaction` system row at `2026-08-08T00:01:43Z`, matching the screenshot's second visible copy at about 20:01 EDT. Evidence: `.temp/nerve-qa/cookie-double-final/oc-ees/INVESTIGATION.md`, `cookie-main-history-match-summary.json`, `cookie-main-history-textrows.jsonl`, `cookie-deploy-status.txt`, and `ref-01-cookie-duplicate.png`.
 
 ---
 
@@ -76,11 +76,16 @@ If the bug belongs in Nerve, the fix should be narrow and upstreamable: one issu
 - `.plans/`
 
 **Files Created/Deleted/Modified:**
-- Exact files pending Task 1 root cause.
+- `src/features/chat/operations/messageReconciliation.ts`
+- `src/features/chat/operations/mergeRecoveredTail.ts`
+- `src/features/chat/operations/mergeRecoveredTail.test.ts`
+- `src/hooks/useChatMessages.ts`
+- `src/hooks/useChatMessages.test.ts`
+- `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-ees`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** Implemented a narrow Nerve-side reconciliation fix that aliases a local/live assistant final to a later durable OpenClaw history identity during final, history, and recovery-tail merges. The alias requires matching assistant text within 180 seconds, exactly one side with durable `openclaw:mirror:` / `openclaw:id:` identity, and no streaming, pending, failed, thinking, tool-group, chart, upload, or image payloads, so legitimate durable repeated assistant finals and rich messages are preserved. Added focused regressions for the Cookie-style local-to-durable assistant final, durable manual repeats, image-bearing assistant messages, and tool-group/rich recovery rows. Validation passed: `npm test -- --run src/hooks/useChatMessages.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/streamEventHandler.test.ts` (111 tests), `npm run build` (passed with existing Vite chunk warnings), `npm run lint` (passed), and `npm test -- --run` (144 files / 1896 tests). Commit: `fe5b48c`.
 
 ---
 

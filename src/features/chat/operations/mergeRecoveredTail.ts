@@ -1,8 +1,9 @@
 import type { ChatMsg } from '@/features/chat/types';
-
-function isString(value: string | undefined): value is string {
-  return typeof value === 'string' && value.length > 0;
-}
+import {
+  getMessageSourceIds,
+  isSameAssistantFinalDelivery,
+  mergeMessageState,
+} from './messageReconciliation';
 
 function hashString(input: string): number {
   let hash = 0;
@@ -68,14 +69,13 @@ function findTailAnchor(existingSigs: string[], recoveredSigs: string[]) {
 function findIdentityAnchor(existing: ChatMsg[], recovered: ChatMsg[]) {
   const recoveredIds = new Map<string, number>();
   recovered.forEach((msg, index) => {
-    if (msg.sourceId) recoveredIds.set(msg.sourceId, index);
-    for (const alias of msg.alternateSourceIds || []) recoveredIds.set(alias, index);
+    for (const sourceId of getMessageSourceIds(msg)) recoveredIds.set(sourceId, index);
   });
   if (recoveredIds.size === 0) return null;
 
   const tailStart = Math.max(0, existing.length - 240);
   for (let existingIdx = existing.length - 1; existingIdx >= tailStart; existingIdx--) {
-    const sourceIds = [existing[existingIdx].sourceId, ...(existing[existingIdx].alternateSourceIds || [])].filter(isString);
+    const sourceIds = getMessageSourceIds(existing[existingIdx]);
     for (const sourceId of sourceIds) {
       const recoveredIdx = recoveredIds.get(sourceId);
       if (recoveredIdx !== undefined) return { existingIdx, recoveredIdx };
@@ -84,36 +84,40 @@ function findIdentityAnchor(existing: ChatMsg[], recovered: ChatMsg[]) {
   return null;
 }
 
+function findAssistantFinalDeliveryAnchor(existing: ChatMsg[], recovered: ChatMsg[]) {
+  const tailStart = Math.max(0, existing.length - 240);
+  for (let existingIdx = existing.length - 1; existingIdx >= tailStart; existingIdx--) {
+    for (let recoveredIdx = 0; recoveredIdx < recovered.length; recoveredIdx++) {
+      if (isSameAssistantFinalDelivery(existing[existingIdx], recovered[recoveredIdx])) {
+        return { existingIdx, recoveredIdx };
+      }
+    }
+  }
+  return null;
+}
+
 function mergeByIdentity(existing: ChatMsg[], recovered: ChatMsg[], anchor: { existingIdx: number; recoveredIdx: number }): ChatMsg[] {
   const prefix = existing.slice(0, anchor.existingIdx);
+  const existingTail = existing.slice(anchor.existingIdx);
   const existingById = new Map<string, ChatMsg>();
-  for (const msg of existing.slice(anchor.existingIdx)) {
-    if (msg.sourceId) existingById.set(msg.sourceId, msg);
-    for (const alias of msg.alternateSourceIds || []) existingById.set(alias, msg);
+  for (const msg of existingTail) {
+    for (const sourceId of getMessageSourceIds(msg)) existingById.set(sourceId, msg);
   }
 
   const mergedRecovered = recovered.slice(anchor.recoveredIdx).map((msg) => {
-    const sourceIds = [msg.sourceId, ...(msg.alternateSourceIds || [])].filter(isString);
+    const sourceIds = getMessageSourceIds(msg);
     const prior = sourceIds.map((sourceId) => existingById.get(sourceId)).find(Boolean);
-    return prior
-      ? {
-        ...msg,
-        msgId: prior.msgId || msg.msgId,
-        alternateSourceIds: msg.alternateSourceIds || prior.alternateSourceIds,
-        collapsed: prior.collapsed ?? msg.collapsed,
-        pending: msg.pending ?? false,
-        failed: msg.failed ?? false,
-        tempId: prior.tempId,
-      }
-      : msg;
+    const assistantFinalPrior = prior || existingTail.find((candidate) => isSameAssistantFinalDelivery(candidate, msg));
+    return assistantFinalPrior ? mergeMessageState(assistantFinalPrior, msg) : msg;
   });
 
-  const represented = new Set(mergedRecovered.flatMap((msg) => [msg.sourceId, ...(msg.alternateSourceIds || [])]).filter(isString));
+  const represented = new Set(mergedRecovered.flatMap(getMessageSourceIds));
   const newestRecoveredTs = Math.max(...recovered.map((msg) => msg.timestamp.getTime()).filter(Number.isFinite));
   const preserveNewer = existing
     .slice(anchor.existingIdx + 1)
     .filter((msg) => {
-      if ([msg.sourceId, ...(msg.alternateSourceIds || [])].filter(isString).some((sourceId) => represented.has(sourceId))) return false;
+      if (getMessageSourceIds(msg).some((sourceId) => represented.has(sourceId))) return false;
+      if (mergedRecovered.some((candidate) => isSameAssistantFinalDelivery(msg, candidate))) return false;
       if (msg.pending || msg.failed || msg.streaming) return true;
       return Number.isFinite(newestRecoveredTs) && msg.timestamp.getTime() > newestRecoveredTs;
     });
@@ -132,6 +136,11 @@ export function mergeRecoveredTail(existing: ChatMsg[], recovered: ChatMsg[]): C
   const identityAnchor = findIdentityAnchor(existing, recovered);
   if (identityAnchor) {
     return mergeByIdentity(existing, recovered, identityAnchor);
+  }
+
+  const assistantFinalDeliveryAnchor = findAssistantFinalDeliveryAnchor(existing, recovered);
+  if (assistantFinalDeliveryAnchor) {
+    return mergeByIdentity(existing, recovered, assistantFinalDeliveryAnchor);
   }
 
   const existingSigs = existing.map(messageSignature);

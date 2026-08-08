@@ -7,6 +7,12 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { loadChatHistory } from '@/features/chat/operations';
 import { generateMsgId } from '@/features/chat/types';
+import {
+  isSameAssistantFinalDelivery,
+  isSameMessageIdentity,
+  mergeMessageState,
+  normalizeComparableText,
+} from '@/features/chat/operations/messageReconciliation';
 import type { ChatMsg } from '@/features/chat/types';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -16,12 +22,11 @@ const LOAD_MORE_BATCH = 30;
 
 // ─── Pure helpers (exported for testing / reuse) ────────────────────────────────
 
-export function normalizeComparableText(text: string): string {
-  return text.trim().replace(/\s+/g, ' ');
-}
-
 export function isLikelyDuplicateMessage(a: ChatMsg, b: ChatMsg): boolean {
   if (a.sourceId && b.sourceId && a.sourceId === b.sourceId) return true;
+  if (a.role === 'assistant' || b.role === 'assistant') {
+    return isSameAssistantFinalDelivery(a, b);
+  }
 
   // Require timestamps within 60s to avoid suppressing legitimately repeated messages.
   const timeDiffMs = Math.abs(a.timestamp.getTime() - b.timestamp.getTime());
@@ -41,37 +46,14 @@ export function isLikelyDuplicateMessage(a: ChatMsg, b: ChatMsg): boolean {
   );
 }
 
-function isSameMessageIdentity(a: ChatMsg, b: ChatMsg): boolean {
-  const aIds = [a.sourceId, ...(a.alternateSourceIds || [])].filter(Boolean);
-  const bIds = [b.sourceId, ...(b.alternateSourceIds || [])].filter(Boolean);
-  if (aIds.length > 0 && bIds.length > 0) {
-    return aIds.some((id) => bIds.includes(id));
-  }
-  if (a.tempId && b.tempId) return a.tempId === b.tempId;
-  return false;
-}
-
-function mergeMessageState(existing: ChatMsg, incoming: ChatMsg): ChatMsg {
-  return {
-    ...incoming,
-    msgId: existing.msgId || incoming.msgId || generateMsgId(),
-    sourceId: incoming.sourceId || existing.sourceId,
-    alternateSourceIds: incoming.alternateSourceIds || existing.alternateSourceIds,
-    collapsed: existing.collapsed ?? incoming.collapsed,
-    pending: incoming.pending ?? false,
-    failed: incoming.failed ?? false,
-    tempId: existing.tempId,
-  };
-}
-
 export function mergeFinalMessages(existing: ChatMsg[], incoming: ChatMsg[]): ChatMsg[] {
   if (incoming.length === 0) return existing;
   const merged = [...existing];
 
   for (const msg of incoming) {
     const identityIdx = msg.sourceId
-      ? merged.findIndex((candidate) => isSameMessageIdentity(candidate, msg))
-      : -1;
+      ? merged.findIndex((candidate) => isSameMessageIdentity(candidate, msg) || isSameAssistantFinalDelivery(candidate, msg))
+      : merged.findIndex((candidate) => isSameAssistantFinalDelivery(candidate, msg));
     if (identityIdx >= 0) {
       merged[identityIdx] = mergeMessageState(merged[identityIdx], msg);
       continue;
@@ -114,7 +96,7 @@ export function mergeHistoryMessages(existing: ChatMsg[], history: ChatMsg[]): C
 
   const merged = history.map((historyMsg) => {
     const existingMatch = historyMsg.sourceId
-      ? existing.find((candidate) => isSameMessageIdentity(candidate, historyMsg))
+      ? existing.find((candidate) => isSameMessageIdentity(candidate, historyMsg) || isSameAssistantFinalDelivery(candidate, historyMsg))
       : undefined;
     return existingMatch ? mergeMessageState(existingMatch, historyMsg) : historyMsg;
   });
