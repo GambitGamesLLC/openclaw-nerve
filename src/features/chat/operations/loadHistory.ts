@@ -131,7 +131,6 @@ const SYSTEM_EVENT_FOLLOWUP_LINE = /^(?:An async command you ran earlier has com
 
 /** Internal assistant control replies that should never render as chat bubbles. */
 const INTERNAL_CONTROL_REPLY_RE = /^(?:NO_REPLY|HEARTBEAT_OK)(?:\s+(?:NO_REPLY|HEARTBEAT_OK))*$/i;
-const INTERNAL_CONTROL_ENVELOPE_RE = /^\{\s*"action"\s*:\s*"(?:NO_REPLY|HEARTBEAT_OK)"\s*\}$/i;
 const INTERNAL_MESSAGE_KIND_RE = /(?:^|[._:-])(?:internal|compaction|checkpoint|memory[-_. ]?flush|memory[-_. ]?sync)(?:$|[._:-])/i;
 const INTERNAL_ASSISTANT_STATUS_RE = /^(?:\[?(?:internal|system)\]?\s*)?(?:(?:session|context|history)\s+)?(?:compaction|memory[-_ ]?flush|memory\s+sync|memory\s+checkpoint|checkpoint)(?:\s+(?:started|complete|completed|finished|failed|succeeded|skipped|saved|written|updated))?(?:[.:]\s*)?$/i;
 const INTERNAL_RUNTIME_CONTEXT_RE = /<<<BEGIN_OPENCLAW_INTERNAL_CONTEXT>>>[\s\S]*<<<END_OPENCLAW_INTERNAL_CONTEXT>>>/;
@@ -164,7 +163,19 @@ function hasInternalMessageMetadata(message: ChatMessage): boolean {
 function isSilentControlReply(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
-  return INTERNAL_CONTROL_REPLY_RE.test(trimmed) || INTERNAL_CONTROL_ENVELOPE_RE.test(trimmed);
+  if (INTERNAL_CONTROL_REPLY_RE.test(trimmed)) return true;
+  try {
+    const envelope: unknown = JSON.parse(trimmed);
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) return false;
+    const action = (envelope as Record<string, unknown>).action;
+    return typeof action === 'string' && /^(?:NO_REPLY|HEARTBEAT_OK)$/i.test(action);
+  } catch {
+    return false;
+  }
+}
+
+function stripInternalRuntimeContext(text: string): string {
+  return text.replace(INTERNAL_RUNTIME_CONTEXT_RE, '').trim();
 }
 
 function isInternalAssistantStatus(text: string): boolean {
@@ -172,7 +183,7 @@ function isInternalAssistantStatus(text: string): boolean {
   if (!trimmed) return false;
   if (isSilentControlReply(trimmed)) return true;
   if (INTERNAL_RUNTIME_CONTEXT_RE.test(trimmed)) {
-    return !trimmed.replace(INTERNAL_RUNTIME_CONTEXT_RE, '').trim();
+    return !stripInternalRuntimeContext(trimmed);
   }
   return INTERNAL_ASSISTANT_STATUS_RE.test(trimmed);
 }
@@ -363,7 +374,9 @@ export function splitToolCallMessage(m: ChatMessage, options: { sessionKey?: str
 
       const flushText = () => {
         if (!textBuffer.trim()) { textBuffer = ''; return; }
-        const { cleaned: ttsStripped } = extractTTSMarkers(textBuffer.trim());
+        const displayText = stripInternalRuntimeContext(textBuffer.trim());
+        if (!displayText) { textBuffer = ''; return; }
+        const { cleaned: ttsStripped } = extractTTSMarkers(displayText);
         const { cleaned: chartCleaned, charts } = extractChartMarkers(ttsStripped);
         const { cleaned, images: extractedImages } = extractImages(chartCleaned);
         if (cleaned.trim() || extractedImages.length > 0) {
@@ -436,6 +449,9 @@ export function splitToolCallMessage(m: ChatMessage, options: { sessionKey?: str
 
   // Normal message (no tool calls, or non-assistant)
   let rawText = extractText(m);
+  if (m.role === 'assistant') {
+    rawText = stripInternalRuntimeContext(rawText);
+  }
 
   // Strip gateway decorations from user messages
   let isVoice = false;

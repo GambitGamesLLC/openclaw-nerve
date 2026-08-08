@@ -24,6 +24,7 @@ describe('filterMessage', () => {
     expect(filterMessage({ role: 'assistant', content: 'NO_REPLY' })).toBe(false);
     expect(filterMessage({ role: 'assistant', content: '  HEARTBEAT_OK\n' })).toBe(false);
     expect(filterMessage({ role: 'assistant', content: '{"action":"NO_REPLY"}' })).toBe(false);
+    expect(filterMessage({ role: 'assistant', content: '{"action":"NO_REPLY","reason":"idle"}' })).toBe(false);
     expect(filterMessage({ role: 'assistant', content: 'NO_REPLY NO_REPLY' })).toBe(false);
   });
 
@@ -380,6 +381,20 @@ describe('processChatMessages', () => {
       'Please continue with the Nerve fixes.',
       'I am updating the chat adapter now.',
     ]);
+  });
+
+  it('removes embedded runtime context while retaining assistant prose', () => {
+    const result = processChatMessages([
+      {
+        role: 'assistant',
+        content: 'I will keep working.\n<<<BEGIN_OPENCLAW_INTERNAL_CONTEXT>>>\n{"token":"secret"}\n<<<END_OPENCLAW_INTERNAL_CONTEXT>>>\nVisible follow-up.',
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].rawText).toBe('I will keep working.\n\nVisible follow-up.');
+    expect(result[0].rawText).not.toContain('BEGIN_OPENCLAW_INTERNAL_CONTEXT');
+    expect(result[0].html).not.toContain('BEGIN_OPENCLAW_INTERNAL_CONTEXT');
   });
 
   it('handles empty input', () => {
