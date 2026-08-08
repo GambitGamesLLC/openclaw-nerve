@@ -246,12 +246,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const result = await loadChatHistory({ rpc, sessionKey: sk, limit: 500 });
         if (sk !== currentSessionRef.current) return;
         const prev = getAllMessages();
-        if (
-          result.length === prev.length &&
-          result.length > 0 &&
-          result[result.length - 1]?.rawText === prev[prev.length - 1]?.rawText &&
-          result[result.length - 1]?.role === prev[prev.length - 1]?.role
-        ) return;
         applyMessageWindow(mergeHistoryMessages(prev, result), false);
       } catch { /* best-effort */ } finally {
         subagentPollInFlightRef.current = false;

@@ -43,10 +43,15 @@ function getDurableMessageBase(message: ChatMessage, options: { sessionKey?: str
   if (message.idempotencyKey) return `message:idempotency:${message.idempotencyKey}`;
   if (message.toolCallId) return `message:tool:${message.toolCallId}:${message.role}`;
 
+  const sequence = message.seq ?? message.__openclaw?.seq;
   const timestamp = getMessageTimestampValue(message);
   if (timestamp) {
     const session = options.sessionKey || 'unknown-session';
-    return `derived:${session}:${message.role}:${timestamp}:${stableHash(JSON.stringify(message.content))}`;
+    const stablePosition = sequence ?? (typeof options.messageIndex === 'number' ? `index:${options.messageIndex}` : null);
+    if (stablePosition !== null) {
+      return `derived:${session}:${message.role}:${stablePosition}:${timestamp}`;
+    }
+    return `derived:${session}:${message.role}:${timestamp}`;
   }
 
   if (typeof options.messageIndex === 'number') {
@@ -363,7 +368,7 @@ function splitSystemEvents(text: string): Array<{ role: 'event' | 'user'; text: 
 }
 
 export function splitToolCallMessage(m: ChatMessage, options: { sessionKey?: string; messageIndex?: number } = {}): ChatMsg[] {
-  const ts = m.timestamp || m.createdAt || m.ts || null;
+  const ts = m.timestamp ?? m.createdAt ?? m.ts ?? m.__openclaw?.recordTimestampMs ?? null;
   const parsedTimestamp = ts ? new Date(ts as string | number) : null;
   const hasPersistedTimestamp = Boolean(parsedTimestamp && Number.isFinite(parsedTimestamp.getTime()));
   const timestamp = hasPersistedTimestamp ? parsedTimestamp as Date : new Date();
@@ -577,8 +582,21 @@ export function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
       });
       const groupedSourceIds = filtered.map(t => t.sourceId).filter(Boolean);
       const sourceId = groupedSourceIds.length > 0 ? `group:${groupedSourceIds.join('+')}` : undefined;
+      const groupedAliasParts = filtered.map(t => [t.sourceId, ...(t.alternateSourceIds || [])].filter(Boolean));
+      const alternateSourceIds = sourceId
+        ? groupedAliasParts.reduce<string[]>((aliases, parts, index) => {
+          for (const part of parts) {
+            const candidateParts = groupedSourceIds.map((canonical, candidateIndex) => (
+              candidateIndex === index ? part : canonical
+            ));
+            if (candidateParts.every(Boolean)) aliases.push(`group:${candidateParts.join('+')}`);
+          }
+          return aliases;
+        }, []).filter((alias) => alias !== sourceId)
+        : [];
       grouped.push({
         ...(sourceId ? { sourceId, msgId: stableMsgId(sourceId) } : {}),
+        ...(alternateSourceIds.length > 0 ? { alternateSourceIds: [...new Set(alternateSourceIds)] } : {}),
         role: 'tool',
         html: `Used ${entries.length} tools`,
         rawText: entries.map(e => e.preview).join('\n'),
@@ -662,9 +680,11 @@ export function tagIntermediateMessages(msgs: ChatMsg[]): ChatMsg[] {
  * filter → split → group → tag
  */
 export function processChatMessages(messages: ChatMessage[], options: { sessionKey?: string } = {}): ChatMsg[] {
-  const chatMsgs: ChatMsg[] = messages
-    .filter(filterMessage)
-    .flatMap((message, messageIndex) => splitToolCallMessage(message, { ...options, messageIndex }));
+  const chatMsgs: ChatMsg[] = messages.flatMap((message, messageIndex) => (
+    filterMessage(message)
+      ? splitToolCallMessage(message, { ...options, messageIndex })
+      : []
+  ));
 
   const grouped = groupToolMessages(chatMsgs);
   const tagged = tagIntermediateMessages(grouped);

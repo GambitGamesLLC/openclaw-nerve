@@ -52,11 +52,17 @@ function isSameMessageIdentity(a: ChatMsg, b: ChatMsg): boolean {
 }
 
 function mergeMessageState(existing: ChatMsg, incoming: ChatMsg): ChatMsg {
+  const alternateSourceIds = [...new Set([
+    ...(existing.alternateSourceIds || []),
+    ...(incoming.alternateSourceIds || []),
+    ...(existing.sourceId && existing.sourceId !== incoming.sourceId ? [existing.sourceId] : []),
+  ])];
+
   return {
     ...incoming,
     msgId: existing.msgId || incoming.msgId || generateMsgId(),
     sourceId: incoming.sourceId || existing.sourceId,
-    alternateSourceIds: incoming.alternateSourceIds || existing.alternateSourceIds,
+    ...(alternateSourceIds.length > 0 ? { alternateSourceIds } : {}),
     collapsed: existing.collapsed ?? incoming.collapsed,
     pending: incoming.pending ?? false,
     failed: incoming.failed ?? false,
@@ -107,8 +113,8 @@ export function mergeFinalMessages(existing: ChatMsg[], incoming: ChatMsg[]): Ch
 
 export function mergeHistoryMessages(existing: ChatMsg[], history: ChatMsg[]): ChatMsg[] {
   if (history.length === 0) {
-    const pending = existing.filter((msg) => msg.pending || msg.failed);
-    return pending.length > 0 ? pending : history;
+    const inFlight = existing.filter((msg) => msg.pending || msg.failed || msg.streaming);
+    return inFlight.length > 0 ? inFlight : history;
   }
   if (existing.length === 0) return history;
 

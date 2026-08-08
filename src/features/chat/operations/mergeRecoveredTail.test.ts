@@ -116,6 +116,29 @@ describe('mergeRecoveredTail', () => {
     expect(result[1].msgId).toBe('ui-a-1');
   });
 
+  it('preserves aliases and prior primary identity through recovered-tail merges', () => {
+    const existing = [{
+      ...makeIdentifiedMsg('assistant', 'Streaming partial answer', 'local-stream', 2000),
+      alternateSourceIds: ['message:idempotency:ik-1'],
+      collapsed: true,
+    }];
+    const recovered = [{
+      ...makeIdentifiedMsg('assistant', 'Final answer', 'openclaw:id:wrapper-1', 2000),
+      alternateSourceIds: ['message:idempotency:ik-1'],
+    }];
+
+    const result = mergeRecoveredTail(existing, recovered);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceId).toBe('openclaw:id:wrapper-1');
+    expect(result[0].msgId).toBe('ui-local-stream');
+    expect(result[0].alternateSourceIds).toEqual(expect.arrayContaining([
+      'message:idempotency:ik-1',
+      'local-stream',
+    ]));
+    expect(result[0].collapsed).toBe(true);
+  });
+
   it('does not let a stale recovered tail drop newer local state', () => {
     const existing = [
       makeIdentifiedMsg('user', 'Question', 'u-1', 1000),

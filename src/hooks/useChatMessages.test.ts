@@ -53,6 +53,26 @@ describe('chat message reconciliation', () => {
     expect(result[0].pending).toBe(false);
   });
 
+  it('preserves aliases and prior primary identity when history confirms a message', () => {
+    const existing = [{
+      ...msg('user', 'hello', 'message:idempotency:ik-1', true),
+      alternateSourceIds: ['message:temp:local-1'],
+    }];
+    const history = [{
+      ...msg('user', 'hello', 'openclaw:id:wrapper-1'),
+      alternateSourceIds: ['message:idempotency:ik-1'],
+    }];
+
+    const result = mergeHistoryMessages(existing, history);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceId).toBe('openclaw:id:wrapper-1');
+    expect(result[0].alternateSourceIds).toEqual(expect.arrayContaining([
+      'message:temp:local-1',
+      'message:idempotency:ik-1',
+    ]));
+  });
+
   it('preserves pending optimistic messages absent from an authoritative refresh', () => {
     const existing = [
       msg('assistant', 'old', 'assistant-1'),
@@ -64,5 +84,17 @@ describe('chat message reconciliation', () => {
 
     expect(result.map(m => m.rawText)).toEqual(['old', 'still sending']);
     expect(result[1].pending).toBe(true);
+  });
+
+  it('preserves streaming messages when history returns empty', () => {
+    const existing = [{
+      ...msg('assistant', 'still streaming', 'assistant-stream'),
+      streaming: true,
+    }];
+
+    const result = mergeHistoryMessages(existing, []);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].streaming).toBe(true);
   });
 });

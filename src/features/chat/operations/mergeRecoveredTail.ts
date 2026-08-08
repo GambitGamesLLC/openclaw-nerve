@@ -84,6 +84,25 @@ function findIdentityAnchor(existing: ChatMsg[], recovered: ChatMsg[]) {
   return null;
 }
 
+function mergeMessageState(existing: ChatMsg, incoming: ChatMsg): ChatMsg {
+  const alternateSourceIds = [...new Set([
+    ...(existing.alternateSourceIds || []),
+    ...(incoming.alternateSourceIds || []),
+    ...(existing.sourceId && existing.sourceId !== incoming.sourceId ? [existing.sourceId] : []),
+  ])];
+
+  return {
+    ...incoming,
+    msgId: existing.msgId || incoming.msgId,
+    sourceId: incoming.sourceId || existing.sourceId,
+    ...(alternateSourceIds.length > 0 ? { alternateSourceIds } : {}),
+    collapsed: existing.collapsed ?? incoming.collapsed,
+    pending: incoming.pending ?? false,
+    failed: incoming.failed ?? false,
+    tempId: existing.tempId,
+  };
+}
+
 function mergeByIdentity(existing: ChatMsg[], recovered: ChatMsg[], anchor: { existingIdx: number; recoveredIdx: number }): ChatMsg[] {
   const prefix = existing.slice(0, anchor.existingIdx);
   const existingById = new Map<string, ChatMsg>();
@@ -95,17 +114,7 @@ function mergeByIdentity(existing: ChatMsg[], recovered: ChatMsg[], anchor: { ex
   const mergedRecovered = recovered.slice(anchor.recoveredIdx).map((msg) => {
     const sourceIds = [msg.sourceId, ...(msg.alternateSourceIds || [])].filter(isString);
     const prior = sourceIds.map((sourceId) => existingById.get(sourceId)).find(Boolean);
-    return prior
-      ? {
-        ...msg,
-        msgId: prior.msgId || msg.msgId,
-        alternateSourceIds: msg.alternateSourceIds || prior.alternateSourceIds,
-        collapsed: prior.collapsed ?? msg.collapsed,
-        pending: msg.pending ?? false,
-        failed: msg.failed ?? false,
-        tempId: prior.tempId,
-      }
-      : msg;
+    return prior ? mergeMessageState(prior, msg) : msg;
   });
 
   const represented = new Set(mergedRecovered.flatMap((msg) => [msg.sourceId, ...(msg.alternateSourceIds || [])]).filter(isString));
