@@ -151,9 +151,9 @@ Regression coverage is sufficient for the Cookie local-to-durable final path and
 **Files Created/Deleted/Modified:**
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-5gr`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** Created exactly one public upstream bug issue: [#376](https://github.com/daggerhashimoto/openclaw-nerve/issues/376), `[Bug] Assistant final can appear twice after history recovery`. The issue starts with an `In Plain English` section, then follows the upstream bug template. It includes sanitized reproduction/proof from the upstream-master-era failing path (`upstream/master` reference `312e273`, pre-fix Cookie deployment `7303ef5`) and fixed downstream evidence from `2ba668a` / Cookie deployment `1a8ecf`, without exposing secrets or private transcript content. Bead `oc-unv` may be closed after this URL is recorded.
 
 ---
 
