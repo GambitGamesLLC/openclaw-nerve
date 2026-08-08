@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-07  
 **Status:** In Progress  
-**Last Updated:** 2026-08-07 20:54 EDT  
+**Last Updated:** 2026-08-07 21:24 EDT  
 **Blocked Reason:** None  
 **Agent:** byte
 
@@ -167,14 +167,28 @@ Regression coverage is sufficient for the Cookie local-to-durable final path and
 
 **Folders Created/Deleted/Modified:**
 - `.plans/`
+- `src/features/chat/`
+- `src/hooks/`
+- `src/`
 
 **Files Created/Deleted/Modified:**
-- Exact files pending Task 2 final diff.
+- `src/features/chat/operations/loadHistory.ts`
+- `src/features/chat/operations/mergeRecoveredTail.test.ts`
+- `src/features/chat/operations/mergeRecoveredTail.ts`
+- `src/features/chat/operations/messageReconciliation.ts`
+- `src/features/chat/types.ts`
+- `src/hooks/useChatMessages.test.ts`
+- `src/hooks/useChatMessages.ts`
+- `src/types.ts`
 - `.plans/2026-08-07-cookie-double-final-dedupe.md`
 
-**Status:** Pending, blocked by `oc-unv`
+**Status:** Complete
 
-**Results:** Pending.
+**Results:** Opened exactly one upstream PR for issue #376: [#377](https://github.com/daggerhashimoto/openclaw-nerve/pull/377), `fix(chat): dedupe assistant final history delivery`. Branch: `fix/issue-376-dedupe-assistant-final-delivery`, pushed to `GambitGamesLLC/openclaw-nerve` after direct push to `daggerhashimoto/openclaw-nerve` was denied. Base: `daggerhashimoto/openclaw-nerve:master` at `312e27333e14f841b95bf4f2b205a856b4a4c370`. Commit: `8238509` (`fix(chat): dedupe assistant final history delivery`), sourced from audited local fix `2ba668a` with a narrow upstream-master adaptation to carry durable chat source identities through `loadHistory`, `ChatMsg`, and `ChatMessage` types.
+
+Pre-fix proof on unpatched upstream master: `src/features/chat/operations/messageReconciliation.ts` and `src/hooks/useChatMessages.test.ts` were absent, existing chat tests had no Cookie-style local-to-durable assistant-final aliasing coverage, and `npm test -- --run src/features/chat/operations/mergeRecoveredTail.test.ts src/hooks/useChatMessages.test.ts` only discovered the old `mergeRecoveredTail` suite (7 tests). No private transcript content was used.
+
+Validation passed on the PR branch: targeted chat tests `npm test -- --run src/hooks/useChatMessages.test.ts src/features/chat/operations/mergeRecoveredTail.test.ts src/features/chat/operations/loadHistory.test.ts src/features/chat/operations/streamEventHandler.test.ts` (4 files / 105 tests), `npm run lint`, `npm run build && npm run build:server` with existing Vite dynamic-import/chunk-size warnings, and `npm test -- --run` (143 files / 1882 tests). PR body starts with `In Plain English`, follows the upstream template sections, includes validation, and contains `Closes #376`. Initial GitHub checks after opening: `build` pending and CodeRabbit pending; Task 7 remains responsible for monitoring checks and maintainer follow-up.
 
 ---
 
